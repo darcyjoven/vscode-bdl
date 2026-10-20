@@ -141,6 +141,7 @@ function collectSettings(): Record<string, unknown> {
       searchPaths: cfg.get<string[]>("globals.searchPaths"),
     },
     fieldDiagnostics: cfg.get<string>("fieldDiagnostics"),
+    recordMemberDiagnostics: cfg.get<string>("recordMemberDiagnostics"),
     perRoots: cfg.get<string[]>("perRoots"),
     format: {
       keywords: cfg.get<string>("format.keywords"),

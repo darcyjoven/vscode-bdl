@@ -871,6 +871,77 @@ async function run() {
       }
       assert.strictEqual(keywordCount, 0, `不该发 keyword token，实际 ${keywordCount} 个`);
     });
+
+    // 32. record 成员校验默认关闭（P6）
+    await test("record 成员校验默认关闭", async () => {
+      const doc = await openFixture("record_member.4gl");
+      const all = await waitForDiagnostics(
+        doc.uri,
+        "record_member.4gl 诊断稳定",
+        (list) => list.length >= 0,
+        3000,
+      );
+      const recDiags = (all || []).filter(
+        (d) => d.code !== undefined && String(d.code).includes("record-member-unknown"),
+      );
+      assert.strictEqual(
+        recDiags.length,
+        0,
+        `默认 off 时不该报 record-member-unknown，实际 ${recDiags.length} 条`,
+      );
+    });
+
+    // 33. 开启后报出不存在的记录成员
+    await test("record 成员校验开启后报错", async () => {
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      await cfg.update(
+        "recordMemberDiagnostics",
+        "warning",
+        vscode.ConfigurationTarget.Global,
+      );
+      try {
+        const doc = await openFixture("record_member.4gl");
+        // 触发一次重新诊断（改配置后会重发，但保险起见再改一下文档）
+        const edit = new vscode.WorkspaceEdit();
+        edit.insert(doc.uri, new vscode.Position(doc.lineCount - 1, 0), "\n");
+        await vscode.workspace.applyEdit(edit);
+
+        const all = await waitForDiagnostics(
+          doc.uri,
+          "出现 record-member-unknown",
+          (list) =>
+            list.some(
+              (d) =>
+                d.code !== undefined &&
+                String(d.code).includes("record-member-unknown"),
+            ),
+          15000,
+        );
+        const diag = all.find(
+          (d) =>
+            d.code !== undefined && String(d.code).includes("record-member-unknown"),
+        );
+        assert.ok(diag, "应有 record-member-unknown");
+        assert.ok(
+          diag.message.includes("bad_member"),
+          `消息应含 bad_member：${diag.message}`,
+        );
+        // 存在的成员不该报
+        const goodReported = all.some(
+          (d) =>
+            d.code !== undefined &&
+            String(d.code).includes("record-member-unknown") &&
+            d.message.includes("good_one"),
+        );
+        assert.ok(!goodReported, "good_one 存在，不该被报");
+      } finally {
+        await cfg.update(
+          "recordMemberDiagnostics",
+          undefined,
+          vscode.ConfigurationTarget.Global,
+        );
+      }
+    });
   } finally {
     report();
   }
