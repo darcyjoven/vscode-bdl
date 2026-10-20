@@ -1,0 +1,425 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Genero BDL",
+  "scopeName": "source.4gl",
+  "fileTypes": [
+    "4gl",
+    "global"
+  ],
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#preprocessor"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#routine-definition"
+    },
+    {
+      "include": "#call-keyword"
+    },
+    {
+      "include": "#kw-0"
+    },
+    {
+      "include": "#kw-1"
+    },
+    {
+      "include": "#kw-2"
+    },
+    {
+      "include": "#kw-3"
+    },
+    {
+      "include": "#kw-4"
+    },
+    {
+      "include": "#kw-5"
+    },
+    {
+      "include": "#kw-6"
+    },
+    {
+      "include": "#kw-7"
+    },
+    {
+      "include": "#kw-8"
+    },
+    {
+      "include": "#kw-9"
+    },
+    {
+      "include": "#kw-10"
+    },
+    {
+      "include": "#kw-11"
+    },
+    {
+      "include": "#kw-12"
+    },
+    {
+      "include": "#kw-13"
+    },
+    {
+      "include": "#kw-14"
+    },
+    {
+      "include": "#kw-15"
+    },
+    {
+      "include": "#kw-16"
+    },
+    {
+      "include": "#kw-17"
+    },
+    {
+      "include": "#kw-18"
+    },
+    {
+      "include": "#kw-19"
+    },
+    {
+      "include": "#kw-20"
+    },
+    {
+      "include": "#kw-21"
+    },
+    {
+      "include": "#kw-22"
+    },
+    {
+      "include": "#kw-23"
+    },
+    {
+      "include": "#call-generic"
+    },
+    {
+      "include": "#field-access"
+    },
+    {
+      "include": "#operators"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.block.bdl",
+          "begin": "\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.definition.comment.begin.bdl"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.definition.comment.end.bdl"
+            }
+          }
+        },
+        {
+          "name": "comment.line.double-dash.bdl",
+          "match": "--.*$",
+          "captures": {
+            "0": {
+              "name": "punctuation.definition.comment.bdl"
+            }
+          }
+        },
+        {
+          "name": "comment.line.number-sign.bdl",
+          "match": "#.*$",
+          "captures": {
+            "0": {
+              "name": "punctuation.definition.comment.bdl"
+            }
+          }
+        }
+      ]
+    },
+    "preprocessor": {
+      "patterns": [
+        {
+          "name": "meta.preprocessor.include.bdl",
+          "match": "^\\s*&(include)\\b\\s*(\"[^\"]*\"|'[^']*')",
+          "captures": {
+            "1": {
+              "name": "keyword.control.preprocessor.bdl"
+            },
+            "2": {
+              "name": "string.quoted.double.bdl"
+            }
+          }
+        },
+        {
+          "name": "meta.preprocessor.define.bdl",
+          "match": "^\\s*&(define)\\b\\s*([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.preprocessor.bdl"
+            },
+            "2": {
+              "name": "entity.name.function.preprocessor.bdl"
+            }
+          }
+        },
+        {
+          "name": "meta.preprocessor.conditional.bdl",
+          "match": "^\\s*&(ifdef|ifndef|elif|else|endif|undef|if|then)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.preprocessor.bdl"
+            }
+          }
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.bdl",
+          "begin": "%?\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.bdl",
+              "match": "\\\\."
+            },
+            {
+              "name": "string.quoted.double.embedded.bdl",
+              "match": "\"\""
+            }
+          ]
+        },
+        {
+          "name": "string.quoted.single.bdl",
+          "begin": "%?'",
+          "end": "'",
+          "patterns": [
+            {
+              "name": "constant.character.escape.bdl",
+              "match": "\\\\."
+            },
+            {
+              "name": "string.quoted.single.embedded.bdl",
+              "match": "''"
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.float.bdl",
+          "match": "(?<![A-Za-z0-9_])[+-]?(?:[0-9]+\\.[0-9]*|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?"
+        },
+        {
+          "name": "constant.numeric.integer.bdl",
+          "match": "(?<![A-Za-z0-9_])[+-]?[0-9]+"
+        }
+      ]
+    },
+    "routine-definition": {
+      "patterns": [
+        {
+          "name": "meta.function.bdl",
+          "match": "(?i)\\b(FUNCTION)\\s+([A-Za-z_][A-Za-z0-9_$]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.function.bdl"
+            },
+            "2": {
+              "name": "entity.name.function.bdl"
+            }
+          }
+        },
+        {
+          "name": "meta.function.report.bdl",
+          "match": "(?i)\\b(REPORT)\\s+([A-Za-z_][A-Za-z0-9_$]*)",
+          "captures": {
+            "1": {
+              "name": "storage.type.function.bdl"
+            },
+            "2": {
+              "name": "entity.name.function.bdl"
+            }
+          }
+        }
+      ]
+    },
+    "call-keyword": {
+      "patterns": [
+        {
+          "match": "(?i)\\b(CALL|RUN)\\s+([A-Za-z_][A-Za-z0-9_$]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.control.bdl"
+            },
+            "2": {
+              "name": "entity.name.function.bdl"
+            }
+          }
+        }
+      ]
+    },
+    "call-generic": {
+      "patterns": [
+        {
+          "match": "\\b([A-Za-z_][A-Za-z0-9_$]*)(?=\\s*\\()",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.bdl"
+            }
+          }
+        }
+      ]
+    },
+    "field-access": {
+      "patterns": [
+        {
+          "match": "\\b([A-Za-z_][A-Za-z0-9_$]*)(\\s*\\.\\s*)([A-Za-z_][A-Za-z0-9_$]*|\\*)",
+          "captures": {
+            "1": {
+              "name": "variable.other.object.bdl"
+            },
+            "2": {
+              "name": "punctuation.accessor.bdl"
+            },
+            "3": {
+              "name": "variable.other.property.bdl"
+            }
+          }
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.bdl",
+          "match": "<=|>=|<>|!=|==|=|<|>"
+        },
+        {
+          "name": "keyword.operator.arithmetic.bdl",
+          "match": "\\*\\*|\\*|/|\\+|-"
+        },
+        {
+          "name": "punctuation.terminator.statement.bdl",
+          "match": ";"
+        },
+        {
+          "name": "punctuation.separator.bdl",
+          "match": ","
+        },
+        {
+          "name": "parens.bdl",
+          "match": "[()\\[\\]]"
+        }
+      ]
+    },
+    "kw-0": {
+      "name": "keyword.other.sql.bdl",
+      "match": "(?i)\\b(?:WITH\\s+CONCURRENT\\s+TRANSACTION|RETAIN\\s+UPDATE\\s+LOCKS|WITH\\s+REOPTIMIZATION|EXECUTE\\s+IMMEDIATE|RELEASE\\s+SAVEPOINT|CURSOR\\s+STABILITY|SET\\s+ISOLATION\\s+TO|SET\\s+LOCK\\s+MODE\\s+TO|REPEATABLE\\s+READ|WITHOUT\\s+WAITING|COMMITTED\\s+READ|LAST\\s+COMMITTED|SET\\s+CONNECTION|ROLLBACK\\s+WORK|SQL\\s+INTERRUPT|TO\\s+SAVEPOINT|UNLOCK\\s+TABLE|COMMIT\\s+WORK|SET\\s+EXPLAIN|BEGIN\\s+WORK|CONNECT\\s+TO|DIRTY\\s+READ|LOCK\\s+TABLE|LOAD\\s+FROM|NOT\\s+FOUND|UNLOAD\\s+TO|WITH\\s+HOLD|NOT\\s+WAIT|END\\s+SQL)\\b"
+    },
+    "kw-1": {
+      "name": "keyword.other.event.bdl",
+      "match": "(?i)\\b(?:ON\\s+TERMINATE\\s+SIGNAL\\s+CALL|ON\\s+CLOSE\\s+APPLICATION|BEFORE\\s+CONSTRUCT|ON\\s+DRAG_FINISHED|AFTER\\s+CONSTRUCT|BEFORE\\s+DISPLAY|ON\\s+FILL\\s+BUFFER|AFTER\\s+DISPLAY|BEFORE\\s+DELETE|BEFORE\\s+DIALOG|BEFORE\\s+INSERT|ON\\s+DRAG_ENTER|ON\\s+DRAG_START|ON\\s+ROW\\s+CHANGE|AFTER\\s+DELETE|AFTER\\s+DIALOG|AFTER\\s+INSERT|BEFORE\\s+FIELD|BEFORE\\s+INPUT|ON\\s+DRAG_OVER|ON\\s+EVERY\\s+ROW|AFTER\\s+FIELD|AFTER\\s+INPUT|ON\\s+COLLAPSE|ON\\s+LAST\\s+ROW|BEFORE\\s+ROW|AFTER\\s+ROW|ON\\s+ACTION|ON\\s+APPEND|ON\\s+CHANGE|ON\\s+DELETE|ON\\s+EXPAND|ON\\s+INSERT|ON\\s+UPDATE|ON\\s+DROP|ON\\s+IDLE|ON\\s+KEY)\\b"
+    },
+    "kw-2": {
+      "name": "keyword.other.statement.bdl",
+      "match": "(?i)\\b(?:CURRENT\\s+WINDOW\\s+IS|WITHOUT\\s+DEFAULTS|END\\s+CONSTRUCT|INPUT\\s+NO\\s+WRAP|CLEAR\\s+WINDOW|CLOSE\\s+WINDOW|IN\\s+FORM\\s+MODE|IN\\s+LINE\\s+MODE|BEFORE\\s+MENU|END\\s+DISPLAY|OPEN\\s+WINDOW|APPEND\\s+ROW|CLOSE\\s+FORM|DELETE\\s+ROW|END\\s+DIALOG|END\\s+PROMPT|INPUT\\s+WRAP|INSERT\\s+ROW|END\\s+INPUT|HELP\\s+FILE|OPEN\\s+FORM|END\\s+MENU|BY\\s+NAME|RUN\\s+IN)\\b"
+    },
+    "kw-3": {
+      "name": "keyword.other.report.bdl",
+      "match": "(?i)\\b(?:FIRST\\s+PAGE\\s+HEADER|OUTPUT\\s+TO\\s+REPORT|TERMINATE\\s+REPORT|BEFORE\\s+GROUP\\s+OF|AFTER\\s+GROUP\\s+OF|BOTTOM\\s+MARGIN|FINISH\\s+REPORT|PAGE\\s+TRAILER|RIGHT\\s+MARGIN|START\\s+REPORT|LEFT\\s+MARGIN|PAGE\\s+HEADER|PAGE\\s+LENGTH|TOP\\s+OF\\s+PAGE|TOP\\s+MARGIN|EVERY\\s+ROW)\\b"
+    },
+    "kw-4": {
+      "name": "support.constant.attribute.bdl",
+      "match": "(?i)\\b(?:FIELD\\s+ORDER\\s+FORM|COMMENT\\s+LINE|MESSAGE\\s+LINE|AUTO\\s+APPEND|FIELD\\s+ORDER|PROMPT\\s+LINE|ERROR\\s+LINE|FORM\\s+LINE|MENU\\s+LINE)\\b"
+    },
+    "kw-5": {
+      "name": "keyword.operator.word.bdl",
+      "match": "(?i)\\b(?:SHORT\\s+CIRCUIT|IS\\s+NOT\\s+NULL|IS\\s+NULL|TO\\s+NULL)\\b"
+    },
+    "kw-6": {
+      "name": "storage.type.function.bdl",
+      "match": "(?i)\\b(?:END\\s+FUNCTION|END\\s+REPORT|END\\s+MAIN)\\b"
+    },
+    "kw-7": {
+      "name": "keyword.control.bdl",
+      "match": "(?i)\\b(?:END\\s+FOREACH|NEXT\\s+OPTION|END\\s+WHILE|END\\s+CASE|END\\s+FOR|END\\s+TRY|END\\s+IF)\\b"
+    },
+    "kw-8": {
+      "name": "keyword.other.misc.bdl",
+      "match": "(?i)\\b(?:XML\\s+HANDLER)\\b"
+    },
+    "kw-9": {
+      "name": "keyword.other.declaration.bdl",
+      "match": "(?i)\\b(?:END\\s+RECORD)\\b"
+    },
+    "kw-10": {
+      "name": "storage.type.function.bdl",
+      "match": "(?i)\\b(?:FUNCTION|MAIN|PRIVATE|PUBLIC|REPORT)\\b"
+    },
+    "kw-11": {
+      "name": "keyword.other.declaration.bdl",
+      "match": "(?i)\\b(?:ARRAY|ATTRIBUTE|ATTRIBUTES|CONSTANT|DATABASE|DEFINE|DIMENSION|DYNAMIC|EXTEND|EXTERNAL|GLOBALS|IMPORT|INOUT|LIKE|OF|OPTIONS|OUT|RECORD|SCHEMA|TYPE)\\b"
+    },
+    "kw-12": {
+      "name": "keyword.control.bdl",
+      "match": "(?i)\\b(?:ABSOLUTE|CALL|CASE|CATCH|CONTINUE|DEFER|DOWN|ELSE|EXIT|FIRST|FOR|FOREACH|FREE|GOTO|IF|INITIALIZE|LAST|LET|LOCATE|NEXT|OTHERWISE|PREVIOUS|PRIOR|RAISE|RELATIVE|RETURN|RETURNING|RUN|SLEEP|STEP|THEN|TRY|UP|VALIDATE|WHEN|WHENEVER|WHILE)\\b"
+    },
+    "kw-13": {
+      "name": "keyword.other.statement.bdl",
+      "match": "(?i)\\b(?:ACCEPT|AT|CANCEL|CLEAR|COMMAND|CONSTRUCT|DELETE|DIALOG|DISPLAY|ERROR|FIELD|FORM|HELP|HIDE|INFIELD|INPUT|INSERT|KEY|LABEL|MAXCOUNT|MENU|MESSAGE|NAME|OPTION|PROMPT|QUIT|ROW|ROWS|SCREEN|SCROLL|SHOW|UNBUFFERED|WARNING|WINDOW)\\b"
+    },
+    "kw-14": {
+      "name": "keyword.other.event.bdl",
+      "match": "(?i)\\b(?:ON)\\b"
+    },
+    "kw-15": {
+      "name": "keyword.other.report.bdl",
+      "match": "(?i)\\b(?:ASC|BY|COLUMN|COLUMNS|COUNT|DELIMITER|DESC|DESTINATION|FORMAT|GROUP|LINE|LINES|NEED|ORDER|OUTPUT|PAUSE|PIPE|PRINT|PRINTER|PRINTX|SKIP|SPACE|WHERE)\\b"
+    },
+    "kw-16": {
+      "name": "keyword.other.sql.bdl",
+      "match": "(?i)\\b(?:ALTER|CLOSE|CONSTRAINED|CREATE|CURSOR|DECLARE|DESCRIBE|DISCONNECT|DORMANT|DROP|EXCLUSIVE|EXECUTE|FETCH|FLUSH|FROM|INDEX|INTO|KEEP|MEMORY|OPEN|PREPARE|PUT|RENAME|SAVEPOINT|SELECT|SEQUENCE|SQL|SQLERROR|TABLE|THROUGH|THRU|TRUNCATE|UNCONSTRAINED|UNIQUE|UPDATE|WAIT|WITH)\\b"
+    },
+    "kw-17": {
+      "name": "storage.type.bdl",
+      "match": "(?i)\\b(?:BIGINT|BOOLEAN|BYTE|CHAR|CHARACTER|DATE|DATETIME|DEC|DECIMAL|FLOAT|IMAGE|INTEGER|INTERVAL|MONEY|SMALLFLOAT|SMALLINT|STRING|TEXT|TINYINT|VARCHAR)\\b"
+    },
+    "kw-18": {
+      "name": "keyword.other.datetime.bdl",
+      "match": "(?i)\\b(?:CURRENT|DAY|FRACTION|HOUR|MINUTE|MONTH|SECOND|TODAY|YEAR)\\b"
+    },
+    "kw-19": {
+      "name": "constant.language.bdl",
+      "match": "(?i)\\b(?:ANY|FALSE|NULL|TRUE|USER)\\b"
+    },
+    "kw-20": {
+      "name": "keyword.operator.word.bdl",
+      "match": "(?i)\\b(?:AND|ASCII|CLIPPED|ESCAPE|IN|MATCHES|MOD|NOT|OR|SPACES|USING)\\b"
+    },
+    "kw-21": {
+      "name": "support.constant.color.bdl",
+      "match": "(?i)\\b(?:BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW)\\b"
+    },
+    "kw-22": {
+      "name": "support.constant.attribute.bdl",
+      "match": "(?i)\\b(?:BLINK|BOLD|BORDER|COMMENT|DIM|INVISIBLE|NORMAL|REVERSE|STYLE|UNDERLINE|UNITS|WORDWRAP)\\b"
+    },
+    "kw-23": {
+      "name": "keyword.other.misc.bdl",
+      "match": "(?i)\\b(?:AS|END|FGL|FILE|INTERRUPT|JAVA|MODE|OF|OFF|OPTIONS|PROGRAM|STOP|TO)\\b"
+    }
+  }
+}

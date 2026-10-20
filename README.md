@@ -2,42 +2,113 @@
 
 Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 
-> 状态：仓库已初始化，功能开发按 `bdl-lsp/docs/PLAN.md` 推进。
+> 状态：**v0.1.0 可用**（高亮、跳转、引用、大纲、悬停、诊断、配置）。
 > 远程仓库：`git@github.com:darcyjoven/vscode-bdl.git`（本地目录仍叫 `vscode-extension/`）。
 > 本仓库只保留 VSCode 交付物；计划、测试脚本、过程记录统一在 `bdl-lsp` 仓库。
 > v1 验证平台：**Linux + Windows**；macOS 后续兼容。
 > Genero 以 **2.50** 为基线；5.0 暂不排期。
 
-## 计划中的能力
+## 已实现能力
 
-- 语法高亮（TextMate）与语义高亮
-- 函数/变量/表单字段跳转、引用、悬停、符号
-- 4GL 与 `.per` 格式化
-- 4GL 字段是否存在于 `.per` 的诊断
-- 上传服务器并调用 `fglform` / `fglcomp` 编译
-- LSP 二进制自动查找/下载/校验
+| 能力 | 说明 |
+|---|---|
+| 语法高亮 | TextMate 语法，覆盖 grammar 里全部 361（BDL）/ 76（`.per`）个关键字，含多词短语、注释、字符串、数字、预处理指令、函数名、字段访问 |
+| 定义跳转 | `CALL foo` → `FUNCTION foo`；`rec.field` → 记录字段；局部/参数/全局按作用域解析 |
+| 引用查找 | 词边界匹配，自动排除注释、字符串、预处理行 |
+| 文档大纲 | MAIN / FUNCTION / REPORT / DEFINE / CONSTANT / TYPE / RECORD（含字段）/ SCREEN RECORD |
+| 工作区符号 | 跨已打开文档搜索全局符号 |
+| 悬停 | 显示种类、类型、签名、字段数 |
+| 语法诊断 | 解析错误与缺失内容，级别可配，大文件与超时保护 |
+| 配置热更新 | 改设置立即生效，无需重载窗口 |
+| 语言配置 | 注释、括号、自动闭合、缩进规则 |
+
+## 安装
+
+```bash
+code --install-extension 4gl-full-0.1.0.vsix
+```
 
 ## LSP 二进制来源
 
-目标体验是“无感自动下载”（从 `bdl-lsp` Release 按平台/版本下载、校验、缓存），但**发布与自动下载暂不排期**。
+目标体验是"无感自动下载"（从 `bdl-lsp` Release 按平台/版本下载、校验、缓存），但**发布与自动下载暂不排期**。
 
-当前开发阶段使用本地构建的 `bdl-lsp`，按以下顺序查找：
+当前按以下顺序查找本地构建的 `bdl-lsp`：
 
-1. 设置 `bdl.server.path`
-2. 环境变量 `BDL_LSP_PATH`
+1. 设置 `bdl.server.path`（可填可执行文件**或所在目录**，支持 `~/`）
+2. 环境变量 `BDL_LSP_PATH`（同上）
 3. 工作区 `.bdl-lsp/bin/bdl-lsp`
-4. 系统 `PATH` 中的 `bdl-lsp`
+4. 系统 `PATH`
 
-后续排期发布后，再启用自动下载、SHA256 校验、缓存与回退。
+四级都找不到时不会静默失败：会弹出可操作的提示，列出已尝试的位置、四种解决办法，并提供「打开设置」按钮。
 
-## 本地开发（待实现后补全）
+构建语言服务器：
 
 ```bash
-pnpm install
-pnpm build
-pnpm test
-pnpm package
+cd ../bdl-lsp
+source scripts/dev-env.sh
+make build          # 产出 artifacts/bin/bdl-lsp
 ```
+
+## 设置项
+
+| 设置 | 默认 | 说明 |
+|---|---|---|
+| `bdl.server.path` | 空 | LSP 可执行文件或所在目录 |
+| `bdl.server.logLevel` | `info` | 日志级别（error/warn/info/debug） |
+| `bdl.trace.server` | `off` | LSP 消息追踪通道 |
+| `bdl.generoVersion` | `2.50` | 目标 Genero 版本 |
+| `bdl.syntaxDiagnostics` | `error` | 语法错误级别 |
+| `bdl.missingDiagnostics` | `warning` | 缺失内容级别 |
+| `bdl.limits.maxFileBytes` | 2097152 | 超过则不诊断 |
+| `bdl.limits.maxFileLines` | 20000 | 超过则不诊断 |
+| `bdl.limits.maxIssues` | 200 | 单文件诊断上限 |
+| `bdl.limits.parseTimeoutMs` | 2000 | 单次解析超时 |
+
+改 `server.path` / `server.logLevel` / `generoVersion` 后需要重启语言服务器，扩展会主动询问。
+
+## 命令
+
+| 命令 | 说明 |
+|---|---|
+| `Genero BDL: 重启语言服务器` | 重新查找并启动 LSP |
+| `Genero BDL: 显示语言服务器信息` | 展示当前路径、来源、全部设置 |
+| `Genero BDL: 显示输出` | 打开输出通道 |
+
+## 本地开发
+
+```bash
+source ../bdl-lsp/scripts/dev-env.sh
+
+npm install          # NODE_ENV=production 会跳过 devDeps，需 `NODE_ENV= npm install --include=dev`
+npm run typecheck
+npm run build
+npm run package      # 生成 4gl-full-0.1.0.vsix
+
+npm run grammars         # 从 grammar 源码重新生成 TextMate 语法
+npm run grammars:check   # 校验语法为最新
+npm run test:e2e         # 真实 VSCode 扩展宿主里的 14 个用例
+```
+
+完整 e2e（含构建 LSP、类型检查、打包）：
+
+```bash
+cd ../bdl-lsp
+make e2e-vscode
+```
+
+### 无头环境下跑 e2e 的注意事项
+
+本机沙箱无 root、无 X server、`/dev/shm` 不可写，`test/runTest.js` 已逐条处理：
+
+| 约束 | 处理 |
+|---|---|
+| 无 X server | `--ozone-platform=headless` |
+| `/dev/shm` 不可写 | `--disable-dev-shm-usage` |
+| TMPDIR / XDG_RUNTIME_DIR 必须可写 | 固定在 `bdl-lsp/artifacts/e2e/`，runtime 目录 `chmod 700` |
+| 测试入口必须位于扩展目录内 | `test/suite/index.js`（放 `/tmp` 会拿不到 `vscode` API） |
+| VSCode 退出码不反映测试结果 | 以 JSON 报告文件判定成败 |
+| 缺省日志级别下窗口提前退出 | 启动参数必须带 `--verbose` |
+| 残留进程抢占单实例锁 | 启动前 `pkill -f <vscode 目录>` |
 
 ## 许可
 

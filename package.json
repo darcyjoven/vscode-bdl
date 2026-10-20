@@ -1,0 +1,208 @@
+{
+  "name": "4gl-full",
+  "displayName": "Genero BDL (4GL)",
+  "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
+  "version": "0.1.0",
+  "publisher": "darcyjoven",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.91.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "keywords": [
+    "genero",
+    "bdl",
+    "4gl",
+    "per",
+    "form",
+    "fgl"
+  ],
+  "main": "./dist/extension.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/darcyjoven/vscode-bdl.git"
+  },
+  "bugs": {
+    "url": "https://github.com/darcyjoven/vscode-bdl/issues"
+  },
+  "activationEvents": [
+    "onLanguage:bdl",
+    "onLanguage:per"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "bdl",
+        "aliases": [
+          "Genero BDL",
+          "bdl",
+          "4gl"
+        ],
+        "extensions": [
+          ".4gl",
+          ".global"
+        ],
+        "configuration": "./language-configuration/bdl.json"
+      },
+      {
+        "id": "per",
+        "aliases": [
+          "Genero Form",
+          "per"
+        ],
+        "extensions": [
+          ".per"
+        ],
+        "configuration": "./language-configuration/per.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "bdl",
+        "scopeName": "source.4gl",
+        "path": "./syntaxes/bdl.tmLanguage.json"
+      },
+      {
+        "language": "per",
+        "scopeName": "source.per",
+        "path": "./syntaxes/per.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Genero BDL",
+      "properties": {
+        "bdl.server.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "`bdl-lsp` 可执行文件路径（文件或所在目录）。留空时依次查找：环境变量 `BDL_LSP_PATH`、工作区 `.bdl-lsp/bin/bdl-lsp`、系统 `PATH`。修改后需重启语言服务器。"
+        },
+        "bdl.server.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ],
+          "default": "info",
+          "scope": "machine-overridable",
+          "markdownDescription": "语言服务器日志级别。日志同时写入扩展日志目录。修改后需重启语言服务器。"
+        },
+        "bdl.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "记录客户端与语言服务器之间的 LSP 消息（输出到「Genero BDL 追踪」通道）。"
+        },
+        "bdl.generoVersion": {
+          "type": "string",
+          "enum": [
+            "2.50",
+            "3.00",
+            "4.00"
+          ],
+          "default": "2.50",
+          "scope": "window",
+          "markdownDescription": "目标 Genero 版本。当前语法基线为 **2.50**；更高版本的差异尚未实现。"
+        },
+        "bdl.syntaxDiagnostics": {
+          "type": "string",
+          "enum": [
+            "off",
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "default": "error",
+          "scope": "window",
+          "description": "语法错误（无法解析的片段）的诊断级别。"
+        },
+        "bdl.missingDiagnostics": {
+          "type": "string",
+          "enum": [
+            "off",
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "default": "warning",
+          "scope": "window",
+          "description": "缺失内容（例如缺少 END IF、缺少逗号）的诊断级别。"
+        },
+        "bdl.limits.maxFileBytes": {
+          "type": "number",
+          "default": 2097152,
+          "scope": "window",
+          "description": "超过该字节数的文件不做语法诊断（仍可高亮与跳转）。"
+        },
+        "bdl.limits.maxFileLines": {
+          "type": "number",
+          "default": 20000,
+          "scope": "window",
+          "description": "超过该行数的文件不做语法诊断。"
+        },
+        "bdl.limits.maxIssues": {
+          "type": "number",
+          "default": 200,
+          "scope": "window",
+          "description": "单个文件最多报告的诊断条数，防止极端文件刷屏。"
+        },
+        "bdl.limits.parseTimeoutMs": {
+          "type": "number",
+          "default": 2000,
+          "scope": "window",
+          "description": "单次解析的超时时间（毫秒）。超时后保留上一次诊断。"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "bdl.restartServer",
+        "title": "重启语言服务器",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.showServerInfo",
+        "title": "显示语言服务器信息",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.showOutput",
+        "title": "显示输出",
+        "category": "Genero BDL"
+      }
+    ]
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "test:e2e": "node test/runTest.js",
+    "grammars": "node ../bdl-lsp/scripts/generate-tm-grammars.mjs",
+    "grammars:check": "node ../bdl-lsp/scripts/generate-tm-grammars.mjs --check",
+    "package": "npm run typecheck && npm run build && vsce package --no-dependencies --allow-missing-repository --skip-license",
+    "vscode:prepublish": "npm run typecheck && npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/vscode": "1.91.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.9.0",
+    "vscode-languageclient": "^10.1.2"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^10.1.2"
+  }
+}

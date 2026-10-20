@@ -1,0 +1,25 @@
+-- e2e 表单样例：覆盖 SCHEMA/LAYOUT/ATTRIBUTES/INSTRUCTIONS
+-- 期望：0 条诊断
+SCHEMA ds
+
+LAYOUT
+GRID
+{
+  Customer number: [f01    ]
+  Customer name..: [f02                        ]
+}
+END
+END
+
+TABLES
+  customer
+END
+
+ATTRIBUTES
+  f01 = customer.cust_num, NOENTRY;
+  f02 = customer.cust_name;
+END
+
+INSTRUCTIONS
+  SCREEN RECORD sr_customer(customer.*)
+END
