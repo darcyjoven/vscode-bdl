@@ -809,6 +809,68 @@ async function run() {
       const withEdit = (actions || []).filter((a) => a.edit && a.edit.size > 0);
       assert.strictEqual(withEdit.length, 0, "不该有带编辑的动作");
     });
+
+    // 30. 语义高亮：用户自定义符号有 token，关键字没有（交给 TextMate）（P6）
+    await test("语义高亮标注自定义符号", async () => {
+      const doc = await openFixture("sample.4gl");
+      const legend = await vscode.commands.executeCommand(
+        "vscode.provideDocumentSemanticTokensLegend",
+        doc.uri,
+      );
+      assert.ok(legend && Array.isArray(legend.tokenTypes), "语义高亮 legend 缺失");
+      assert.ok(legend.tokenTypes.includes("function"), "legend 应含 function");
+      assert.ok(legend.tokenTypes.includes("variable"), "legend 应含 variable");
+
+      const tokens = await vscode.commands.executeCommand(
+        "vscode.provideDocumentSemanticTokens",
+        doc.uri,
+      );
+      assert.ok(tokens !== undefined, "语义 token 为空");
+
+      // 解码：每 5 个数字一组（相对编码）
+      const data = tokens.data;
+      assert.ok(data.length > 0, "token 数据为空");
+      assert.strictEqual(data.length % 5, 0, "token 数据长度必须是 5 的倍数");
+
+      const funcIdx = legend.tokenTypes.indexOf("function");
+      let hasFunction = false;
+      let line = 0;
+      for (let i = 0; i + 4 < data.length; i += 5) {
+        if (data[i] > 0) {
+          line += data[i];
+        }
+        if (data[i + 3] === funcIdx) {
+          hasFunction = true;
+          break;
+        }
+      }
+      assert.ok(hasFunction, "应至少有一个 function token（show_name/r_list）");
+    });
+
+    // 31. 语义高亮不发关键字 token（避免与 TextMate 抢同一批 token）
+    await test("语义高亮不重复关键字", async () => {
+      const doc = await openFixture("sample.4gl");
+      const legend = await vscode.commands.executeCommand(
+        "vscode.provideDocumentSemanticTokensLegend",
+        doc.uri,
+      );
+      const tokens = await vscode.commands.executeCommand(
+        "vscode.provideDocumentSemanticTokens",
+        doc.uri,
+      );
+      const keywordIdx = legend.tokenTypes.indexOf("keyword");
+      if (keywordIdx < 0) {
+        return; // legend 里没有 keyword，自然不发
+      }
+      const data = tokens.data;
+      let keywordCount = 0;
+      for (let i = 0; i + 4 < data.length; i += 5) {
+        if (data[i + 3] === keywordIdx) {
+          keywordCount++;
+        }
+      }
+      assert.strictEqual(keywordCount, 0, `不该发 keyword token，实际 ${keywordCount} 个`);
+    });
   } finally {
     report();
   }
