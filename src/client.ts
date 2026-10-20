@@ -140,6 +140,8 @@ function collectSettings(): Record<string, unknown> {
       ),
       searchPaths: cfg.get<string[]>("globals.searchPaths"),
     },
+    fieldDiagnostics: cfg.get<string>("fieldDiagnostics"),
+    perRoots: cfg.get<string[]>("perRoots"),
     limits: {
       maxFileBytes: cfg.get<number>("limits.maxFileBytes"),
       maxFileLines: cfg.get<number>("limits.maxFileLines"),

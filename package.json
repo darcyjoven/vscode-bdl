@@ -197,6 +197,28 @@
           "default": [],
           "scope": "window",
           "markdownDescription": "GLOBALS 文件路径的附加解析根（相对工作区根，按序尝试）。适用于引用写法按引用文件目录解析不到、但文件在工作区其他位置的场景（如各模块目录层级不一致的 `../../config/top.global`）。"
+        },
+        "bdl.fieldDiagnostics": {
+          "type": "string",
+          "enum": [
+            "off",
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "default": "warning",
+          "scope": "window",
+          "description": "4GL 字段存在性校验（字段不在引用的表单 .per 中）与 .per 内部一致性检查的诊断级别。"
+        },
+        "bdl.perRoots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "`.per` 表单文件的附加查找根（相对工作区根，按序尝试）。表单路径先按 `4gl 同级 per 目录` 解析，失败后尝试这些根，最后按 basename 在工作区内唯一匹配。"
         }
       }
     },

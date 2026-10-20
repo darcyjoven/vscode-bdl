@@ -454,6 +454,46 @@ async function run() {
         `级别应为 warning，实际 ${warn.severity}`,
       );
     });
+
+    // 17. 字段不在表单中产生警告（P3b；fixtures 同目录可互相解析）
+    await test("字段不存在于表单产生警告", async () => {
+      const doc = await openFixture("field_main.4gl");
+      const all = await waitForDiagnostics(
+        doc.uri,
+        "field_main.4gl 出现 field-not-in-form 警告",
+        (list) =>
+          list.some((d) => d.code !== undefined && String(d.code).includes("field-not-in-form")),
+      );
+      const warn = all.find(
+        (d) => d.code !== undefined && String(d.code).includes("field-not-in-form"),
+      );
+      assert.strictEqual(
+        warn.severity,
+        vscode.DiagnosticSeverity.Warning,
+        `级别应为 warning，实际 ${warn.severity}`,
+      );
+      assert.ok(
+        warn.message.includes("bad_field"),
+        `消息应含 bad_field：${warn.message}`,
+      );
+    });
+
+    // 18. 存在的字段不告警（防误报）
+    await test("存在的表单字段不产生警告", async () => {
+      const doc = await openFixture("field_main.4gl");
+      const all = await waitForDiagnostics(
+        doc.uri,
+        "field_main.4gl 诊断稳定",
+        (list) => list.length > 0,
+      );
+      const fieldDiags = all.filter(
+        (d) => d.code !== undefined && String(d.code).includes("field-not-in-form"),
+      );
+      const badField = fieldDiags.some((d) => d.message.includes("bad_field"));
+      const goodField = fieldDiags.some((d) => d.message.includes("good_field"));
+      assert.ok(badField, "bad_field 应被报告");
+      assert.ok(!goodField, "good_field 不应被报告（防误报）");
+    });
   } finally {
     report();
   }
