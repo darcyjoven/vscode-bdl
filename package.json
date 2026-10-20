@@ -226,7 +226,7 @@
           ],
           "default": "off",
           "scope": "window",
-          "markdownDescription": "`BY NAME rec.member` 的记录成员存在性校验级别。\n\n**默认 `off`**：记录成员静态上只能靠 `TYPE..END RECORD` 的字段列表判断，而 `DEFINE r LIKE table.*`（按数据库列展开）在真实项目里很常见，静态看不到列名。\n\n语料实测（7699 个 .4gl，开启后）：可校验 281160 处引用，报出 157 处（**0.1%**），抽查确认为真阳性（如 `g_tc_ibb_m.tc_ibb003` 多打一个 0，记录里只有 `tc_ibb03`）。"
+          "markdownDescription": "`BY NAME rec.member` 的记录成员存在性校验级别。\n\n**默认 `off`**：记录成员静态上只能靠 `TYPE..END RECORD` 的字段列表判断，而 `DEFINE r LIKE table.*`（按数据库列展开）在真实项目里很常见，静态看不到列名。\n\n语料实测（7683 个 .4gl，开启后）：可校验 271760 处引用，报出 20 处（**0.007%**），抽查确认真阳性（如 `sr1.hrct05`，该文件的 `sr1` 从未声明 `hrct05`）。"
         },
         "bdl.server.logLevel": {
           "type": "string",
