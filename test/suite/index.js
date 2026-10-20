@@ -655,6 +655,55 @@ async function run() {
 
       fs.rmSync(cfgDir, { recursive: true, force: true });
     });
+
+    // 24. 补全：空前缀给出关键字（P6）
+    await test("补全给出关键字", async () => {
+      const doc = await openFixture("sample.4gl");
+      const lines = doc.getText().split("\n");
+      // 找 MAIN 行，在它下一行的行首触发补全（空前缀）
+      const mainIdx = lines.findIndex((l) => /^MAIN\s*$/.test(l));
+      assert.ok(mainIdx >= 0, "找不到 MAIN 行");
+
+      const list = await vscode.commands.executeCommand(
+        "vscode.executeCompletionItemProvider",
+        doc.uri,
+        new vscode.Position(mainIdx + 1, 4),
+      );
+      assert.ok(list && Array.isArray(list.items), "补全未返回 items");
+      assert.ok(list.items.length > 0, "补全为空");
+      const labels = list.items.map((i) =>
+        typeof i.label === "string" ? i.label : i.label.label,
+      );
+      assert.ok(
+        labels.some((l) => l === "DISPLAY" || l === "END"),
+        `应有 BDL 关键字，实际前几项 ${labels.slice(0, 10).join(", ")}`,
+      );
+    });
+
+    // 25. 补全：前缀过滤 + 同文件函数
+    await test("补全包含同文件函数", async () => {
+      const doc = await openFixture("sample.4gl");
+      const lines = doc.getText().split("\n");
+      // 找到 CALL show_name 之前的空位，输入 show 触发
+      const callIdx = lines.findIndex((l) => /^\s*CALL\s+show_name/i.test(l));
+      assert.ok(callIdx >= 0, "找不到 CALL show_name 行");
+      const col = doc.lineAt(callIdx).text.toLowerCase().indexOf("call") + 5;
+
+      const list = await vscode.commands.executeCommand(
+        "vscode.executeCompletionItemProvider",
+        doc.uri,
+        new vscode.Position(callIdx, col),
+        "sh",
+      );
+      assert.ok(list && Array.isArray(list.items), "补全未返回 items");
+      const labels = list.items.map((i) =>
+        typeof i.label === "string" ? i.label : i.label.label,
+      );
+      assert.ok(
+        labels.some((l) => l.toLowerCase() === "show_name"),
+        `应含同文件函数 show_name，实际 ${labels.slice(0, 10).join(", ")}`,
+      );
+    });
   } finally {
     report();
   }
