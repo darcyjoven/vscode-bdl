@@ -751,6 +751,64 @@ async function run() {
       // MAIN 是关键字，prepareRename 应拒绝（抛错或返回空）
       assert.ok(failed, "对关键字改名应失败");
     });
+
+    // 28. Code Action：字段拼错时给出"改为 good_field"的快速修复（P6）
+    await test("字段拼错提供快速修复", async () => {
+      const doc = await openFixture("field_main.4gl");
+      // 等字段诊断出现
+      const all = await waitForDiagnostics(
+        doc.uri,
+        "field_main.4gl 出现 field-not-in-form",
+        (list) =>
+          list.some(
+            (d) => d.code !== undefined && String(d.code).includes("field-not-in-form"),
+          ),
+      );
+      const diag = all.find(
+        (d) => d.code !== undefined && String(d.code).includes("field-not-in-form"),
+      );
+      assert.ok(diag, "找不到 field-not-in-form 诊断");
+      assert.ok(diag.message.includes("bad_field"), `消息应含 bad_field：${diag.message}`);
+
+      // 把诊断原样传回服务器请求 code action
+      const actions = await vscode.commands.executeCommand(
+        "vscode.executeCodeActionProvider",
+        doc.uri,
+        diag.range,
+        "quickfix", // 命令参数要字符串，不是 CodeActionKind 对象
+      );
+      assert.ok(Array.isArray(actions), "code action 未返回数组");
+      const fixes = actions.filter(
+        (a) => a.edit && a.edit.size > 0,
+      );
+      assert.ok(fixes.length > 0, `应有带编辑的快速修复，实际 ${actions.length} 个动作`);
+
+      // 至少一个修复会把 bad_field 改成 good_field
+      let found = false;
+      for (const a of fixes) {
+        for (const [, edits] of a.edit.entries()) {
+          for (const e of edits) {
+            if (e.newText === "good_field") {
+              found = true;
+            }
+          }
+        }
+      }
+      assert.ok(found, `应有改为 good_field 的修复，实际 ${fixes.map((a) => a.title).join(" / ")}`);
+    });
+
+    // 29. Code Action：没有诊断时不返回动作（不刷无意义项）
+    await test("无诊断时无快速修复", async () => {
+      const doc = await openFixture("sample.4gl");
+      const actions = await vscode.commands.executeCommand(
+        "vscode.executeCodeActionProvider",
+        doc.uri,
+        new vscode.Range(0, 0, 0, 5),
+        "quickfix",
+      );
+      const withEdit = (actions || []).filter((a) => a.edit && a.edit.size > 0);
+      assert.strictEqual(withEdit.length, 0, "不该有带编辑的动作");
+    });
   } finally {
     report();
   }
