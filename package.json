@@ -162,6 +162,41 @@
           "default": 2000,
           "scope": "window",
           "description": "单次解析的超时时间（毫秒）。超时后保留上一次诊断。"
+        },
+        "bdl.globals.fileNotFoundDiagnostics": {
+          "type": "string",
+          "enum": [
+            "off",
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "default": "warning",
+          "scope": "window",
+          "description": "GLOBALS 引用的文件（.global 等）找不到时的诊断级别。"
+        },
+        "bdl.globals.unresolvedSourceDiagnostics": {
+          "type": "string",
+          "enum": [
+            "off",
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "default": "warning",
+          "scope": "window",
+          "description": "变量使用处查不到任何定义（局部/模块级/GLOBALS 引入均无）时的诊断级别。设为 off 关闭。"
+        },
+        "bdl.globals.searchPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "GLOBALS 文件路径的附加解析根（相对工作区根，按序尝试）。适用于引用写法按引用文件目录解析不到、但文件在工作区其他位置的场景（如各模块目录层级不一致的 `../../config/top.global`）。"
         }
       }
     },

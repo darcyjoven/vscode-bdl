@@ -131,6 +131,15 @@ function collectSettings(): Record<string, unknown> {
     syntaxDiagnostics: cfg.get<string>("syntaxDiagnostics"),
     missingDiagnostics: cfg.get<string>("missingDiagnostics"),
     logLevel: cfg.get<string>("server.logLevel"),
+    globals: {
+      fileNotFoundDiagnostics: cfg.get<string>(
+        "globals.fileNotFoundDiagnostics",
+      ),
+      unresolvedSourceDiagnostics: cfg.get<string>(
+        "globals.unresolvedSourceDiagnostics",
+      ),
+      searchPaths: cfg.get<string[]>("globals.searchPaths"),
+    },
     limits: {
       maxFileBytes: cfg.get<number>("limits.maxFileBytes"),
       maxFileLines: cfg.get<number>("limits.maxFileLines"),

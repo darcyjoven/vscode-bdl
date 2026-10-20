@@ -411,6 +411,49 @@ async function run() {
         20000,
       );
     });
+
+    // 15. GLOBALS 跳转：引用方 4gl 里的全局变量跳到 .global 文件内定义
+    //     （P3a 用户明确要求的能力；工作区 fixtures 同目录可互相解析）
+    await test("GLOBALS 变量跳转到 global 文件", async () => {
+      const doc = await openFixture("globals_main.4gl");
+      const lines = doc.getText().split("\n");
+      const useLine = lines.findIndex((l) => /g_counter/i.test(l));
+      assert.ok(useLine >= 0, "fixture 里找不到 g_counter");
+      const col = doc.lineAt(useLine).text.toLowerCase().indexOf("g_counter");
+
+      const defs = await vscode.commands.executeCommand(
+        "vscode.executeDefinitionProvider",
+        doc.uri,
+        new vscode.Position(useLine, col + 2),
+      );
+      assert.ok(Array.isArray(defs) && defs.length > 0, "GLOBALS 变量没有跳转结果");
+
+      const def = defs[0];
+      assert.strictEqual(
+        def.uri.toString().toLowerCase().endsWith("globals_defs.global"),
+        true,
+        `跳转目标应在 .global 文件里，实际 ${def.uri}`,
+      );
+    });
+
+    // 16. GLOBALS 文件缺失产生警告（P3a F3）
+    await test("GLOBALS 文件未找到产生警告", async () => {
+      const doc = await openFixture("globals_missing.4gl");
+      const all = await waitForDiagnostics(
+        doc.uri,
+        "globals_missing.4gl 出现 globals-file-not-found 警告",
+        (list) =>
+          list.some((d) => d.code !== undefined && String(d.code).includes("globals-file-not-found")),
+      );
+      const warn = all.find(
+        (d) => d.code !== undefined && String(d.code).includes("globals-file-not-found"),
+      );
+      assert.strictEqual(
+        warn.severity,
+        vscode.DiagnosticSeverity.Warning,
+        `级别应为 warning，实际 ${warn.severity}`,
+      );
+    });
   } finally {
     report();
   }

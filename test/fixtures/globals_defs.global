@@ -1,0 +1,6 @@
+GLOBALS
+    DEFINE g_counter INTEGER
+    DEFINE g_rec RECORD
+        id INTEGER
+    END RECORD
+END GLOBALS
