@@ -704,6 +704,53 @@ async function run() {
         `应含同文件函数 show_name，实际 ${labels.slice(0, 10).join(", ")}`,
       );
     });
+
+    // 26. 重命名：函数定义与调用一起改（P6）
+    await test("重命名函数同时改调用", async () => {
+      const doc = await openFixture("sample.4gl");
+      const lines = doc.getText().split("\n");
+      const defIdx = lines.findIndex((l) => /^\s*FUNCTION\s+show_name/i.test(l));
+      assert.ok(defIdx >= 0, "找不到 FUNCTION show_name 行");
+      const col = doc.lineAt(defIdx).text.toLowerCase().indexOf("show_name") + 2;
+
+      const edit = await vscode.commands.executeCommand(
+        "vscode.executeDocumentRenameProvider",
+        doc.uri,
+        new vscode.Position(defIdx, col),
+        "display_name",
+      );
+      assert.ok(edit && edit.size > 0, "重命名未返回编辑");
+
+      const entries = edit.entries();
+      assert.ok(entries.length > 0, "编辑为空");
+      const [, edits] = entries[0];
+      assert.ok(edits.length >= 2, `应改定义与调用共 >=2 处，实际 ${edits.length}`);
+      for (const e of edits) {
+        assert.strictEqual(e.newText, "display_name", "newText 不符");
+      }
+    });
+
+    // 27. 重命名拒绝关键字（prepareRename 阶段就拦住）
+    await test("重命名拒绝关键字", async () => {
+      const doc = await openFixture("sample.4gl");
+      const lines = doc.getText().split("\n");
+      const mainIdx = lines.findIndex((l) => /^MAIN\s*$/.test(l));
+      assert.ok(mainIdx >= 0, "找不到 MAIN");
+
+      let failed = false;
+      try {
+        await vscode.commands.executeCommand(
+          "vscode.executeDocumentRenameProvider",
+          doc.uri,
+          new vscode.Position(mainIdx, 1),
+          "IF",
+        );
+      } catch {
+        failed = true;
+      }
+      // MAIN 是关键字，prepareRename 应拒绝（抛错或返回空）
+      assert.ok(failed, "对关键字改名应失败");
+    });
   } finally {
     report();
   }
