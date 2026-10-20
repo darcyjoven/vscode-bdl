@@ -586,6 +586,75 @@ async function run() {
         `.per 不应返回格式化编辑，实际 ${JSON.stringify(edits)}`,
       );
     });
+
+    // 21. 部署命令已注册（P5）
+    await test("部署命令已注册", async () => {
+      const all = await vscode.commands.getCommands(true);
+      for (const name of [
+        "bdl.deploy",
+        "bdl.deployCurrentFile",
+        "bdl.deployDryRun",
+        "bdl.deployListTargets",
+      ]) {
+        assert.ok(all.includes(name), `缺少命令 ${name}`);
+      }
+    });
+
+    // 22. 部署预演：无配置时应给出可读错误而不是崩溃
+    await test("无部署配置时给出错误", async () => {
+      // 不抛异常即为通过：命令内部会用 showErrorMessage 提示。
+      await vscode.commands.executeCommand("bdl.deployDryRun");
+      assert.ok(true);
+    });
+
+    // 23. 有配置时预演成功（含 include/exclude 与编译计划）
+    await test("部署预演列出计划", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+      const { execFileSync } = require("node:child_process");
+      // 二进制路径由 runTest.js 通过 BDL_LSP_PATH 传入（与语言客户端同源），
+      // 避免在测试里猜相对路径。
+      const binary = process.env.BDL_LSP_PATH;
+      assert.ok(binary && fs.existsSync(binary), `找不到 bdl-lsp: ${binary}`);
+
+      // 在工作区里放一份配置：远程地址随便写，dry-run 不连接。
+      const cfgDir = path.join(root, ".bdl-lsp");
+      fs.mkdirSync(cfgDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(cfgDir, "deploy.json"),
+        JSON.stringify(
+          {
+            targets: {
+              e2e: {
+                host: "127.0.0.1",
+                user: "nobody",
+                remoteRoot: "/tmp/bdl-e2e-deploy",
+                upload: { include: ["**/*.4gl", "**/*.per"] },
+                compile: { "4gl": "fglcomp -M {file}" },
+              },
+            },
+            defaultTarget: "e2e",
+          },
+          null,
+          2,
+        ),
+        "utf8",
+      );
+
+      const out = execFileSync(
+        binary,
+        ["deploy", "-workspace", root, "-dry-run", "-json"],
+        { encoding: "utf8" },
+      );
+      const res = JSON.parse(out);
+      assert.strictEqual(res.ok, true, "预演应成功");
+      assert.ok(res.files > 0, `预演应列出文件，实际 ${res.files}`);
+      const logs = (res.logs || []).join("\n");
+      assert.ok(logs.includes("upload"), `日志应含上传计划：${logs}`);
+      assert.ok(logs.includes("compile"), `日志应含编译计划：${logs}`);
+
+      fs.rmSync(cfgDir, { recursive: true, force: true });
+    });
   } finally {
     report();
   }

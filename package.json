@@ -74,33 +74,54 @@
     "configuration": {
       "title": "Genero BDL",
       "properties": {
-        "bdl.server.path": {
+        "bdl.deploy.target": {
           "type": "string",
           "default": "",
-          "scope": "machine-overridable",
-          "markdownDescription": "`bdl-lsp` 可执行文件路径（文件或所在目录）。留空时依次查找：环境变量 `BDL_LSP_PATH`、工作区 `.bdl-lsp/bin/bdl-lsp`、系统 `PATH`。修改后需重启语言服务器。"
+          "scope": "window",
+          "markdownDescription": "部署目标名（对应 `.bdl-lsp/deploy.json` 的 `targets` 键）。留空则用配置里的 `defaultTarget`。"
         },
-        "bdl.server.logLevel": {
-          "type": "string",
-          "enum": [
-            "error",
-            "warn",
-            "info",
-            "debug"
-          ],
-          "default": "info",
-          "scope": "machine-overridable",
-          "markdownDescription": "语言服务器日志级别。日志同时写入扩展日志目录。修改后需重启语言服务器。"
-        },
-        "bdl.trace.server": {
+        "bdl.fieldDiagnostics": {
           "type": "string",
           "enum": [
             "off",
-            "messages",
-            "verbose"
+            "error",
+            "warning",
+            "information",
+            "hint"
           ],
-          "default": "off",
-          "description": "记录客户端与语言服务器之间的 LSP 消息（输出到「Genero BDL 追踪」通道）。"
+          "default": "warning",
+          "scope": "window",
+          "description": "4GL 字段存在性校验（字段不在引用的表单 .per 中）与 .per 内部一致性检查的诊断级别。"
+        },
+        "bdl.format.indentSize": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 16,
+          "scope": "window",
+          "markdownDescription": "每级缩进的宽度（`indentStyle` 为 `space` 时的空格数，为 `tab` 时仅影响显示宽度）。`0` 表示跟随编辑器 `editor.tabSize`。"
+        },
+        "bdl.format.indentStyle": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "tab",
+            "space"
+          ],
+          "default": "auto",
+          "scope": "window",
+          "markdownDescription": "格式化时的缩进字符：`auto` 跟随编辑器 `editor.insertSpaces` 设置、`tab` 强制制表符、`space` 强制空格。"
+        },
+        "bdl.format.keywords": {
+          "type": "string",
+          "enum": [
+            "unchanged",
+            "upper",
+            "lower"
+          ],
+          "default": "unchanged",
+          "scope": "window",
+          "markdownDescription": "格式化时关键字的大小写处理：`unchanged` 保持不变、`upper` 转大写、`lower` 转小写。\n\n仅改写关键字本身，不动空白、标点与换行；含语法错误的文件整体跳过格式化。"
         },
         "bdl.generoVersion": {
           "type": "string",
@@ -113,20 +134,7 @@
           "scope": "window",
           "markdownDescription": "目标 Genero 版本。当前语法基线为 **2.50**；更高版本的差异尚未实现。"
         },
-        "bdl.syntaxDiagnostics": {
-          "type": "string",
-          "enum": [
-            "off",
-            "error",
-            "warning",
-            "information",
-            "hint"
-          ],
-          "default": "error",
-          "scope": "window",
-          "description": "语法错误（无法解析的片段）的诊断级别。"
-        },
-        "bdl.missingDiagnostics": {
+        "bdl.globals.fileNotFoundDiagnostics": {
           "type": "string",
           "enum": [
             "off",
@@ -137,7 +145,29 @@
           ],
           "default": "warning",
           "scope": "window",
-          "description": "缺失内容（例如缺少 END IF、缺少逗号）的诊断级别。"
+          "description": "GLOBALS 引用的文件（.global 等）找不到时的诊断级别。"
+        },
+        "bdl.globals.searchPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "GLOBALS 文件路径的附加解析根（相对工作区根，按序尝试）。适用于引用写法按引用文件目录解析不到、但文件在工作区其他位置的场景（如各模块目录层级不一致的 `../../config/top.global`）。"
+        },
+        "bdl.globals.unresolvedSourceDiagnostics": {
+          "type": "string",
+          "enum": [
+            "off",
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "default": "warning",
+          "scope": "window",
+          "description": "变量使用处查不到任何定义（局部/模块级/GLOBALS 引入均无）时的诊断级别。设为 off 关闭。"
         },
         "bdl.limits.maxFileBytes": {
           "type": "number",
@@ -163,7 +193,7 @@
           "scope": "window",
           "description": "单次解析的超时时间（毫秒）。超时后保留上一次诊断。"
         },
-        "bdl.globals.fileNotFoundDiagnostics": {
+        "bdl.missingDiagnostics": {
           "type": "string",
           "enum": [
             "off",
@@ -174,42 +204,7 @@
           ],
           "default": "warning",
           "scope": "window",
-          "description": "GLOBALS 引用的文件（.global 等）找不到时的诊断级别。"
-        },
-        "bdl.globals.unresolvedSourceDiagnostics": {
-          "type": "string",
-          "enum": [
-            "off",
-            "error",
-            "warning",
-            "information",
-            "hint"
-          ],
-          "default": "warning",
-          "scope": "window",
-          "description": "变量使用处查不到任何定义（局部/模块级/GLOBALS 引入均无）时的诊断级别。设为 off 关闭。"
-        },
-        "bdl.globals.searchPaths": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "default": [],
-          "scope": "window",
-          "markdownDescription": "GLOBALS 文件路径的附加解析根（相对工作区根，按序尝试）。适用于引用写法按引用文件目录解析不到、但文件在工作区其他位置的场景（如各模块目录层级不一致的 `../../config/top.global`）。"
-        },
-        "bdl.fieldDiagnostics": {
-          "type": "string",
-          "enum": [
-            "off",
-            "error",
-            "warning",
-            "information",
-            "hint"
-          ],
-          "default": "warning",
-          "scope": "window",
-          "description": "4GL 字段存在性校验（字段不在引用的表单 .per 中）与 .per 内部一致性检查的诊断级别。"
+          "description": "缺失内容（例如缺少 END IF、缺少逗号）的诊断级别。"
         },
         "bdl.perRoots": {
           "type": "array",
@@ -220,35 +215,46 @@
           "scope": "window",
           "markdownDescription": "`.per` 表单文件的附加查找根（相对工作区根，按序尝试）。表单路径先按 `4gl 同级 per 目录` 解析，失败后尝试这些根，最后按 basename 在工作区内唯一匹配。"
         },
-        "bdl.format.keywords": {
+        "bdl.server.logLevel": {
           "type": "string",
           "enum": [
-            "unchanged",
-            "upper",
-            "lower"
+            "error",
+            "warn",
+            "info",
+            "debug"
           ],
-          "default": "unchanged",
-          "scope": "window",
-          "markdownDescription": "格式化时关键字的大小写处理：`unchanged` 保持不变、`upper` 转大写、`lower` 转小写。\n\n仅改写关键字本身，不动空白、标点与换行；含语法错误的文件整体跳过格式化。"
+          "default": "info",
+          "scope": "machine-overridable",
+          "markdownDescription": "语言服务器日志级别。日志同时写入扩展日志目录。修改后需重启语言服务器。"
         },
-        "bdl.format.indentStyle": {
+        "bdl.server.path": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "`bdl-lsp` 可执行文件路径（文件或所在目录）。留空时依次查找：环境变量 `BDL_LSP_PATH`、工作区 `.bdl-lsp/bin/bdl-lsp`、系统 `PATH`。修改后需重启语言服务器。"
+        },
+        "bdl.syntaxDiagnostics": {
           "type": "string",
           "enum": [
-            "auto",
-            "tab",
-            "space"
+            "off",
+            "error",
+            "warning",
+            "information",
+            "hint"
           ],
-          "default": "auto",
+          "default": "error",
           "scope": "window",
-          "markdownDescription": "格式化时的缩进字符：`auto` 跟随编辑器 `editor.insertSpaces` 设置、`tab` 强制制表符、`space` 强制空格。"
+          "description": "语法错误（无法解析的片段）的诊断级别。"
         },
-        "bdl.format.indentSize": {
-          "type": "number",
-          "default": 0,
-          "minimum": 0,
-          "maximum": 16,
-          "scope": "window",
-          "markdownDescription": "每级缩进的宽度（`indentStyle` 为 `space` 时的空格数，为 `tab` 时仅影响显示宽度）。`0` 表示跟随编辑器 `editor.tabSize`。"
+        "bdl.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "记录客户端与语言服务器之间的 LSP 消息（输出到「Genero BDL 追踪」通道）。"
         }
       }
     },
@@ -272,6 +278,26 @@
         "command": "bdl.showOutput",
         "title": "显示输出",
         "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.deploy",
+        "title": "部署到远程服务器并编译",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.deployCurrentFile",
+        "title": "部署当前文件并编译",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.deployDryRun",
+        "title": "部署预演（不上传）",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.deployListTargets",
+        "title": "列出部署目标",
+        "category": "Genero BDL"
       }
     ]
   },
@@ -279,7 +305,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
-    "test:e2e": "node test/runTest.js",
+    "test:e2e": "npm run build && node test/runTest.js",
     "grammars": "node ../bdl-lsp/scripts/generate-tm-grammars.mjs",
     "grammars:check": "node ../bdl-lsp/scripts/generate-tm-grammars.mjs --check",
     "package": "npm run typecheck && npm run build && vsce package --no-dependencies --allow-missing-repository --skip-license",

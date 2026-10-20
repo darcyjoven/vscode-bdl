@@ -10,6 +10,7 @@ import {
   stopClient,
 } from "./client";
 import { describeBinary, resolveBinary } from "./server/binary";
+import { disposeDeploy, registerDeployCommands } from "./deploy";
 
 /** 首次失败时是否已经提示过，避免每次打开文件都弹窗。 */
 let informedFailure = false;
@@ -18,6 +19,7 @@ export async function activate(
   context: vscode.ExtensionContext,
 ): Promise<void> {
   registerCommands(context);
+  registerDeployCommands(context);
   registerConfigWatcher(context);
 
   // 激活事件是 onLanguage:bdl / onLanguage:per，此时已经有目标文件了。
@@ -39,6 +41,7 @@ export async function activate(
 }
 
 export async function deactivate(): Promise<void> {
+  disposeDeploy();
   await stopClient(false);
 }
 

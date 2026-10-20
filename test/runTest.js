@@ -122,6 +122,51 @@ function prepareRuntimeDirs(root) {
   return { tmp, runtime };
 }
 
+/**
+ * 解析 bdl-lsp 可执行文件路径。
+ *
+ * 顺序：BDL_LSP_PATH → PATH 查找 → 仓库内 artifacts/bin。
+ * 返回绝对路径；找不到返回 undefined（测试会据此跳过/报错）。
+ */
+function resolveLspBinary() {
+  const name = isWindows ? "bdl-lsp.exe" : "bdl-lsp";
+
+  const explicit = (process.env.BDL_LSP_PATH ?? "").trim();
+  if (explicit) {
+    const stat = fs.existsSync(explicit) ? fs.statSync(explicit) : undefined;
+    if (stat?.isFile()) {
+      return explicit;
+    }
+    if (stat?.isDirectory()) {
+      const inside = path.join(explicit, name);
+      if (fs.existsSync(inside)) {
+        return inside;
+      }
+    }
+  }
+
+  for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
+    if (!dir) {
+      continue;
+    }
+    const candidate = path.join(dir, name);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  const fallback = path.resolve(
+    __dirname,
+    "..",
+    "..",
+    "bdl-lsp",
+    "artifacts",
+    "bin",
+    name,
+  );
+  return fs.existsSync(fallback) ? fallback : undefined;
+}
+
 /** 准备临时工作区，放入测试用的 4gl/per 文件。 */
 function prepareWorkspace(base) {
   const dir = path.join(base, "ws");
@@ -224,7 +269,9 @@ async function main() {
       ],
       extensionTestsEnv: {
         BDL_E2E_WORKSPACE: workspace,
-        BDL_LSP_PATH: process.env.BDL_LSP_PATH ?? "",
+        // 显式解析并传入，让测试与语言客户端用同一个二进制；
+        // 不依赖调用者事先 export（dev-env.sh 只把它放进 PATH）。
+        BDL_LSP_PATH: resolveLspBinary() ?? "",
         BDL_E2E_REPORT: reportFile,
       },
     });
