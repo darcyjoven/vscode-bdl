@@ -98,16 +98,90 @@ async function run() {
       }
     });
 
-    // 4. .4gl 被识别为 bdl 语言
-    await test("识别 .4gl 语言", async () => {
-      const doc = await openFixture("sample.4gl");
-      assert.strictEqual(doc.languageId, "bdl", `实际 languageId=${doc.languageId}`);
+    // 4. 扩展名 → 语言 id 的映射
+    //
+    // 这条曾经出过问题：用户报「.4gl 没被识别，但 .per 被识别了」。
+    // 实测插件声明是对的，但既然出过一次疑云，就用测试钉死，
+    // 以后再有人改动 contributes.languages 会立刻红。
+    await test("扩展名映射：.4gl/.global→bdl，.per→per", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+
+      const cases = [
+        ["probe-a.4gl", "bdl"],
+        ["probe-b.global", "bdl"],
+        ["probe-c.per", "per"],
+        // 大小写不敏感：Windows 上文件名常被写成大写
+        ["probe-d.4GL", "bdl"],
+        ["probe-e.GLOBAL", "bdl"],
+        ["probe-f.PER", "per"],
+      ];
+
+      for (const [name, want] of cases) {
+        const file = path.join(root, name);
+        fs.writeFileSync(file, "MAIN\nEND MAIN\n");
+        const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+        assert.strictEqual(
+          doc.languageId,
+          want,
+          `${name} 识别为 ${doc.languageId}，期望 ${want}`,
+        );
+      }
     });
 
-    // 5. .per 被识别为 per 语言
-    await test("识别 .per 语言", async () => {
-      const doc = await openFixture("sample.per");
-      assert.strictEqual(doc.languageId, "per", `实际 languageId=${doc.languageId}`);
+    // 5. 语言配置可用（行注释 / 块注释 / 缩进）
+    //
+    // 曾经有 per.json 不是合法 JSON、bdl.json 用了 JS 不支持的 (?i)。
+    // 这两种错误 VSCode 只 console.warn，功能静默失效，必须实测。
+    await test("语言配置生效（注释与缩进）", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+
+      // 行注释：.4gl 应插入 --
+      const bdl = path.join(root, "cfgbdl.4gl");
+      fs.writeFileSync(bdl, "MAIN\nEND MAIN\n");
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(bdl));
+      let ed = await vscode.window.showTextDocument(doc);
+      ed.selection = new vscode.Selection(0, 0, 0, 0);
+      await vscode.commands.executeCommand("editor.action.commentLine");
+      assert.ok(
+        doc.getText().startsWith("-- MAIN"),
+        `.4gl 行注释不正确：${JSON.stringify(doc.lineAt(0).text)}`,
+      );
+
+      // 缩进：IF ... THEN 后回车应自动缩进
+      const full = new vscode.Range(doc.positionAt(0), doc.positionAt(doc.getText().length));
+      await ed.edit((b) => b.replace(full, "IF x THEN\nEND IF\n"));
+      const line0End = doc.lineAt(0).range.end;
+      ed.selection = new vscode.Selection(line0End, line0End);
+      await vscode.commands.executeCommand("type", { text: "\n" });
+      assert.ok(
+        /^\s{2,}$/.test(doc.lineAt(1).text),
+        `IF 后未自动缩进：${JSON.stringify(doc.lineAt(1).text)}`,
+      );
+
+      // 块注释：.4gl 用 { }
+      const bdoc = path.join(root, "cfgblock.4gl");
+      fs.writeFileSync(bdoc, "MAIN\n");
+      const d2 = await vscode.workspace.openTextDocument(vscode.Uri.file(bdoc));
+      ed = await vscode.window.showTextDocument(d2);
+      ed.selection = new vscode.Selection(0, 0, 0, 0);
+      await vscode.commands.executeCommand("editor.action.blockComment");
+      assert.ok(
+        d2.getText().includes("{") && d2.getText().includes("}"),
+        `.4gl 块注释未使用 { }：${JSON.stringify(d2.getText())}`,
+      );
+
+      // .per 行注释
+      const per = path.join(root, "cfg.per");
+      fs.writeFileSync(per, "SCHEMA ds\n");
+      const d3 = await vscode.workspace.openTextDocument(vscode.Uri.file(per));
+      ed = await vscode.window.showTextDocument(d3);
+      ed.selection = new vscode.Selection(0, 0, 0, 0);
+      await vscode.commands.executeCommand("editor.action.commentLine");
+      assert.ok(
+        d3.getText().startsWith("-- SCHEMA"),
+        `.per 行注释不正确：${JSON.stringify(d3.lineAt(0).text)}`,
+      );
     });
 
     // 6. 干净文件无诊断（证明 LSP 已连上且没有误报）

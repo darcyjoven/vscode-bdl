@@ -1,0 +1,134 @@
+name: build
+
+# VSCode 扩展的 CI：类型检查、打包、清单/语言配置校验、高亮语法校验。
+#
+# 为什么这些放在这里而不是 bdl-lsp：
+#   TextMate 语法生成器与校验器住在 bdl-lsp/scripts/，但它们读的是
+#   tree-sitter 的 grammar 源码、写的是本仓库的 syntaxes/，三方必须同时存在。
+#   这个仓库的 CI 天然可以把三者放到并列目录，是唯一合适的位置。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  # ------------------------------------------------------- 清单与语法校验
+  # 不依赖 LSP 二进制，纯静态检查，跑得快。
+  verify:
+    name: 清单 / 语言配置 / 高亮语法
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 检出扩展
+        uses: actions/checkout@v4
+        with:
+          path: vscode-extension
+
+      # 高亮语法由 grammar 源码生成，必须同时检出
+      - name: 检出 tree-sitter-bdl
+        uses: actions/checkout@v4
+        with:
+          repository: darcyjoven/tree-sitter-bdl
+          path: tree-sitter-bdl
+
+      - name: 检出 tree-sitter-per
+        uses: actions/checkout@v4
+        with:
+          repository: darcyjoven/tree-sitter-per
+          path: tree-sitter-per
+
+      # 脚本住在 bdl-lsp 里，按 script 的路径假设需要 bdl-lsp 作为同级目录
+      - name: 检出 bdl-lsp（脚本来源）
+        uses: actions/checkout@v4
+        with:
+          repository: darcyjoven/bdl-lsp
+          path: bdl-lsp
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 校验清单与语言配置
+        run: node bdl-lsp/scripts/verify-vscode-manifest.mjs
+
+      - name: 校验高亮语法为最新
+        run: node bdl-lsp/scripts/generate-tm-grammars.mjs --check
+
+      # 41 项切分校验：关键字/多词短语/注释与字符串屏蔽
+      - name: 校验高亮切分
+        run: node bdl-lsp/scripts/verify-tm-grammars.mjs
+
+  # -------------------------------------------------------- 构建与打包
+  package:
+    name: 类型检查 / 构建 / VSIX
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: vscode-extension
+    steps:
+      - name: 检出扩展
+        uses: actions/checkout@v4
+        with:
+          path: vscode-extension
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      - name: 安装依赖
+        # NODE_ENV=production 会让 npm 跳过 devDependencies（esbuild/tsc 都在里面）
+        run: npm ci --include=dev
+        env:
+          NODE_ENV: ""
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 构建 dist
+        run: npm run build
+
+      - name: 打包 VSIX
+        run: npm run package
+
+      - name: 检查 VSIX 内容
+        run: |
+          set -eux
+          ls -l *.vsix
+          unzip -l *.vsix
+          # 必须带上语法与语言配置，否则装上去等于没高亮
+          for f in extension/syntaxes/bdl.tmLanguage.json \
+                   extension/syntaxes/per.tmLanguage.json \
+                   extension/language-configuration/bdl.json \
+                   extension/language-configuration/per.json \
+                   extension/dist/extension.js; do
+            unzip -l *.vsix | grep -q "$f" || { echo "VSIX 缺少 $f"; exit 1; }
+          done
+          # 不能夹带仓库内部文件（曾经把 .github/workflows 打进包里）
+          if unzip -l *.vsix | grep -qE 'extension/(src|test|\.github|node_modules)/'; then
+            echo "VSIX 夹带了仓库内部文件："
+            unzip -l *.vsix | grep -E 'extension/(src|test|\.github|node_modules)/'
+            exit 1
+          fi
+          # 文件数应保持在 10 个左右，暴涨说明 .vscodeignore 失效
+          count=$(unzip -l *.vsix | tail -1 | awk '{print $2}')
+          echo "文件数：$count"
+          if [ "$count" -gt 15 ]; then
+            echo "VSIX 文件数异常（$count），检查 .vscodeignore"
+            exit 1
+          fi
+
+      - name: 上传 VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix
+          path: vscode-extension/*.vsix
+          if-no-files-found: error

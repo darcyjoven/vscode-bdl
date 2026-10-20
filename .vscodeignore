@@ -6,11 +6,13 @@ node_modules/**
 out/**
 coverage/**
 scripts/**
+.github/**
 *.vsix
 *.log
 esbuild.mjs
 tsconfig.json
 package-lock.json
 .gitignore
+.gitattributes
 .editorconfig
 **/*.map

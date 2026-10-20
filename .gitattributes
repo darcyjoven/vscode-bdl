@@ -1,0 +1,26 @@
+# 统一换行：源码一律 LF，避免 Windows 上 core.autocrlf=true 把脚本改成 CRLF
+# 导致 bash 脚本出现 `$'\r': command not found`、Makefile recipe 失效。
+* text=auto eol=lf
+
+# Genero 源码必须保持 LF：CRLF 会让远程 fglcomp/fglform 报奇怪的错误
+*.4gl   text eol=lf
+*.global text eol=lf
+*.per   text eol=lf
+
+# 脚本与构建文件按 LF 存储（Git for Windows 的 bash 能处理 LF）
+*.sh     text eol=lf
+*.mjs    text eol=lf
+Makefile text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+
+# PowerShell / cmd 按 CRLF 存储，兼容 Windows PowerShell 5.1
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 二进制
+*.png  binary
+*.ico  binary
+*.vsix binary
+*.exe  binary

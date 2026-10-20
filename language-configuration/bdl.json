@@ -24,7 +24,13 @@
   ],
   "wordPattern": "[A-Za-z_][A-Za-z0-9_$]*",
   "indentationRules": {
-    "increaseIndentPattern": "(?i)^\\s*(?:(?:PUBLIC|PRIVATE)\\s+)?(?:FUNCTION|MAIN|REPORT)\\b.*$|(?i)^\\s*(?:IF|WHILE|FOR|FOREACH|CASE|MENU|INPUT|INPUT\\s+ARRAY|CONSTRUCT|DIALOG|DISPLAY\\s+ARRAY|TRY|WHENEVER)\\b(?!.*\\bEND\\b)",
-    "decreaseIndentPattern": "(?i)^\\s*(?:END\\s+(?:FUNCTION|MAIN|REPORT|IF|WHILE|FOR|FOREACH|CASE|MENU|INPUT|CONSTRUCT|DIALOG|DISPLAY|TRY)\\b|ELSE\\b|WHEN\\b|OTHERWISE\\b|CATCH\\b)"
+    "increaseIndentPattern": {
+      "pattern": "^\\s*(?:(?:PUBLIC|PRIVATE)\\s+)?(?:FUNCTION|MAIN|REPORT)\\b.*$|^\\s*(?:IF|WHILE|FOR|FOREACH|CASE|MENU|INPUT(?:\\s+ARRAY)?|CONSTRUCT|DIALOG|DISPLAY\\s+ARRAY|TRY|WHENEVER)\\b(?!.*\\bEND\\b)",
+      "flags": "i"
+    },
+    "decreaseIndentPattern": {
+      "pattern": "^\\s*(?:END\\s+(?:FUNCTION|MAIN|REPORT|IF|WHILE|FOR|FOREACH|CASE|MENU|INPUT|CONSTRUCT|DIALOG|DISPLAY|TRY)\\b|ELSE\\b|WHEN\\b|OTHERWISE\\b|CATCH\\b)",
+      "flags": "i"
+    }
   }
 }
