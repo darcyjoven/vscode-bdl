@@ -494,6 +494,98 @@ async function run() {
       assert.ok(badField, "bad_field 应被报告");
       assert.ok(!goodField, "good_field 不应被报告（防误报）");
     });
+
+    // 19. 格式化：关键字转大写 + 缩进归一（P4）
+    await test("格式化关键字转大写并归一缩进", async () => {
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      await cfg.update(
+        "format.keywords",
+        "upper",
+        vscode.ConfigurationTarget.Global,
+      );
+      await cfg.update(
+        "format.indentStyle",
+        "space",
+        vscode.ConfigurationTarget.Global,
+      );
+      await cfg.update("format.indentSize", 3, vscode.ConfigurationTarget.Global);
+
+      try {
+        const doc = await openFixture("fmt_messy.4gl");
+        const text = doc.getText();
+        assert.ok(/^\s*define /m.test(text), "fixture 应是全小写关键字");
+
+        const edits = await vscode.commands.executeCommand(
+          "vscode.executeFormatDocumentProvider",
+          doc.uri,
+          { tabSize: 3, insertSpaces: true },
+        );
+        assert.ok(Array.isArray(edits) && edits.length > 0, "格式化没有返回编辑");
+
+        const ws = new vscode.WorkspaceEdit();
+        ws.set(doc.uri, edits);
+        await vscode.workspace.applyEdit(ws);
+
+        const out = doc.getText();
+        assert.ok(/\bMAIN\b/.test(out), "MAIN 应大写");
+        assert.ok(/\bEND MAIN\b/.test(out), "END MAIN 应大写");
+        assert.ok(/\bDEFINE\b/.test(out), "DEFINE 应大写");
+        assert.ok(!/^\s*define /m.test(out), "仍有小写 define");
+
+        // 缩进：MAIN 体内应为 3 空格
+        const lines = out.split("\n");
+        const mainIdx = lines.findIndex((l) => /^\s*MAIN\s*$/.test(l));
+        assert.ok(mainIdx >= 0, "找不到 MAIN 行");
+        const bodyIdx = mainIdx + 1;
+        assert.ok(
+          lines[bodyIdx].startsWith("   ") && !lines[bodyIdx].startsWith("    "),
+          `MAIN 体缩进应为 3 空格，实际 ${JSON.stringify(lines[bodyIdx])}`,
+        );
+
+        // 记录体只应多缩进一级（同一行多块回归）
+        const recIdx = lines.findIndex((l) => /RECORD\s*$/.test(l));
+        assert.ok(recIdx >= 0, "找不到 RECORD 行");
+        const recBody = lines[recIdx + 1];
+        assert.ok(
+          recBody.startsWith("      ") && !recBody.startsWith("         "),
+          `记录体应为 6 空格，实际 ${JSON.stringify(recBody)}`,
+        );
+
+        // 幂等：再格式化一次不应再有编辑
+        const edits2 = await vscode.commands.executeCommand(
+          "vscode.executeFormatDocumentProvider",
+          doc.uri,
+          { tabSize: 3, insertSpaces: true },
+        );
+        assert.strictEqual(
+          Array.isArray(edits2) ? edits2.length : 0,
+          0,
+          "第二次格式化仍返回编辑（不幂等）",
+        );
+      } finally {
+        await cfg.update("format.keywords", undefined, vscode.ConfigurationTarget.Global);
+        await cfg.update(
+          "format.indentStyle",
+          undefined,
+          vscode.ConfigurationTarget.Global,
+        );
+        await cfg.update("format.indentSize", undefined, vscode.ConfigurationTarget.Global);
+      }
+    });
+
+    // 20. .per 不做任何格式化（用户明确要求）
+    await test("per 文件拒绝格式化", async () => {
+      const doc = await openFixture("sample.per");
+      const edits = await vscode.commands.executeCommand(
+        "vscode.executeFormatDocumentProvider",
+        doc.uri,
+        { tabSize: 4, insertSpaces: true },
+      );
+      assert.ok(
+        !Array.isArray(edits) || edits.length === 0,
+        `.per 不应返回格式化编辑，实际 ${JSON.stringify(edits)}`,
+      );
+    });
   } finally {
     report();
   }

@@ -219,7 +219,42 @@
           "default": [],
           "scope": "window",
           "markdownDescription": "`.per` 表单文件的附加查找根（相对工作区根，按序尝试）。表单路径先按 `4gl 同级 per 目录` 解析，失败后尝试这些根，最后按 basename 在工作区内唯一匹配。"
+        },
+        "bdl.format.keywords": {
+          "type": "string",
+          "enum": [
+            "unchanged",
+            "upper",
+            "lower"
+          ],
+          "default": "unchanged",
+          "scope": "window",
+          "markdownDescription": "格式化时关键字的大小写处理：`unchanged` 保持不变、`upper` 转大写、`lower` 转小写。\n\n仅改写关键字本身，不动空白、标点与换行；含语法错误的文件整体跳过格式化。"
+        },
+        "bdl.format.indentStyle": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "tab",
+            "space"
+          ],
+          "default": "auto",
+          "scope": "window",
+          "markdownDescription": "格式化时的缩进字符：`auto` 跟随编辑器 `editor.insertSpaces` 设置、`tab` 强制制表符、`space` 强制空格。"
+        },
+        "bdl.format.indentSize": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "maximum": 16,
+          "scope": "window",
+          "markdownDescription": "每级缩进的宽度（`indentStyle` 为 `space` 时的空格数，为 `tab` 时仅影响显示宽度）。`0` 表示跟随编辑器 `editor.tabSize`。"
         }
+      }
+    },
+    "configurationDefaults": {
+      "[bdl]": {
+        "editor.defaultFormatter": "darcyjoven.4gl-full"
       }
     },
     "commands": [

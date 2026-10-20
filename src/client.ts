@@ -142,6 +142,11 @@ function collectSettings(): Record<string, unknown> {
     },
     fieldDiagnostics: cfg.get<string>("fieldDiagnostics"),
     perRoots: cfg.get<string[]>("perRoots"),
+    format: {
+      keywords: cfg.get<string>("format.keywords"),
+      indentStyle: cfg.get<string>("format.indentStyle"),
+      indentSize: cfg.get<number>("format.indentSize"),
+    },
     limits: {
       maxFileBytes: cfg.get<number>("limits.maxFileBytes"),
       maxFileLines: cfg.get<number>("limits.maxFileLines"),
