@@ -142,6 +142,9 @@ function collectSettings(): Record<string, unknown> {
     },
     fieldDiagnostics: cfg.get<string>("fieldDiagnostics"),
     recordMemberDiagnostics: cfg.get<string>("recordMemberDiagnostics"),
+    // 按诊断码覆盖级别（键为码、值为 off/error/warning/information/hint）。
+    // 必须在这里显式转交：collectSettings 是白名单，没列出来的键不会下发。
+    diagnostics: cfg.get<Record<string, string>>("diagnostics") ?? {},
     perRoots: cfg.get<string[]>("perRoots"),
     format: {
       keywords: cfg.get<string>("format.keywords"),

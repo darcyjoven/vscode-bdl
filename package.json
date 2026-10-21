@@ -80,6 +80,22 @@
           "scope": "window",
           "markdownDescription": "部署目标名（对应 `.bdl-lsp/deploy.json` 的 `targets` 键）。留空则用配置里的 `defaultTarget`。"
         },
+        "bdl.diagnostics": {
+          "type": "object",
+          "default": {},
+          "scope": "window",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "off",
+              "error",
+              "warning",
+              "information",
+              "hint"
+            ]
+          },
+          "markdownDescription": "按诊断码单独覆盖级别，键为诊断码、值为 `off`/`error`/`warning`/`information`/`hint`。\n\n优先级：`bdl.diagnostics.<code>` > 旧专用键（如 `bdl.syntaxDiagnostics`）> 出厂默认。\n\n可用诊断码：`syntax-error`、`missing-node`（MISSING 整簇，也可精确到 `missing-<kind>`）、`globals-file-not-found`、`variable-source-unresolved`、`field-not-in-form`、`form-duplicate-item`、`form-layout-tag-undefined`、`form-screen-record-undefined`、`record-member-unknown`、`file-too-large`、`function-not-found`。\n\n示例：\n```jsonc\n\"bdl.diagnostics\": {\n  \"variable-source-unresolved\": \"off\",\n  \"syntax-error\": \"error\"\n}\n```"
+        },
         "bdl.fieldDiagnostics": {
           "type": "string",
           "enum": [
@@ -255,9 +271,10 @@
             "information",
             "hint"
           ],
-          "default": "error",
+          "default": "warning",
           "scope": "window",
-          "description": "语法错误（无法解析的片段）的诊断级别。"
+          "description": "语法错误（无法解析的片段）的诊断级别。",
+          "markdownDescription": "语法错误（grammar 的 ERROR 节点）与缺失结构（MISSING 节点）的诊断级别。默认 `warning`；想要红波浪线可设为 `error`。更细的控制用 `bdl.diagnostics`（`syntax-error` / `missing-node` / `missing-<kind>`）。"
         },
         "bdl.trace.server": {
           "type": "string",
