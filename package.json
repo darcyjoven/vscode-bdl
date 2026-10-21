@@ -74,6 +74,30 @@
     "configuration": {
       "title": "Genero BDL",
       "properties": {
+        "bdl.builtins.disable": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "关闭指定的内置名（大小写不敏感），优先级高于任何覆盖文件。\n\n典型用途：项目里自己定义了同名函数，不想被内置表“吞掉”。\n\n示例：`[\"SUM\", \"LENGTH\"]`"
+        },
+        "bdl.builtins.enable": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "是否启用内置符号表（Genero 自带的变量/函数/类名）。\n\n关闭后 `STATUS`/`SQLCA`/`INT_FLAG`/`fgl_*`/`ui.*` 等名字会重新报“无法确定变量来源”（即 P7-C 之前的行为），一般不需要关。"
+        },
+        "bdl.builtins.paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "额外的内置符号覆盖文件或目录（相对工作区根，按序加载，后者覆盖前者；目录里所有 `*.json` 都会加载）。\n\n项目约定路径 `.bdl-lsp/builtins.json` 会自动加载，不需要写在这里。"
+        },
         "bdl.deploy.target": {
           "type": "string",
           "default": "",

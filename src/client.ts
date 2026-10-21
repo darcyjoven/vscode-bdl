@@ -145,6 +145,12 @@ function collectSettings(): Record<string, unknown> {
     // 按诊断码覆盖级别（键为码、值为 off/error/warning/information/hint）。
     // 必须在这里显式转交：collectSettings 是白名单，没列出来的键不会下发。
     diagnostics: cfg.get<Record<string, string>>("diagnostics") ?? {},
+    // 内置符号表（P7-C）：项目级覆盖文件/路径与禁用列表。
+    builtins: {
+      enable: cfg.get<boolean>("builtins.enable") ?? true,
+      paths: cfg.get<string[]>("builtins.paths") ?? [],
+      disable: cfg.get<string[]>("builtins.disable") ?? [],
+    },
     perRoots: cfg.get<string[]>("perRoots"),
     format: {
       keywords: cfg.get<string>("format.keywords"),

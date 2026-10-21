@@ -17,7 +17,8 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 | 引用查找 | 词边界匹配，自动排除注释、字符串、预处理行 |
 | 文档大纲 | MAIN / FUNCTION / REPORT / DEFINE / CONSTANT / TYPE / RECORD（含字段）/ SCREEN RECORD |
 | 工作区符号 | 跨已打开文档搜索全局符号 |
-| 悬停 | 显示种类、类型、签名、字段数 |
+| 悬停 | 显示种类、类型、签名、字段数；内置名显示 Genero 签名与出处 |
+| 代码补全 | 同文件/跨文件符号、表单字段、关键字、内置符号（`fgl_*`/`ARG_VAL`/`ui`…） |
 | 语法诊断 | 解析错误与缺失内容，级别可配，大文件与超时保护 |
 | 配置热更新 | 改设置立即生效，无需重载窗口 |
 | 语言配置 | 注释、括号、自动闭合、缩进规则 |
@@ -63,8 +64,36 @@ make build          # 产出 artifacts/bin/bdl-lsp
 | `bdl.limits.maxFileLines` | 20000 | 超过则不诊断 |
 | `bdl.limits.maxIssues` | 200 | 单文件诊断上限 |
 | `bdl.limits.parseTimeoutMs` | 2000 | 单次解析超时 |
+| `bdl.builtins.enable` | `true` | 内置符号表（`STATUS`/`SQLCA`/`fgl_*`…）。关掉 = 这些名字重新报"无法确定来源" |
+| `bdl.builtins.paths` | `[]` | 额外的内置符号覆盖文件/目录（相对工作区根） |
+| `bdl.builtins.disable` | `[]` | 本项目里不当内置的名字（大小写不敏感） |
 
 改 `server.path` / `server.logLevel` / `generoVersion` 后需要重启语言服务器，扩展会主动询问。
+
+### 内置符号表（P7-C）
+
+Genero 自带的变量/函数/类名（`SQLCA`、`INT_FLAG`、`STATUS`、`ARG_VAL`、
+`fgl_*`、`ui.*` 等）在静态分析里找不到定义，本功能提供一张符号表豁免它们，
+并让它们出现在补全与悬停里。
+
+表**可以随时更新，不需要重新安装扩展**：
+
+```jsonc
+// .bdl-lsp/builtins.json —— 放在项目根，自动加载（可提交进仓库）
+{
+  "schemaVersion": 1,
+  "generoVersion": "2.50",
+  "disable": ["SUM"],                       // 本项目里 SUM 是用户函数
+  "symbols": [
+    { "name": "MY_PROJECT_BUILTIN", "kind": "variable", "doc": "公司级内置变量" }
+  ]
+}
+```
+
+- 同名按**字段**合并（只改 `doc` 不必重写整条），`kind` 以新条目为准；
+- `disable` 优先级最高，在所有文件加载完之后统一应用；
+- 改完保存即可生效（约 2 秒内自动重载，不用重启窗口）；
+- 想额外加载别的文件/目录，用 `bdl.builtins.paths`。
 
 ## 命令
 
