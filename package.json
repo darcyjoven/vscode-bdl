@@ -129,6 +129,67 @@
           "scope": "window",
           "markdownDescription": "链接资料超过多少天算过期。过期只在资料文件上给一条 hint，提示重新导入；不阻断任何功能。设为 0 关闭提示。"
         },
+        "bdl.link.sync.enable": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "自动采集链接资料（P7-D-3）。默认关闭：采集要连数据库或执行命令。"
+        },
+        "bdl.link.sync.source": {
+          "type": "string",
+          "enum": [
+            "golang",
+            "command",
+            "file"
+          ],
+          "default": "golang",
+          "markdownDescription": "采集来源：`golang` 纯 Go 直连 Oracle（无需 Oracle 客户端）· `command` 执行命令（CSV 打到 stdout）· `file` 读已导出的 CSV。"
+        },
+        "bdl.link.sync.interval": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "markdownDescription": "自动同步间隔（秒）。0 = 只在启动时同步一次。失败按指数退避，上限 1 小时。"
+        },
+        "bdl.link.sync.onStart": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "启动语言服务器时先同步一次。"
+        },
+        "bdl.link.sync.command": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "`source=command` 时执行的命令；CSV 必须打到 stdout。凭证通过环境变量传入，不要写在参数里。"
+        },
+        "bdl.link.sync.file": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "`source=file` 读取的 CSV 路径（相对项目根）。空 = `.link/gal_file.csv`。"
+        },
+        "bdl.link.sync.db.host": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Oracle 主机（`source=golang`）。"
+        },
+        "bdl.link.sync.db.port": {
+          "type": "number",
+          "default": 1521,
+          "markdownDescription": "Oracle 端口。"
+        },
+        "bdl.link.sync.db.service": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Oracle 服务名。"
+        },
+        "bdl.link.sync.db.user": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "只读账号。**密码不要写在这里**：用环境变量 `BDL_ORA_PASSWORD` 或 `.link/secrets.json`（0600）。"
+        },
+        "bdl.link.sync.db.query": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "自定义 SQL；空 = `SELECT gal01, gal02, gal03, gal04 FROM DS.GAL_FILE WHERE gal04 = 'Y'`。"
+        },
         "bdl.link.moduleRoots": {
           "type": "array",
           "items": {

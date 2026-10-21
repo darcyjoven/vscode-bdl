@@ -126,9 +126,38 @@ bdl-lsp link status
 - 链接里有、磁盘上没有的文件**完全忽略**（也不报"文件缺失"）；
 - 资料缺失/索引未就绪时，`function-not-found` **一条都不报**——宁可漏报不可误报。
 
-`function-not-found` 仍**默认关闭**：语料是部分快照时，`cl_*` / `WSHelper_*`
-这类"快照里没有的库函数"会成片报。确认自己的 checkout 完整后，用
-`bdl.diagnostics.function-not-found: "warning"` 打开。
+`function-not-found` **0.1.5 起默认打开**：语料里根本没有的库函数
+（`cl_err3`、`WSHelper_*`）已经由"外部函数过滤"自动认出来——被 ≥3 个文件或
+≥5 次调用、且整份语料里找不到定义的函数名会写进 `links.meta.json`，视为存在。
+全量语料实测只剩 0.09 条/文件。想彻底关掉用
+`bdl.diagnostics.function-not-found: "off"`。
+
+## 自动采集（P7-D-3）
+
+不想手动导出 CSV 时，让语言服务器自己去取：
+
+```jsonc
+{
+  "bdl.link.sync": {
+    "enable": true,
+    "source": "golang",                     // golang | command | file
+    "onStart": true,
+    "interval": 21600,                       // 秒；0 = 只在启动时同步
+    "db": { "host": "dbhost", "port": 1521, "service": "PROD", "user": "readonly" }
+  }
+}
+```
+
+```bash
+export BDL_ORA_PASSWORD=...        # 或者写 <项目>/.link/secrets.json（必须 chmod 600）
+```
+
+- `source: "golang"`：内置纯 Go 驱动直连 Oracle，**不需要装 Oracle 客户端**；
+- `source: "command"`：执行 `bdl.link.sync.command`，CSV 从 stdout 读回；
+- `source: "file"`：读 `bdl.link.sync.file`（默认 `.link/gal_file.csv`）。
+
+密码**不要**写进 settings.json（会被提交）；同步失败只记日志、不弹诊断，
+成功后自动重载资料并重算诊断，不需要重启窗口。默认全关。
 
 ## 命令
 
