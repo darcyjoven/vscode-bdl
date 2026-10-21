@@ -98,6 +98,12 @@
           "scope": "window",
           "markdownDescription": "额外的内置符号覆盖文件或目录（相对工作区根，按序加载，后者覆盖前者；目录里所有 `*.json` 都会加载）。\n\n项目约定路径 `.bdl-lsp/builtins.json` 会自动加载，不需要写在这里。"
         },
+        "bdl.index.enable": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "description": "在工作区后台建立符号索引（全工作区符号搜索、跨文件跳转与引用的基础）。关闭后这些功能只覆盖已打开的文件。"
+        },
         "bdl.link.dataDir": {
           "type": "string",
           "default": ".link",
