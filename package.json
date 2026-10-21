@@ -453,8 +453,58 @@
         "command": "bdl.deployListTargets",
         "title": "列出部署目标",
         "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.links.refresh",
+        "title": "刷新",
+        "category": "Genero BDL",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "bdl.links.references",
+        "title": "反查引用程序",
+        "category": "Genero BDL",
+        "icon": "$(search)"
+      },
+      {
+        "command": "bdl.links.moreRefs",
+        "title": "显示更多反查结果",
+        "category": "Genero BDL"
       }
-    ]
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "bdlLinks",
+          "name": "链接资料",
+          "when": "workspaceFolderCount > 0",
+          "icon": "$(link)",
+          "contextualTitle": "Genero BDL 链接资料"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "bdl.links.refresh",
+          "when": "view == bdlLinks",
+          "group": "navigation@1"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "bdl.links.references",
+          "when": "view == bdlLinks && viewItem == bdlLinkRefsButton",
+          "group": "inline"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "bdl.links.moreRefs",
+          "when": "false"
+        }
+      ]
+    }
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

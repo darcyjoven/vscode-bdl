@@ -93,7 +93,14 @@ async function run() {
     // 3. 命令已注册
     await test("命令已注册", async () => {
       const commands = await vscode.commands.getCommands(true);
-      for (const id of ["bdl.restartServer", "bdl.showServerInfo", "bdl.showOutput"]) {
+      for (const id of [
+        "bdl.restartServer",
+        "bdl.showServerInfo",
+        "bdl.showOutput",
+        // P7-E：链接资料视图的刷新与反查
+        "bdl.links.refresh",
+        "bdl.links.references",
+      ]) {
         assert.ok(commands.includes(id), `缺少命令 ${id}`);
       }
     });
@@ -204,16 +211,24 @@ async function run() {
       );
     });
 
-    // 7. 语法错误文件出现 error 波浪线
-    await test("语法错误产生 error 诊断", async () => {
+    // 7. 语法错误文件出现波浪线
+    //
+    // 级别是 warning 不是 error：Q10（P7-B）定稿"全部诊断默认 warning"，
+    // 语法错误也一样——它只是"可能有问题"，不该在 Problems 里冒充红叉。
+    // 这里断言的是"有诊断 + 码正确"，级别单列一条，改默认值时只改一处。
+    await test("语法错误产生 warning 诊断", async () => {
       const doc = await openFixture("broken.4gl");
       const all = await waitForDiagnostics(
         doc.uri,
-        "broken.4gl 出现 error 级诊断",
-        (list) => list.some((d) => d.severity === vscode.DiagnosticSeverity.Error),
+        "broken.4gl 出现语法诊断",
+        (list) => list.some((d) => d.code === "syntax-error"),
       );
-      const errors = all.filter((d) => d.severity === vscode.DiagnosticSeverity.Error);
-      assert.ok(errors.length > 0, "没有 error 级诊断");
+      const errors = all.filter((d) => d.code === "syntax-error");
+      assert.ok(errors.length > 0, "没有 syntax-error 诊断");
+      assert.ok(
+        errors.every((d) => d.severity === vscode.DiagnosticSeverity.Warning),
+        `语法诊断默认应为 warning，实际 ${errors.map((d) => d.severity).join(",")}`,
+      );
       // 诊断必须落在文件范围内，否则波浪线不可见
       for (const d of errors) {
         assert.ok(
@@ -370,7 +385,7 @@ async function run() {
       await waitForDiagnostics(
         doc.uri,
         "重启后 broken.4gl 仍有诊断",
-        (list) => list.some((d) => d.severity === vscode.DiagnosticSeverity.Error),
+        (list) => list.some((d) => d.code === "syntax-error"),
         40000,
       );
     });
@@ -380,8 +395,8 @@ async function run() {
       const doc = await openFixture("broken.4gl");
       await waitForDiagnostics(
         doc.uri,
-        "配置改动前有 error",
-        (list) => list.some((d) => d.severity === vscode.DiagnosticSeverity.Error),
+        "配置改动前有语法诊断",
+        (list) => list.some((d) => d.code === "syntax-error"),
       );
 
       const cfg = vscode.workspace.getConfiguration("bdl");
@@ -393,8 +408,8 @@ async function run() {
 
       await waitForDiagnostics(
         doc.uri,
-        "syntaxDiagnostics=off 后 error 消失",
-        (list) => !list.some((d) => d.severity === vscode.DiagnosticSeverity.Error),
+        "syntaxDiagnostics=off 后语法诊断消失",
+        (list) => !list.some((d) => d.code === "syntax-error"),
         20000,
       );
 
@@ -406,8 +421,8 @@ async function run() {
       );
       await waitForDiagnostics(
         doc.uri,
-        "恢复配置后 error 回来",
-        (list) => list.some((d) => d.severity === vscode.DiagnosticSeverity.Error),
+        "恢复配置后语法诊断回来",
+        (list) => list.some((d) => d.code === "syntax-error"),
         20000,
       );
     });

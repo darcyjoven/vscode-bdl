@@ -11,6 +11,7 @@ import {
 } from "./client";
 import { describeBinary, resolveBinary } from "./server/binary";
 import { disposeDeploy, registerDeployCommands } from "./deploy";
+import { registerLinks } from "./links";
 
 /** 首次失败时是否已经提示过，避免每次打开文件都弹窗。 */
 let informedFailure = false;
@@ -20,6 +21,7 @@ export async function activate(
 ): Promise<void> {
   registerCommands(context);
   registerDeployCommands(context);
+  registerLinks(context);
   registerConfigWatcher(context);
 
   // 激活事件是 onLanguage:bdl / onLanguage:per，此时已经有目标文件了。
