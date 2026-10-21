@@ -67,6 +67,11 @@ make build          # 产出 artifacts/bin/bdl-lsp
 | `bdl.builtins.enable` | `true` | 内置符号表（`STATUS`/`SQLCA`/`fgl_*`…）。关掉 = 这些名字重新报"无法确定来源" |
 | `bdl.builtins.paths` | `[]` | 额外的内置符号覆盖文件/目录（相对工作区根） |
 | `bdl.builtins.disable` | `[]` | 本项目里不当内置的名字（大小写不敏感） |
+| `bdl.link.enable` | `true` | 程序链接资料。关掉 = `function-not-found` 与 `link-data-*` 都不生效 |
+| `bdl.link.dataDir` | `.link` | 资料目录（`links.jsonl` / `links.meta.json`） |
+| `bdl.link.moduleRoots` | `[]` | 模组根（空 = 自动探测 `tiptop` / `topcust`） |
+| `bdl.link.globalModules` | `["sub","lib","qry"]` | 对所有程序可见的模组（扁平规则，含它们自己） |
+| `bdl.link.maxAgeDays` | `7` | 资料超过这么多天算过期，只在资料文件上提示 |
 
 改 `server.path` / `server.logLevel` / `generoVersion` 后需要重启语言服务器，扩展会主动询问。
 
@@ -94,6 +99,36 @@ Genero 自带的变量/函数/类名（`SQLCA`、`INT_FLAG`、`STATUS`、`ARG_VA
 - `disable` 优先级最高，在所有文件加载完之后统一应用；
 - 改完保存即可生效（约 2 秒内自动重载，不用重启窗口）；
 - 想额外加载别的文件/目录，用 `bdl.builtins.paths`。
+
+### 程序链接资料（P7-D）
+
+`CALL` 一个函数到底存不存在，取决于这个程序**链接了哪些 4gl 文件**——
+只靠单文件分析无法回答。本功能用一份链接资料补齐：
+
+```bash
+# 1) 从数据库导出 DS.GAL_FILE（SQL 见项目文档），然后在终端导入：
+bdl-lsp link import -csv gal_file.csv -root .
+#    输出：链 5398 / orphan 451 / 缺失文件 800 …，写入 <项目根>/.link/
+# 2) 随时查看状态：
+bdl-lsp link status
+```
+
+导入完成后**不需要重启窗口**：打开文件时发现资料变了会自动重载（约 2 秒）。
+
+可见性规则（用户定稿）：
+
+```text
+可调用的函数 = 本文件 ∪ GLOBALS 引入 ∪ 链接文件 ∪ 全局模组(sub/lib/qry)
+```
+
+- **只放大函数可见性，不放大变量**：两个链接在一起的子文件各自 `DEFINE`
+  同名变量、没有共享 GLOBALS，仍然报"变量来源无法确定"；
+- 链接里有、磁盘上没有的文件**完全忽略**（也不报"文件缺失"）；
+- 资料缺失/索引未就绪时，`function-not-found` **一条都不报**——宁可漏报不可误报。
+
+`function-not-found` 仍**默认关闭**：语料是部分快照时，`cl_*` / `WSHelper_*`
+这类"快照里没有的库函数"会成片报。确认自己的 checkout 完整后，用
+`bdl.diagnostics.function-not-found: "warning"` 打开。
 
 ## 命令
 

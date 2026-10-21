@@ -98,6 +98,46 @@
           "scope": "window",
           "markdownDescription": "额外的内置符号覆盖文件或目录（相对工作区根，按序加载，后者覆盖前者；目录里所有 `*.json` 都会加载）。\n\n项目约定路径 `.bdl-lsp/builtins.json` 会自动加载，不需要写在这里。"
         },
+        "bdl.link.dataDir": {
+          "type": "string",
+          "default": ".link",
+          "scope": "window",
+          "markdownDescription": "程序链接资料目录（相对工作区根）。里面是 `links.jsonl` 与 `links.meta.json`，由 `bdl-lsp link import` 生成。"
+        },
+        "bdl.link.enable": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "是否启用程序链接资料。\n\n关闭后 `function-not-found` 与 `link-data-*` 一律不生效（即 P7-D 之前的行为）。\n\n没有资料的项目会自动跳过，不需要手动关。"
+        },
+        "bdl.link.globalModules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "sub",
+            "lib",
+            "qry"
+          ],
+          "scope": "window",
+          "markdownDescription": "对所有程序可见的模组（扁平规则：这些模组里的函数任何程序都能调，包括它们自己）。\n\n把公共库放在别的模组时改这里。"
+        },
+        "bdl.link.maxAgeDays": {
+          "type": "number",
+          "default": 7,
+          "scope": "window",
+          "markdownDescription": "链接资料超过多少天算过期。过期只在资料文件上给一条 hint，提示重新导入；不阻断任何功能。设为 0 关闭提示。"
+        },
+        "bdl.link.moduleRoots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "模组根目录（相对工作区根，如 `tiptop`、`topcust`）。\n\n留空自动探测：凡是「子目录里还有一层含 `4gl/` 的目录」的顶层目录都算模组根，`tiptop` 优先。"
+        },
         "bdl.deploy.target": {
           "type": "string",
           "default": "",

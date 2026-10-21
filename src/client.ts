@@ -151,6 +151,14 @@ function collectSettings(): Record<string, unknown> {
       paths: cfg.get<string[]>("builtins.paths") ?? [],
       disable: cfg.get<string[]>("builtins.disable") ?? [],
     },
+    // 链接资料（P7-D）：同样必须显式转交（collectSettings 是白名单）。
+    link: {
+      enable: cfg.get<boolean>("link.enable") ?? true,
+      dataDir: cfg.get<string>("link.dataDir") ?? ".link",
+      moduleRoots: cfg.get<string[]>("link.moduleRoots") ?? [],
+      globalModules: cfg.get<string[]>("link.globalModules") ?? ["sub", "lib", "qry"],
+      maxAgeDays: cfg.get<number>("link.maxAgeDays") ?? 7,
+    },
     perRoots: cfg.get<string[]>("perRoots"),
     format: {
       keywords: cfg.get<string>("format.keywords"),
