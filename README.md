@@ -5,6 +5,7 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 > 状态：**v0.4.0 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置；平台包内置语言服务器）。
 > 远程仓库：`git@github.com:darcyjoven/vscode-bdl.git`（本地目录仍叫 `vscode-extension/`）。
 > 完整操作手册：[docs/USER-GUIDE.md](docs/USER-GUIDE.md)（含截图/录屏占位与配置总表）。
+> 从生产端拉源码建工作区：[docs/PROJECT-SETUP.md](docs/PROJECT-SETUP.md)（打包 / Git / 链接资料 / 部署测试）。
 > 本仓库只保留 VSCode 交付物；计划、测试脚本、过程记录统一在 `bdl-lsp` 仓库。
 > 验证平台：**Linux + Windows + macOS**；macOS 分 `darwin-x64` / `darwin-arm64` 两个包。
 > Genero 以 **2.50** 为基线；5.0 暂不排期。
