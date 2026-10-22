@@ -401,21 +401,21 @@ async function run() {
 
       const cfg = vscode.workspace.getConfiguration("bdl");
       await cfg.update(
-        "syntaxDiagnostics",
-        "off",
+        "diagnostics",
+        { "syntax-error": "off" },
         vscode.ConfigurationTarget.Global,
       );
 
       await waitForDiagnostics(
         doc.uri,
-        "syntaxDiagnostics=off 后语法诊断消失",
+        "diagnostics.syntax-error=off 后语法诊断消失",
         (list) => !list.some((d) => d.code === "syntax-error"),
         20000,
       );
 
       // 还原
       await cfg.update(
-        "syntaxDiagnostics",
+        "diagnostics",
         undefined,
         vscode.ConfigurationTarget.Global,
       );
@@ -910,8 +910,8 @@ async function run() {
     await test("record 成员校验开启后报错", async () => {
       const cfg = vscode.workspace.getConfiguration("bdl");
       await cfg.update(
-        "recordMemberDiagnostics",
-        "warning",
+        "diagnostics",
+        { "record-member-unknown": "warning" },
         vscode.ConfigurationTarget.Global,
       );
       try {
@@ -951,7 +951,7 @@ async function run() {
         assert.ok(!goodReported, "good_one 存在，不该被报");
       } finally {
         await cfg.update(
-          "recordMemberDiagnostics",
+          "diagnostics",
           undefined,
           vscode.ConfigurationTarget.Global,
         );

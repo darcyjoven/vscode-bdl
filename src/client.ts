@@ -128,22 +128,13 @@ function collectSettings(): Record<string, unknown> {
   const cfg = vscode.workspace.getConfiguration("bdl");
   return {
     generoVersion: cfg.get<string>("generoVersion"),
-    syntaxDiagnostics: cfg.get<string>("syntaxDiagnostics"),
-    missingDiagnostics: cfg.get<string>("missingDiagnostics"),
     logLevel: cfg.get<string>("server.logLevel"),
     globals: {
-      fileNotFoundDiagnostics: cfg.get<string>(
-        "globals.fileNotFoundDiagnostics",
-      ),
-      unresolvedSourceDiagnostics: cfg.get<string>(
-        "globals.unresolvedSourceDiagnostics",
-      ),
       searchPaths: cfg.get<string[]>("globals.searchPaths"),
     },
-    fieldDiagnostics: cfg.get<string>("fieldDiagnostics"),
-    recordMemberDiagnostics: cfg.get<string>("recordMemberDiagnostics"),
-    // 按诊断码覆盖级别（键为码、值为 off/error/warning/information/hint）。
-    // 必须在这里显式转交：collectSettings 是白名单，没列出来的键不会下发。
+    // 诊断级别的唯一入口：按诊断码覆盖（键为码、值为
+    // off/error/warning/information/hint）。collectSettings 是白名单，
+    // 这里必须显式转交，否则设置不会下发。
     diagnostics: cfg.get<Record<string, string>>("diagnostics") ?? {},
     // 内置符号表（P7-C）：项目级覆盖文件/路径与禁用列表。
     builtins: {

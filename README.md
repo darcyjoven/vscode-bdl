@@ -2,8 +2,9 @@
 
 Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 
-> 状态：**v0.1.2 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置）。
+> 状态：**v0.2.0 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置）。
 > 远程仓库：`git@github.com:darcyjoven/vscode-bdl.git`（本地目录仍叫 `vscode-extension/`）。
+> 完整操作手册：[docs/USER-GUIDE.md](docs/USER-GUIDE.md)（含截图/录屏占位与配置总表）。
 > 本仓库只保留 VSCode 交付物；计划、测试脚本、过程记录统一在 `bdl-lsp` 仓库。
 > v1 验证平台：**Linux + Windows**；macOS 后续兼容。
 > Genero 以 **2.50** 为基线；5.0 暂不排期。
@@ -26,7 +27,7 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 ## 安装
 
 ```bash
-code --install-extension 4gl-full-0.1.2.vsix
+code --install-extension 4gl-full-0.2.0.vsix
 ```
 
 ## LSP 二进制来源
@@ -52,29 +53,42 @@ make build          # 产出 artifacts/bin/bdl-lsp
 
 ## 设置项
 
-| 设置 | 默认 | 说明 |
+设置按“要不要改”分成三档，详细说明、示例与全部 40 个键见
+[使用手册第 8 节](docs/USER-GUIDE.md#8-配置说明)。
+
+**默认即可（基本不用改）**
+
+| 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.server.path` | 空 | LSP 可执行文件或所在目录 |
-| `bdl.server.logLevel` | `info` | 日志级别（error/warn/info/debug） |
-| `bdl.trace.server` | `off` | LSP 消息追踪通道 |
-| `bdl.generoVersion` | `2.50` | 目标 Genero 版本 |
-| `bdl.syntaxDiagnostics` | `error` | 语法错误级别 |
-| `bdl.missingDiagnostics` | `warning` | 缺失内容级别 |
-| `bdl.limits.maxFileBytes` | 2097152 | 超过则不诊断 |
-| `bdl.limits.maxFileLines` | 20000 | 超过则不诊断 |
-| `bdl.limits.maxIssues` | 200 | 单文件诊断上限 |
-| `bdl.limits.parseTimeoutMs` | 2000 | 单次解析超时 |
-| `bdl.builtins.enable` | `true` | 内置符号表（`STATUS`/`SQLCA`/`fgl_*`…）。关掉 = 这些名字重新报"无法确定来源" |
-| `bdl.builtins.paths` | `[]` | 额外的内置符号覆盖文件/目录（相对工作区根） |
-| `bdl.builtins.disable` | `[]` | 本项目里不当内置的名字（大小写不敏感） |
-| `bdl.link.enable` | `true` | 程序链接资料。关掉 = `function-not-found` 与 `link-data-*` 都不生效 |
-| `bdl.link.dataDir` | `.link` | 资料目录（`links.jsonl` / `links.meta.json`） |
-| `bdl.link.moduleRoots` | `[]` | 模组根（空 = 自动探测 `tiptop` / `topcust`） |
-| `bdl.link.globalModules` | `["sub","lib","qry"]` | 对所有程序可见的模组（扁平规则，含它们自己） |
-| `bdl.link.maxAgeDays` | `7` | 资料超过这么多天算过期，只在资料文件上提示 |
-| `bdl.ignore.files` | `[]` | 整文件忽略诊断并排除出工作区索引（`**` 跨目录） |
-| `bdl.ignore.fields` | `[]` | 只忽略这些字段名的 `field-not-in-form`（大小写不敏感） |
-| `bdl.ignore.forms` | `[]` | 忽略这些表单的字段类诊断（字面量/文件名/路径） |
+| `bdl.diagnostics` | `{}` | 按诊断码覆盖级别；唯一诊断入口 |
+| `bdl.format.keywords` | `unchanged` | 关键字大小写 |
+| `bdl.format.indentStyle` | `auto` | 缩进风格 |
+| `bdl.format.indentSize` | `0` | 缩进宽度，0 跟随原文件 |
+| `bdl.limits.*` | 见手册 | 大文件、行数、诊断条数、解析超时保护 |
+| `bdl.index.enable` / `bdl.schema.enable` / `bdl.builtins.enable` | `true` | 项目解析默认开启 |
+
+**不配置就用不了**
+
+| 键 | 默认 | 作用 |
+|---|---|---|
+| `bdl.link.*` | 链接资料目录 `.link` | 跨模块函数索引；先生成 `.link/links.jsonl` |
+| `bdl.schema.paths` | `[]` | 只有需要展开 `LIKE table.*` 时才配 |
+| `bdl.perRoots` | `[]` | `.per` 不在同级 `per/` 时加解析根 |
+| `bdl.globals.searchPaths` | `[]` | GLOBALS 路径解析不到时加候选根 |
+| `bdl.deploy.target` | 空 | 配合 `.bdl-lsp/deploy.json` 使用 |
+
+**按项目调整**
+
+| 键 | 默认 | 作用 |
+|---|---|---|
+| `bdl.ignore.files` / `fields` / `forms` | `[]` | 忽略生成代码、历史代码 |
+| `bdl.link.moduleRoots` / `globalModules` / `sync.*` | 见手册 | 多模组与自动采集 |
+| `bdl.server.path` / `logLevel` / `trace.server` | 空 / `info` / `off` | 安装与排障 |
+
+旧诊断键（`bdl.syntaxDiagnostics`、`bdl.missingDiagnostics`、
+`bdl.fieldDiagnostics`、`bdl.recordMemberDiagnostics`、
+`bdl.globals.fileNotFoundDiagnostics`、`bdl.globals.unresolvedSourceDiagnostics`）
+已删除；升级后请把值迁到 `bdl.diagnostics` 对应诊断码。
 
 改 `server.path` / `server.logLevel` / `generoVersion` 后需要重启语言服务器，扩展会主动询问。
 
@@ -132,8 +146,11 @@ bdl-lsp link status
 `function-not-found` **0.1.5 起默认打开**：语料里根本没有的库函数
 （`cl_err3`、`WSHelper_*`）已经由"外部函数过滤"自动认出来——被 ≥3 个文件或
 ≥5 次调用、且整份语料里找不到定义的函数名会写进 `links.meta.json`，视为存在。
-全量语料实测只剩 0.09 条/文件。想彻底关掉用
-`bdl.diagnostics.function-not-found: "off"`。
+全量语料实测只剩 0.09 条/文件。想彻底关掉：
+
+```jsonc
+{ "bdl.diagnostics": { "function-not-found": "off" } }
+```
 
 ## 自动采集（P7-D-3）
 
@@ -141,13 +158,14 @@ bdl-lsp link status
 
 ```jsonc
 {
-  "bdl.link.sync": {
-    "enable": true,
-    "source": "golang",                     // golang | command | file
-    "onStart": true,
-    "interval": 21600,                       // 秒；0 = 只在启动时同步
-    "db": { "host": "dbhost", "port": 1521, "service": "PROD", "user": "readonly" }
-  }
+  "bdl.link.sync.enable": true,
+  "bdl.link.sync.source": "golang",       // golang | command | file
+  "bdl.link.sync.onStart": true,
+  "bdl.link.sync.interval": 21600,        // 秒；0 = 只在启动时同步
+  "bdl.link.sync.db.host": "dbhost",
+  "bdl.link.sync.db.port": 1521,
+  "bdl.link.sync.db.service": "PROD",
+  "bdl.link.sync.db.user": "readonly"
 }
 ```
 
@@ -206,7 +224,7 @@ source ../bdl-lsp/scripts/dev-env.sh
 npm install          # NODE_ENV=production 会跳过 devDeps，需 `NODE_ENV= npm install --include=dev`
 npm run typecheck
 npm run build
-npm run package      # 生成 4gl-full-0.1.2.vsix
+npm run package      # 生成 4gl-full-0.2.0.vsix
 
 npm run grammars         # 从 grammar 源码重新生成 TextMate 语法
 npm run grammars:check   # 校验语法为最新
