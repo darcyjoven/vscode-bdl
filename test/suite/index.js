@@ -1017,7 +1017,78 @@ async function run() {
       }
     });
 
-    // 36. 关闭链接资料总开关：视图不再请求服务器
+    // 36. GLOBALS 索引不串味：同时打开多个文档时，
+    //     一个文档不能借用另一个文档的 GLOBALS 导入。
+    await test("GLOBALS 索引不跨文档串味", async () => {
+      // globals_main.4gl 引用 globals_defs.global（定义 g_counter）
+      const main = await openFixture("globals_main.4gl");
+      await waitForDiagnostics(
+        main.uri,
+        "globals_main.4gl 完成首轮诊断",
+        () => true,
+        20000,
+      );
+
+      // globals_other.4gl：**不引用**任何 .global，却用了 g_counter。
+      // 它应报 variable-source-unresolved —— 不能因为 main.4gl 开着
+      // 就借用 main.4gl 的导入（0.3.1 修的串味问题）。
+      const other = await openFixture("globals_unrelated.4gl");
+      const all = await waitForDiagnostics(
+        other.uri,
+        "globals_unrelated.4gl 报 variable-source-unresolved",
+        (list) =>
+          list.some(
+            (d) =>
+              d.code !== undefined &&
+              String(d.code).includes("variable-source-unresolved"),
+          ),
+        20000,
+      );
+      assert.ok(
+        all.some(
+          (d) =>
+            d.code !== undefined &&
+            String(d.code).includes("variable-source-unresolved"),
+        ),
+        "未引入 .global 的文档不应借用别的文档的 GLOBALS 符号",
+      );
+    });
+
+    // 37. 两个文档都引用同一个 .global 时，悬停的"来源"只列一次。
+    //     用户报的现象："一个字段来源于某个 globals 文件，且都是同一个文件"
+    //     ——即悬停里出现两条一模一样的 "xxx.global:2"。
+    await test("同一 .global 被多文档引用时来源不重复", async () => {
+      const other = await openFixture("globals_other.4gl");
+      const lines = other.getText().split("\n");
+      const useLine = lines.findIndex((l) => /g_counter/i.test(l));
+      assert.ok(useLine >= 0, "fixture 里找不到 g_counter");
+      const col = other.lineAt(useLine).text.toLowerCase().indexOf("g_counter");
+
+      const hover = await vscode.commands.executeCommand(
+        "vscode.executeHoverProvider",
+        other.uri,
+        new vscode.Position(useLine, col + 2),
+      );
+      assert.ok(Array.isArray(hover) && hover.length > 0, "悬停没有结果");
+
+      // 把所有悬停内容拼起来，数 "globals_defs.global" 出现几次
+      let text = "";
+      for (const h of hover) {
+        for (const c of h.contents ?? []) {
+          text += typeof c === "string" ? c : (c.value ?? "");
+        }
+      }
+      assert.ok(text.includes("globals_defs.global"), `悬停应写出来源文件：${text}`);
+
+      const count = text.split("globals_defs.global").length - 1;
+      assert.strictEqual(
+        count,
+        1,
+        `来源里应只出现 1 次 globals_defs.global，实际 ${count} 次：\n${text}`,
+      );
+    });
+
+    // 38. 关闭链接资料总开关：视图不再请求服务器
     await test("link.enable=false 时链接资料视图不发请求", async () => {
       const cfg = vscode.workspace.getConfiguration("bdl");
       await cfg.update(
