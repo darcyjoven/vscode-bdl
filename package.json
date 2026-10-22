@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "darcyjoven",
   "license": "MIT",
   "engines": {
@@ -97,6 +97,33 @@
           "default": [],
           "scope": "window",
           "markdownDescription": "额外的内置符号覆盖文件或目录（相对工作区根，按序加载，后者覆盖前者；目录里所有 `*.json` 都会加载）。\n\n项目约定路径 `.bdl-lsp/builtins.json` 会自动加载，不需要写在这里。"
+        },
+        "bdl.ignore.files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "整文件忽略诊断的 glob（工作区相对路径，`**` 跨目录；不含 `/` 的模式也按文件名匹配）。命中的文件不发布任何诊断，也不进入工作区符号索引。\n\n例：`[\"build/**\", \"**/*.bak.4gl\"]`"
+        },
+        "bdl.ignore.fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "忽略 `field-not-in-form` 的字段名 glob（大小写不敏感）。\n\n例：`[\"tmp_*\", \"legacy.field\"]`"
+        },
+        "bdl.ignore.forms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "markdownDescription": "忽略某张表单的全部字段类诊断的 glob（匹配表单字面量、文件名或相对路径，大小写不敏感）。\n\n例：`[\"cust\", \"**/per/old.per\"]`"
         },
         "bdl.index.enable": {
           "type": "boolean",

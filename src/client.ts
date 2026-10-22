@@ -177,6 +177,21 @@ function collectSettings(): Record<string, unknown> {
         },
       },
     },
+    // 工作区索引 / schema 索引（P6）：显式转交，避免只靠后续
+    // didChangeConfiguration 下发（首次启动时初始化选项里没有）。
+    index: {
+      enable: cfg.get<boolean>("index.enable") ?? true,
+    },
+    schema: {
+      enable: cfg.get<boolean>("schema.enable") ?? true,
+      paths: cfg.get<string[]>("schema.paths") ?? [],
+    },
+    // 忽略列表（P8）：文件/字段/表单 glob。
+    ignore: {
+      files: cfg.get<string[]>("ignore.files") ?? [],
+      fields: cfg.get<string[]>("ignore.fields") ?? [],
+      forms: cfg.get<string[]>("ignore.forms") ?? [],
+    },
     perRoots: cfg.get<string[]>("perRoots"),
     format: {
       keywords: cfg.get<string>("format.keywords"),

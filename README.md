@@ -2,7 +2,7 @@
 
 Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 
-> 状态：**v0.1.0 可用**（高亮、跳转、引用、大纲、悬停、诊断、配置）。
+> 状态：**v0.1.1 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置）。
 > 远程仓库：`git@github.com:darcyjoven/vscode-bdl.git`（本地目录仍叫 `vscode-extension/`）。
 > 本仓库只保留 VSCode 交付物；计划、测试脚本、过程记录统一在 `bdl-lsp` 仓库。
 > v1 验证平台：**Linux + Windows**；macOS 后续兼容。
@@ -26,7 +26,7 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 ## 安装
 
 ```bash
-code --install-extension 4gl-full-0.1.0.vsix
+code --install-extension 4gl-full-0.1.1.vsix
 ```
 
 ## LSP 二进制来源
@@ -72,6 +72,9 @@ make build          # 产出 artifacts/bin/bdl-lsp
 | `bdl.link.moduleRoots` | `[]` | 模组根（空 = 自动探测 `tiptop` / `topcust`） |
 | `bdl.link.globalModules` | `["sub","lib","qry"]` | 对所有程序可见的模组（扁平规则，含它们自己） |
 | `bdl.link.maxAgeDays` | `7` | 资料超过这么多天算过期，只在资料文件上提示 |
+| `bdl.ignore.files` | `[]` | 整文件忽略诊断并排除出工作区索引（`**` 跨目录） |
+| `bdl.ignore.fields` | `[]` | 只忽略这些字段名的 `field-not-in-form`（大小写不敏感） |
+| `bdl.ignore.forms` | `[]` | 忽略这些表单的字段类诊断（字面量/文件名/路径） |
 
 改 `server.path` / `server.logLevel` / `generoVersion` 后需要重启语言服务器，扩展会主动询问。
 
@@ -188,6 +191,10 @@ Zed 没有等价的自定义视图，用 `bdl-lsp link status` 看同样的数�
 | `Genero BDL: 重启语言服务器` | 重新查找并启动 LSP |
 | `Genero BDL: 显示语言服务器信息` | 展示当前路径、来源、全部设置 |
 | `Genero BDL: 显示输出` | 打开输出通道 |
+| `Genero BDL: 部署到远程服务器并编译` | 按 `.bdl-lsp/deploy.json` 上传并编译 |
+| `Genero BDL: 部署当前文件并编译` | 只部署当前 `.4gl/.global/.per`（先保存未保存内容） |
+| `Genero BDL: 部署预演（不上传）` | dry-run，列出将要上传/编译的文件 |
+| `Genero BDL: 列出部署目标` | 打印配置里的目标 |
 
 ## 本地开发
 
@@ -197,11 +204,11 @@ source ../bdl-lsp/scripts/dev-env.sh
 npm install          # NODE_ENV=production 会跳过 devDeps，需 `NODE_ENV= npm install --include=dev`
 npm run typecheck
 npm run build
-npm run package      # 生成 4gl-full-0.1.0.vsix
+npm run package      # 生成 4gl-full-0.1.1.vsix
 
 npm run grammars         # 从 grammar 源码重新生成 TextMate 语法
 npm run grammars:check   # 校验语法为最新
-npm run test:e2e         # 真实 VSCode 扩展宿主里的 14 个用例
+npm run test:e2e         # 真实 VSCode 扩展宿主里的 33 个用例
 ```
 
 完整 e2e（含构建 LSP、类型检查、打包）：
