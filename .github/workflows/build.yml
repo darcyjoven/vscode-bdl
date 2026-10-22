@@ -122,7 +122,7 @@ jobs:
           count=$(unzip -l dist-vsix/*.vsix | tail -1 | awk '{print $2}')
           echo "文件数：$count"
           if [ "$count" -gt 15 ]; then
-            echo "VSIX 文件数异常（$count），检查 .vscodeignore"
+            echo "VSIX 文件数异常（${count}），检查 .vscodeignore"
             exit 1
           fi
 

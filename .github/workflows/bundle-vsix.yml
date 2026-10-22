@@ -81,7 +81,7 @@ jobs:
         run: |
           set -euo pipefail
           got="$(uname -m)"
-          echo "runner=$RUNNER_OS/$got，目标=${{ matrix.target }}"
+          echo "runner=$RUNNER_OS/${got}，目标=${{ matrix.target }}"
           if [ "$got" != "${{ matrix.uname_arch }}" ]; then
             echo "runner 架构与矩阵不符：期望 ${{ matrix.uname_arch }}，实际 $got"
             exit 1
