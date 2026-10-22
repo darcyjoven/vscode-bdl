@@ -3,8 +3,9 @@
 // 查找顺序（与 README / 设置说明一致）：
 //  1. 设置 `bdl.server.path`（可以是可执行文件，也可以是包含它的目录）
 //  2. 环境变量 `BDL_LSP_PATH`（同上，文件或目录）
-//  3. 工作区 `.bdl-lsp/bin/bdl-lsp`
-//  4. 系统 `PATH`
+//  3. 扩展包内置 `bin/bdl-lsp`（平台包自带；安装即可用）
+//  4. 工作区 `.bdl-lsp/bin/bdl-lsp`
+//  5. 系统 `PATH`
 //
 // 找不到时抛出的错误必须**可操作**：告诉用户去哪儿放二进制、或者怎么改设置。
 import * as fs from "node:fs";
@@ -20,6 +21,7 @@ export function binaryName(): string {
 export type BinaryOrigin =
   | "setting"
   | "env"
+  | "bundled"
   | "workspace"
   | "path";
 
@@ -82,6 +84,12 @@ function fromFileOrDir(input: string): string | undefined {
   return undefined;
 }
 
+/** 当前进程对应的 VSCode 平台标识，用于识别内置二进制的目标。 */
+function currentTarget(): string {
+  const arch = process.arch === "arm64" ? "arm64" : "x64";
+  return `${process.platform}-${arch}`;
+}
+
 /** 展开开头的 `~`，因为 VSCode 设置里用户习惯写 `~/...`。 */
 function expandHome(p: string): string {
   if (p === "~") {
@@ -112,6 +120,46 @@ function fromPathEnv(): string | undefined {
   return undefined;
 }
 
+/**
+ * 扩展包内置的二进制。
+ *
+ * 平台包（win32-x64 / linux-x64 / darwin-x64 / darwin-arm64）把对应平台
+ * 的 `bdl-lsp` 放在扩展根目录的 `bin/` 下，安装后无需再单独准备。
+ *
+ * VSIX 解压后 POSIX 可执行位可能丢失，这里补一次 chmod；失败不抛异常，
+ * 继续尝试其它来源。
+ */
+function fromBundled(extensionPath?: string): string | undefined {
+  if (!extensionPath) {
+    return undefined;
+  }
+  // 装错平台包时直接跳过，避免 spawn 报 exec format error；
+  // BUILD-INFO.json 不存在（开发期直接放二进制）时不做限制。
+  try {
+    const info = JSON.parse(
+      fs.readFileSync(path.join(extensionPath, "bin", "BUILD-INFO.json"), "utf8"),
+    ) as { target?: string };
+    if (info.target && info.target !== currentTarget()) {
+      return undefined;
+    }
+  } catch {
+    // 没有 BUILD-INFO.json：按可执行文件本身判断
+  }
+  const candidate = path.join(extensionPath, "bin", binaryName());
+  if (process.platform !== "win32") {
+    try {
+      fs.accessSync(candidate, fs.constants.X_OK);
+    } catch {
+      try {
+        fs.chmodSync(candidate, 0o755);
+      } catch {
+        // 安装目录只读等情况下交给 isExecutableFile 判断
+      }
+    }
+  }
+  return isExecutableFile(candidate) ? candidate : undefined;
+}
+
 /** 工作区内的约定位置；多根工作区按顺序尝试。 */
 function fromWorkspace(): { file: string; root: string } | undefined {
   const folders = vscode.workspace.workspaceFolders ?? [];
@@ -137,7 +185,7 @@ function fromWorkspace(): { file: string; root: string } | undefined {
  *
  * 不做自动下载：发布与自动下载暂不排期，开发期用本地构建产物。
  */
-export function resolveBinary(): ResolveResult {
+export function resolveBinary(extensionPath?: string): ResolveResult {
   const attempts: string[] = [];
 
   const configured = vscode.workspace
@@ -166,6 +214,21 @@ export function resolveBinary(): ResolveResult {
     }
     attempts.push(`环境变量 BDL_LSP_PATH = ${envValue}`);
   }
+
+  const bundled = fromBundled(extensionPath);
+  if (bundled) {
+    return {
+      ok: true,
+      binary: {
+        command: bundled,
+        origin: "bundled",
+        detail: path.join("bin", binaryName()),
+      },
+    };
+  }
+  attempts.push(
+    `扩展内置 bin/${binaryName()}（不存在，或安装包与当前平台不匹配）`,
+  );
 
   const ws = fromWorkspace();
   if (ws) {
@@ -209,13 +272,14 @@ function buildHint(attempts: string[]): string {
     ...attempts.map((a) => `  • ${a}`),
     "",
     "解决办法（任选其一）：",
-    "  1. 在设置中填写 bdl.server.path（可填可执行文件或所在目录）；",
-    "  2. 设置环境变量 BDL_LSP_PATH；",
-    `  3. 把 ${binaryName()} 放到工作区的 .bdl-lsp/bin/ 下；`,
-    `  4. 把 ${binaryName()} 加入系统 PATH。`,
+    "  1. 重新安装与当前系统/芯片匹配的扩展包（安装包自带语言服务器）；",
+    "  2. 在设置中填写 bdl.server.path（可填可执行文件或所在目录）；",
+    "  3. 设置环境变量 BDL_LSP_PATH；",
+    `  4. 把 ${binaryName()} 放到工作区的 .bdl-lsp/bin/ 下；`,
+    `  5. 把 ${binaryName()} 加入系统 PATH。`,
     "",
-    "当前开发阶段使用本地构建产物，可在 bdl-lsp 仓库执行：",
-    "  make build   # 产出 bdl-lsp/bin/bdl-lsp",
+    "从源码运行扩展时，可先在 bdl-lsp 仓库执行：",
+    "  make build   # 产出 bdl-lsp/artifacts/bin/bdl-lsp",
     "",
     "设置修改后执行命令「Genero BDL: 重启语言服务器」生效。",
   ];
@@ -227,6 +291,7 @@ export function describeBinary(binary: ResolvedBinary): string {
   const originText: Record<BinaryOrigin, string> = {
     setting: "设置 bdl.server.path",
     env: "环境变量 BDL_LSP_PATH",
+    bundled: "扩展内置 bin/",
     workspace: "工作区 .bdl-lsp/bin",
     path: "系统 PATH",
   };

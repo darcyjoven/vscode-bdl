@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "darcyjoven",
   "license": "MIT",
   "engines": {
@@ -78,7 +78,7 @@
           "type": "string",
           "default": "",
           "scope": "machine-overridable",
-          "markdownDescription": "`bdl-lsp` 可执行文件路径（文件或所在目录）。留空时依次查找：环境变量 `BDL_LSP_PATH`、工作区 `.bdl-lsp/bin/bdl-lsp`、系统 `PATH`。修改后需重启语言服务器。"
+          "markdownDescription": "`bdl-lsp` 可执行文件路径（文件或所在目录）。留空时依次查找：环境变量 `BDL_LSP_PATH`、扩展内置 `bin/`、工作区 `.bdl-lsp/bin/bdl-lsp`、系统 `PATH`。修改后需重启语言服务器。\n\n平台安装包已内置语言服务器，通常不需要设置此项。"
         },
         "bdl.server.logLevel": {
           "type": "string",
@@ -482,8 +482,10 @@
     "test:e2e": "npm run build && node test/runTest.js",
     "grammars": "node ../bdl-lsp/scripts/generate-tm-grammars.mjs",
     "grammars:check": "node ../bdl-lsp/scripts/generate-tm-grammars.mjs --check",
-    "package": "npm run typecheck && npm run build && vsce package --no-dependencies --allow-missing-repository --skip-license",
-    "vscode:prepublish": "npm run typecheck && npm run build"
+    "package": "npm run package:platform",
+    "vscode:prepublish": "npm run typecheck && npm run build",
+    "package:platform": "npm run typecheck && npm run build && node scripts/package-vsix.mjs",
+    "package:dev": "npm run typecheck && npm run build && node scripts/package-vsix.mjs --dev"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

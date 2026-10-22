@@ -1,6 +1,6 @@
 # Genero BDL for VSCode 使用手册
 
-> 适用扩展 `0.2.0`，语言服务器 `bdl-lsp 0.3.0`。  
+> 适用扩展 `0.3.0`，语言服务器 `bdl-lsp 0.3.0`。
 > 本文面向日常开发，不要求了解 LSP 或 Go。遇到问题时先看
 > [常见问题](#常见问题)，再按“显示服务器信息 / 显示输出”收集日志。
 
@@ -25,19 +25,35 @@
 两种方式任选：
 
 - 在 VSCode 扩展市场搜索 `Genero BDL (4GL)`（扩展 ID
-  `darcyjoven.4gl-full`），点“安装”；
-- 或下载 `.vsix`，在“扩展 → … → 从 VSIX 安装”中选择文件。
+  `darcyjoven.4gl-full`），点“安装”；市场会按你的系统/芯片分发对应平台包；
+- 或下载平台 `.vsix`（如 `4gl-full-0.3.0-win32-x64.vsix`），在
+  “扩展 → … → 从 VSIX 安装”中选择文件。
 
-扩展本身不包含语言服务器二进制。首次使用前需要准备 `bdl-lsp`，二选一：
+**平台安装包已经内置 `bdl-lsp`，不需要另外安装语言服务器。** 支持：
 
-- 把 `bdl-lsp` 放进 `PATH`；
-- 在设置里填绝对路径：`bdl.server.path`。
+| 平台 | 包标识 |
+|---|---|
+| Windows x64 | `win32-x64` |
+| Linux x64 | `linux-x64` |
+| macOS Intel | `darwin-x64` |
+| macOS Apple Silicon | `darwin-arm64` |
 
-扩展查找服务器的顺序是：`bdl.server.path` → 环境变量 `BDL_LSP_PATH`
-→ 工作区 `.bdl-lsp/bin/bdl-lsp` → 系统 `PATH`。团队可以把二进制放进
-`.bdl-lsp/bin/`，这样不用每人配路径。
+扩展查找服务器的顺序：
 
-> 📷 **截图位**：`images/vscode/01-install.png`  
+1. 设置 `bdl.server.path`；
+2. 环境变量 `BDL_LSP_PATH`；
+3. 扩展内置 `bin/bdl-lsp`；
+4. 工作区 `.bdl-lsp/bin/bdl-lsp`；
+5. 系统 `PATH`。
+
+正常安装不需要改任何路径。只有在“临时用本地构建调试”或“公司内部分发自己的
+二进制”时才需要 1/2/4：设置 `bdl.server.path`、设 `BDL_LSP_PATH`，或把文件
+放到工作区 `.bdl-lsp/bin/`。
+
+从源码运行扩展（未打包）没有内置二进制，先在 `bdl-lsp` 执行
+`make build`，或用上面的方式指定路径。
+
+> 📷 **截图位**：`images/vscode/01-install.png`
 > 建议内容：扩展市场里的安装页，能看清扩展名和“安装”按钮。
 
 ### 1.2 打开项目
@@ -52,7 +68,7 @@
 打开后右下角会出现 BDL 语言模式。第一次索引大项目可能需要几秒到几十秒，
 状态栏和“输出 → BDL Language Server”会显示进度。
 
-> 📷 **截图位**：`images/vscode/02-first-open.png`  
+> 📷 **截图位**：`images/vscode/02-first-open.png`
 > 建议内容：打开项目后的 Problems 面板 + 状态栏语言模式。
 
 ### 1.3 先做一次自检
@@ -101,7 +117,7 @@
 - `Shift+F12` 查引用；
 - 跳转结果可能跨文件，返回用 VSCode 的“后退”。
 
-> 🎬 **录屏位**：`images/vscode/03-hover.gif`  
+> 🎬 **录屏位**：`images/vscode/03-hover.gif`
 > 建议内容：悬停一个来自 GLOBALS 的变量，显示来源，再按 F12 跳过去。
 
 ### 3.2 补全
@@ -110,7 +126,7 @@
 补全会结合当前文件符号、GLOBALS、内置符号表；配置了链接资料后，还能补全
 可用的模组函数。
 
-> 🎬 **录屏位**：`images/vscode/04-completion.gif`  
+> 🎬 **录屏位**：`images/vscode/04-completion.gif`
 > 建议内容：输入 `DIS` 后出现 `DISPLAY`，再输入一个函数名前缀。
 
 ### 3.3 重命名与快速修复
@@ -132,7 +148,7 @@
 
 `.per` 文件不做格式化，这是有意为之：表单布局的空白有语义，自动改容易破坏界面。
 
-> 🎬 **录屏位**：`images/vscode/05-format.gif`  
+> 🎬 **录屏位**：`images/vscode/05-format.gif`
 > 建议内容：选中一段缩进混乱的 4GL，执行格式化，展示前后对比。
 
 ---
@@ -205,7 +221,7 @@
 } }
 ```
 
-> 📷 **截图位**：`images/vscode/06-field-fix.png`  
+> 📷 **截图位**：`images/vscode/06-field-fix.png`
 > 建议内容：`INPUT ... FROM` 引用不存在的字段，Problems 里有
 > `field-not-in-form`，光标处出现 Quick Fix。
 
@@ -320,10 +336,10 @@ bdl-lsp link status -root .
 - 命令 `Genero BDL: 反查引用程序` 从当前符号反查调用方，选中后跳到对应 `.4gl`；
 - 反查结果多时用 `Genero BDL: 显示更多反查结果`。
 
-> 📷 **截图位**：`images/vscode/07-link-view.png`  
+> 📷 **截图位**：`images/vscode/07-link-view.png`
 > 建议内容：侧边栏链接资料树，展开一个程序节点。
 
-> 🎬 **录屏位**：`images/vscode/08-link-reverse.gif`  
+> 🎬 **录屏位**：`images/vscode/08-link-reverse.gif`
 > 建议内容：在一个函数上执行反查，Quick Open 列表里选一个 `.4gl` 并跳转。
 
 ### 6.3 配置链接资料
@@ -410,7 +426,7 @@ bdl-lsp link status -root .
 
 设置 `bdl.deploy.target` 可指定默认目标；留空用 `defaultTarget`。
 
-> 📷 **截图位**：`images/vscode/09-deploy.png`  
+> 📷 **截图位**：`images/vscode/09-deploy.png`
 > 建议内容：执行“部署预演”后的输出，包含目标、上传列表、编译命令。
 
 ### 7.3 部署排查
@@ -463,7 +479,7 @@ VSCode 设置适合个人临时调整。
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.server.path` | `""` | `bdl-lsp` 绝对路径；留空走工作区 `artifacts/bin` 或 `PATH` |
+| `bdl.server.path` | `""` | 覆盖内置二进制：可填绝对路径或所在目录；留空走内置 `bin/` → 环境变量 → 工作区 → `PATH` |
 | `bdl.server.logLevel` | `info` | 服务端日志级别：`debug`/`info`/`warn`/`error` |
 | `bdl.trace.server` | `off` | LSP 协议跟踪：`off`/`messages`/`verbose` |
 | `bdl.generoVersion` | `2.50` | 目标 Genero 版本：`2.50`/`3.00`/`4.00` |

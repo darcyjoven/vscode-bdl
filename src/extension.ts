@@ -62,7 +62,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
 
     vscode.commands.registerCommand("bdl.showServerInfo", async () => {
       const running = currentBinary();
-      const resolved = resolveBinary();
+      const resolved = resolveBinary(context.extensionPath);
       const lines: string[] = [];
 
       lines.push("语言服务器");

@@ -1,0 +1,194 @@
+name: bundle-vsix
+
+# 构建“安装即用”的平台 VSIX：每个包装对应平台的 bdl-lsp，用户不需要另外安装。
+#
+# 为什么按平台分开打包：
+#   bdl-lsp 是 CGO + tree-sitter 的原生二进制，不能一个包跨三个系统。
+#   VSCode 的 `--target` 会写进 VSIX 清单，市场/安装器据此只分发匹配的包。
+#
+# 触发：
+#   - 手动 Run workflow（可指定 bdl-lsp 的 ref）
+#   - push tag（v*）
+#
+# 产物：Actions 页面每个 job 的 vsix-<target> artifact。
+
+on:
+  workflow_dispatch:
+    inputs:
+      bdl_lsp_ref:
+        description: "bdl-lsp 的 git ref（分支/tag/SHA）"
+        required: true
+        default: main
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "24"
+
+jobs:
+  bundle:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: win32-x64
+            goos: windows
+            goarch: amd64
+            binary: bdl-lsp.exe
+            uname_arch: x86_64
+          - os: ubuntu-22.04
+            target: linux-x64
+            goos: linux
+            goarch: amd64
+            binary: bdl-lsp
+            uname_arch: x86_64
+          - os: macos-13
+            target: darwin-x64
+            goos: darwin
+            goarch: amd64
+            binary: bdl-lsp
+            uname_arch: x86_64
+          - os: macos-14
+            target: darwin-arm64
+            goos: darwin
+            goarch: arm64
+            binary: bdl-lsp
+            uname_arch: arm64
+    steps:
+      - name: 检出扩展
+        uses: actions/checkout@v4
+        with:
+          path: vscode-extension
+
+      - name: 检出 bdl-lsp
+        uses: actions/checkout@v4
+        with:
+          repository: darcyjoven/bdl-lsp
+          path: bdl-lsp
+          ref: ${{ inputs.bdl_lsp_ref || 'main' }}
+
+      - name: 确认 runner 架构
+        shell: bash
+        run: |
+          set -euo pipefail
+          got="$(uname -m)"
+          echo "runner=$RUNNER_OS/$got，目标=${{ matrix.target }}"
+          if [ "$got" != "${{ matrix.uname_arch }}" ]; then
+            echo "runner 架构与矩阵不符：期望 ${{ matrix.uname_arch }}，实际 $got"
+            exit 1
+          fi
+
+      - name: 安装 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: bdl-lsp/go.mod
+          cache-dependency-path: bdl-lsp/go.sum
+
+      - name: 安装 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+
+      # Windows 的 CGO 需要 MinGW gcc；VS Code 的其它步骤仍用 Git Bash。
+      - name: 安装 MinGW（Windows）
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: mingw-w64-x86_64-gcc
+
+      - name: 构建 bdl-lsp
+        id: lsp
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd bdl-lsp
+          VERSION="$(sed -n 's/^var version = "\(.*\)"/\1/p' main.go)"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "bdl-lsp $VERSION -> ${{ matrix.target }}"
+
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            export PATH="/c/msys64/mingw64/bin:$PATH"
+            export CC=gcc
+          fi
+
+          mkdir -p ../bdl-lsp-bin
+          export CGO_ENABLED=1
+          export GOOS=${{ matrix.goos }}
+          export GOARCH=${{ matrix.goarch }}
+
+          # Windows 先尝试静态链接，避免用户机器缺 libwinpthread-1.dll。
+          # 静态失败时退回动态链接，并把 MinGW 运行库一起打包。
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            if go build -trimpath \
+              -ldflags "-s -w -X main.version=$VERSION -linkmode external -extldflags '-static'" \
+              -o "../bdl-lsp-bin/${{ matrix.binary }}" .; then
+              echo "Windows 静态链接成功"
+            else
+              echo "Windows 静态链接失败，退回动态链接并打包运行库"
+              go build -trimpath \
+                -ldflags "-s -w -X main.version=$VERSION" \
+                -o "../bdl-lsp-bin/${{ matrix.binary }}" .
+              cp /c/msys64/mingw64/bin/libwinpthread-1.dll ../bdl-lsp-bin/ 2>/dev/null || true
+              cp /c/msys64/mingw64/bin/libgcc_s_seh-1.dll ../bdl-lsp-bin/ 2>/dev/null || true
+            fi
+          else
+            go build -trimpath \
+              -ldflags "-s -w -X main.version=$VERSION" \
+              -o "../bdl-lsp-bin/${{ matrix.binary }}" .
+          fi
+
+          "../bdl-lsp-bin/${{ matrix.binary }}" version
+
+      - name: 安装扩展依赖
+        working-directory: vscode-extension
+        run: npm ci --include=dev
+        env:
+          NODE_ENV: ""
+
+      - name: 打包平台 VSIX
+        working-directory: vscode-extension
+        env:
+          BDL_VSCODE_TARGET: ${{ matrix.target }}
+          BDL_LSP_BINARY: ${{ github.workspace }}/bdl-lsp-bin/${{ matrix.binary }}
+          BDL_LSP_VERSION: ${{ steps.lsp.outputs.version }}
+        run: npm run package
+
+      - name: 校验 VSIX 内容
+        working-directory: vscode-extension
+        shell: bash
+        run: |
+          set -euo pipefail
+          VSIX="$(ls dist-vsix/*.vsix)"
+          ls -lh "$VSIX"
+          unzip -l "$VSIX"
+          for f in "extension/bin/${{ matrix.binary }}" \
+                   "extension/bin/BUILD-INFO.json" \
+                   "extension/dist/extension.js" \
+                   "extension/syntaxes/bdl.tmLanguage.json" \
+                   "extension/language-configuration/bdl.json"; do
+            unzip -l "$VSIX" | grep -q "$f" || { echo "VSIX 缺少 $f"; exit 1; }
+          done
+          if unzip -l "$VSIX" | grep -qE 'extension/(src|test|\.github|node_modules|scripts)/'; then
+            echo "VSIX 夹带了仓库内部文件"
+            exit 1
+          fi
+
+      - name: 上传平台 VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: vsix-${{ matrix.target }}
+          path: vscode-extension/dist-vsix/*.vsix
+          if-no-files-found: error

@@ -96,30 +96,30 @@ jobs:
       - name: 构建 dist
         run: npm run build
 
-      - name: 打包 VSIX
-        run: npm run package
+      - name: 打包开发 VSIX（不含二进制，仅 CI 冒烟）
+        run: npm run package:dev
 
       - name: 检查 VSIX 内容
         run: |
           set -eux
-          ls -l *.vsix
-          unzip -l *.vsix
+          ls -l dist-vsix/*.vsix
+          unzip -l dist-vsix/*.vsix
           # 必须带上语法与语言配置，否则装上去等于没高亮
           for f in extension/syntaxes/bdl.tmLanguage.json \
                    extension/syntaxes/per.tmLanguage.json \
                    extension/language-configuration/bdl.json \
                    extension/language-configuration/per.json \
                    extension/dist/extension.js; do
-            unzip -l *.vsix | grep -q "$f" || { echo "VSIX 缺少 $f"; exit 1; }
+            unzip -l dist-vsix/*.vsix | grep -q "$f" || { echo "VSIX 缺少 $f"; exit 1; }
           done
           # 不能夹带仓库内部文件（曾经把 .github/workflows 打进包里）
-          if unzip -l *.vsix | grep -qE 'extension/(src|test|\.github|node_modules)/'; then
+          if unzip -l dist-vsix/*.vsix | grep -qE 'extension/(src|test|\.github|node_modules)/'; then
             echo "VSIX 夹带了仓库内部文件："
-            unzip -l *.vsix | grep -E 'extension/(src|test|\.github|node_modules)/'
+            unzip -l dist-vsix/*.vsix | grep -E 'extension/(src|test|\.github|node_modules)/'
             exit 1
           fi
           # 文件数应保持在 10 个左右，暴涨说明 .vscodeignore 失效
-          count=$(unzip -l *.vsix | tail -1 | awk '{print $2}')
+          count=$(unzip -l dist-vsix/*.vsix | tail -1 | awk '{print $2}')
           echo "文件数：$count"
           if [ "$count" -gt 15 ]; then
             echo "VSIX 文件数异常（$count），检查 .vscodeignore"
@@ -130,5 +130,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: vsix
-          path: vscode-extension/*.vsix
+          path: vscode-extension/dist-vsix/*.vsix
           if-no-files-found: error

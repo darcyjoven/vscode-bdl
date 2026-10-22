@@ -16,3 +16,4 @@ package-lock.json
 .gitattributes
 .editorconfig
 **/*.map
+dist-vsix/**

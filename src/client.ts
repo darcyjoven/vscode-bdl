@@ -230,7 +230,7 @@ export async function startClient(
     return { ok: true };
   }
 
-  const resolved = resolveBinary();
+  const resolved = resolveBinary(context.extensionPath);
   if (!resolved.ok) {
     return { ok: false, message: resolved.message, hint: resolved.hint };
   }

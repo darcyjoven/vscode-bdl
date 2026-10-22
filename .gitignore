@@ -6,3 +6,6 @@ dist/
 coverage/
 .vscode-test/
 .DS_Store
+
+bin/
+dist-vsix/

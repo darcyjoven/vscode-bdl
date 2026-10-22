@@ -2,11 +2,11 @@
 
 Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 
-> 状态：**v0.2.0 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置）。
+> 状态：**v0.3.0 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置；平台包内置语言服务器）。
 > 远程仓库：`git@github.com:darcyjoven/vscode-bdl.git`（本地目录仍叫 `vscode-extension/`）。
 > 完整操作手册：[docs/USER-GUIDE.md](docs/USER-GUIDE.md)（含截图/录屏占位与配置总表）。
 > 本仓库只保留 VSCode 交付物；计划、测试脚本、过程记录统一在 `bdl-lsp` 仓库。
-> v1 验证平台：**Linux + Windows**；macOS 后续兼容。
+> 验证平台：**Linux + Windows + macOS**；macOS 分 `darwin-x64` / `darwin-arm64` 两个包。
 > Genero 以 **2.50** 为基线；5.0 暂不排期。
 
 ## 已实现能力
@@ -26,30 +26,58 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 
 ## 安装
 
+**平台安装包内置 `bdl-lsp`，装完即可使用，不需要另外安装语言服务器。**
+
+支持的目标平台：
+
+| 平台 | 包标识 | 说明 |
+|---|---|---|
+| Windows x64 | `win32-x64` | `bdl-lsp.exe` 随包内置 |
+| Linux x64 | `linux-x64` | `bdl-lsp` 随包内置（glibc） |
+| macOS Intel | `darwin-x64` | `bdl-lsp` 随包内置 |
+| macOS Apple Silicon | `darwin-arm64` | `bdl-lsp` 随包内置 |
+
+来源二选一：
+
+- 扩展市场搜索 `Genero BDL (4GL)`（扩展 ID `darcyjoven.4gl-full`），
+  市场会按当前系统/芯片分发对应平台包；
+- 从 [GitHub Actions](../../actions) 的 `bundle-vsix` 工作流产出的
+  `vsix-<target>` artifact 下载，解压后安装：
+
 ```bash
-code --install-extension 4gl-full-0.2.0.vsix
+code --install-extension 4gl-full-0.3.0-linux-x64.vsix
 ```
 
-## LSP 二进制来源
+平台包的名字带目标标识，例如 `4gl-full-0.3.0-win32-x64.vsix`。
+不要用错架构：`darwin-arm64` 包无法在 Intel Mac 上运行。
 
-目标体验是"无感自动下载"（从 `bdl-lsp` Release 按平台/版本下载、校验、缓存），但**发布与自动下载暂不排期**。
+## 语言服务器来源
 
-当前按以下顺序查找本地构建的 `bdl-lsp`：
+打包安装时优先使用扩展内置的 `bin/`，查找顺序：
 
 1. 设置 `bdl.server.path`（可填可执行文件**或所在目录**，支持 `~/`）
 2. 环境变量 `BDL_LSP_PATH`（同上）
-3. 工作区 `.bdl-lsp/bin/bdl-lsp`
-4. 系统 `PATH`
+3. 扩展内置 `bin/bdl-lsp`（平台安装包自带）
+4. 工作区 `.bdl-lsp/bin/bdl-lsp`
+5. 系统 `PATH`
 
-四级都找不到时不会静默失败：会弹出可操作的提示，列出已尝试的位置、四种解决办法，并提供「打开设置」按钮。
+五级都找不到时不会静默失败：会弹出可操作的提示，列出已尝试的位置和解决办法，
+并提供「打开设置」按钮。覆盖内置二进制有两种场景：
 
-构建语言服务器：
+- 临时用本地构建调试：设置 `bdl.server.path` 或 `BDL_LSP_PATH`；
+- 公司内部分发自己的二进制：把文件放到工作区 `.bdl-lsp/bin/`。
+
+从源码运行扩展（未打包）时没有内置二进制，先在 `bdl-lsp` 构建：
 
 ```bash
 cd ../bdl-lsp
 source scripts/dev-env.sh
 make build          # 产出 artifacts/bin/bdl-lsp
 ```
+
+平台 VSIX 由 CI 矩阵构建（`.github/workflows/bundle-vsix.yml`），
+Windows / Linux / macOS 分别在原生 runner 上编译对应的 `bdl-lsp`；
+macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 
 ## 设置项
 
@@ -224,7 +252,8 @@ source ../bdl-lsp/scripts/dev-env.sh
 npm install          # NODE_ENV=production 会跳过 devDeps，需 `NODE_ENV= npm install --include=dev`
 npm run typecheck
 npm run build
-npm run package      # 生成 4gl-full-0.2.0.vsix
+npm run package      # 平台包：内置当前平台的 bdl-lsp
+npm run package:dev  # 开发包：不含二进制，只用于 CI 冒烟
 
 npm run grammars         # 从 grammar 源码重新生成 TextMate 语法
 npm run grammars:check   # 校验语法为最新
