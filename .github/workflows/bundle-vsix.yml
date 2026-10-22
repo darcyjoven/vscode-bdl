@@ -50,13 +50,14 @@ jobs:
             goarch: amd64
             binary: bdl-lsp
             uname_arch: x86_64
-          - os: macos-13
+          # macOS 13 已下线；Intel 用 macos-15-intel，Apple Silicon 用 macos-15。
+          - os: macos-15-intel
             target: darwin-x64
             goos: darwin
             goarch: amd64
             binary: bdl-lsp
             uname_arch: x86_64
-          - os: macos-14
+          - os: macos-15
             target: darwin-arm64
             goos: darwin
             goarch: arm64

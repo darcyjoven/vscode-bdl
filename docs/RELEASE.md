@@ -13,8 +13,8 @@
 |---|---|---|---|---|
 | `win32-x64` | `windows-latest` | `windows/amd64` | `bin/bdl-lsp.exe` | 优先静态链接，失败时退回动态链接并打包 MinGW 运行库 |
 | `linux-x64` | `ubuntu-22.04` | `linux/amd64` | `bin/bdl-lsp` | glibc 2.35 基线，兼容 Ubuntu 22.04+ / Debian 12+ |
-| `darwin-x64` | `macos-13` | `darwin/amd64` | `bin/bdl-lsp` | Intel Mac |
-| `darwin-arm64` | `macos-14` | `darwin/arm64` | `bin/bdl-lsp` | Apple Silicon |
+| `darwin-x64` | `macos-15-intel` | `darwin/amd64` | `bin/bdl-lsp` | Intel Mac |
+| `darwin-arm64` | `macos-15` | `darwin/arm64` | `bin/bdl-lsp` | Apple Silicon |
 
 构建定义在 [`.github/workflows/bundle-vsix.yml`](../.github/workflows/bundle-vsix.yml)。
 
@@ -113,7 +113,9 @@ npx vsce publish --target darwin-arm64 --packagePath dist-vsix/4gl-full-0.3.0-da
 - **Windows 运行库**：先尝试 `-static`；失败时动态构建并复制
   `libwinpthread-1.dll`、`libgcc_s_seh-1.dll` 到 `bin/`，扩展启动时会随
   `bdl-lsp.exe` 一起从同目录加载。
-- **macOS 架构**：必须选对包；`darwin-arm64` 不能跑在 Intel Mac 上。
+- **macOS runner 标签**：`macos-13` / `macos-14` 已下线或已弃用，
+  现在用 `macos-15-intel`（Intel）与 `macos-15`（Apple Silicon）。
+  必须选对包；`darwin-arm64` 不能跑在 Intel Mac 上。
 - **装错平台包**：扩展会读取 `BUILD-INFO.json` 的 `target`，与当前平台不符时
   跳过内置二进制并回退到外部路径，避免 `exec format error`。
 - **覆盖内置二进制**：用户可用 `bdl.server.path` / `BDL_LSP_PATH` /
