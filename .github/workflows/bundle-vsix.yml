@@ -20,11 +20,11 @@ on:
     inputs:
       bdl_lsp_ref:
         description: "bdl-lsp 的 git ref（分支/tag/SHA）"
-    tiptop_ref:
-      description: "tiptop 的 git ref（分支/tag/SHA）"
-      required: false
-      default: "main"
-      type: string
+        required: true
+        default: main
+        type: string
+      tiptop_ref:
+        description: "tiptop 的 git ref（分支/tag/SHA）"
         required: true
         default: main
         type: string
@@ -248,6 +248,7 @@ jobs:
           ls -lh "$VSIX"
           unzip -l "$VSIX"
           for f in "extension/bin/${{ matrix.binary }}" \
+                   "extension/bin/${{ matrix.tiptop_binary }}" \
                    "extension/bin/BUILD-INFO.json" \
                    "extension/dist/extension.js" \
                    "extension/syntaxes/bdl.tmLanguage.json" \
