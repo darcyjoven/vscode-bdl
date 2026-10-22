@@ -39,8 +39,59 @@ env:
   NODE_VERSION: "24"
 
 jobs:
+  # 先确认两个依赖仓库读得到，再开四个平台的打包。
+  # 否则私有仓库会表现为"四个 job 全红"，每个都只有一句
+  # "Repository not found"，很难看出是权限问题而不是构建问题。
+  preflight:
+    name: 前置检查
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查依赖仓库可访问
+        env:
+          TOKEN: ${{ secrets.TIPTOP_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+          # 用 API 而不是 `git ls-remote`：私有仓库 + 无效 token 时 git 会
+          # 挂起等输入密码（实测本地 3 分钟才超时，CI 里会卡到 job 超时）。
+          # curl 有硬超时，秒级给出结论。
+          check() {
+            repo="$1"; label="$2"
+            hdr=()
+            if [ -n "${TOKEN}" ]; then
+              hdr=(-H "Authorization: Bearer ${TOKEN}")
+            fi
+            # 空数组在 set -u 下要用 ${arr[@]+...} 展开，兼容 bash 4.3
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 --retry 0 \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              ${hdr[@]+"${hdr[@]}"} \
+              "https://api.github.com/repos/${repo}" 2>/dev/null) || code="000"
+            case "$code" in
+              200) echo "✅ ${label} (${repo}) 可访问";;
+              401|403)
+                echo "::error::${label} (${repo}) token 无效或无权限（HTTP ${code}）。"
+                echo "  检查 secret TIPTOP_TOKEN 是否过期／缺少该仓库的读取权限。"
+                exit 1
+                ;;
+              404)
+                echo "::error::${label} (${repo}) 返回 404：私有仓库而 token 看不到，或仓库不存在。"
+                echo "  解决其一："
+                echo "  1) 把 ${repo} 改为公开（Settings → General → Danger Zone → Change visibility）；"
+                echo "  2) 新建 PAT 保存为 secret TIPTOP_TOKEN（classic 勾 repo，"
+                echo "     或 fine-grained 给该仓库 Contents: Read）。"
+                exit 1
+                ;;
+              *)
+                echo "::error::${label} (${repo}) 检查失败（HTTP ${code}）；网络或 API 限流。"
+                exit 1
+                ;;
+            esac
+          }
+          check darcyjoven/bdl-lsp "bdl-lsp"
+          check darcyjoven/tiptop "tiptop"
+
   bundle:
     name: ${{ matrix.target }}
+    needs: preflight
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -90,12 +141,20 @@ jobs:
 
       # tiptop 的 go.mod 里有 `replace ... => ../bdl-lsp`，
       # 所以两个仓库必须是**同级目录**：bdl-lsp/ 与 tiptop/。
+      #
+      # token 说明：默认的 `github.token` 只对**本仓库**有效，读不了同账号下的
+      # 私有仓库（GitHub 会返回 404 "Repository not found"，不暴露它是否存在）。
+      # 所以：
+      #   - tiptop 是公开仓库 → 不需要额外配置，会自动回退到 github.token；
+      #   - tiptop 是私有仓库 → 必须配置 secret `TIPTOP_TOKEN`
+      #     （classic PAT 勾 repo，或 fine-grained PAT 给 tiptop 的 Contents: Read）。
       - name: 检出 tiptop
         uses: actions/checkout@v4
         with:
           repository: darcyjoven/tiptop
           path: tiptop
           ref: ${{ inputs.tiptop_ref || 'main' }}
+          token: ${{ secrets.TIPTOP_TOKEN || github.token }}
 
       - name: 确认 runner 架构
         shell: bash
