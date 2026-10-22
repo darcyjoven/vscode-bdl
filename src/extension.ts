@@ -85,6 +85,8 @@ function registerCommands(context: vscode.ExtensionContext): void {
         "server.logLevel",
         "trace.server",
         "generoVersion",
+        "link.enable",
+        "deploy.enable",
         "diagnostics",
         "limits.maxFileBytes",
         "limits.maxFileLines",

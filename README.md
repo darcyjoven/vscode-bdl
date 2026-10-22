@@ -2,7 +2,7 @@
 
 Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 
-> 状态：**v0.3.0 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置；平台包内置语言服务器）。
+> 状态：**v0.4.0 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置；平台包内置语言服务器）。
 > 远程仓库：`git@github.com:darcyjoven/vscode-bdl.git`（本地目录仍叫 `vscode-extension/`）。
 > 完整操作手册：[docs/USER-GUIDE.md](docs/USER-GUIDE.md)（含截图/录屏占位与配置总表）。
 > 本仓库只保留 VSCode 交付物；计划、测试脚本、过程记录统一在 `bdl-lsp` 仓库。
@@ -45,10 +45,10 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
   `vsix-<target>` artifact 下载，解压后安装：
 
 ```bash
-code --install-extension 4gl-full-0.3.0-linux-x64.vsix
+code --install-extension 4gl-full-0.4.0-linux-x64.vsix
 ```
 
-平台包的名字带目标标识，例如 `4gl-full-0.3.0-win32-x64.vsix`。
+平台包的名字带目标标识，例如 `4gl-full-0.4.0-win32-x64.vsix`。
 不要用错架构：`darwin-arm64` 包无法在 Intel Mac 上运行。
 
 ## 语言服务器来源
@@ -81,7 +81,19 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 
 ## 设置项
 
-设置按“要不要改”分成三档，详细说明、示例与全部 40 个键见
+设置界面按用途分成三节（类似 CSS 语言插件的多层次设置）：
+
+| 节 | 内容 | 总开关 |
+|---|---|---|
+| Genero BDL: 基础 | 诊断级别、格式化、项目解析、资源限制 | — |
+| Genero BDL: 链接资料 | 跨模块函数索引、资料采集 | `bdl.link.enable` |
+| Genero BDL: 部署 | 上传与远程编译 | `bdl.deploy.enable` |
+
+关闭 `bdl.link.enable`：不加载 `.link/` 资料、不启用 `function-not-found` /
+`link-data-*` 诊断、不启动自动采集，侧边栏「链接资料」视图隐藏。
+关闭 `bdl.deploy.enable`：命令面板隐藏部署命令，执行也不会调用 `bdl-lsp deploy`。
+
+按“要不要改”分成三档，详细说明、示例与全部 41 个键见
 [使用手册第 8 节](docs/USER-GUIDE.md#8-配置说明)。
 
 **默认即可（基本不用改）**
@@ -99,10 +111,12 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 
 | 键 | 默认 | 作用 |
 |---|---|---|
+| `bdl.link.enable` | `true` | 链接资料总开关；不需要跨模块检查时可关 |
 | `bdl.link.*` | 链接资料目录 `.link` | 跨模块函数索引；先生成 `.link/links.jsonl` |
 | `bdl.schema.paths` | `[]` | 只有需要展开 `LIKE table.*` 时才配 |
 | `bdl.perRoots` | `[]` | `.per` 不在同级 `per/` 时加解析根 |
 | `bdl.globals.searchPaths` | `[]` | GLOBALS 路径解析不到时加候选根 |
+| `bdl.deploy.enable` | `true` | 部署总开关；关闭后隐藏并停用部署命令 |
 | `bdl.deploy.target` | 空 | 配合 `.bdl-lsp/deploy.json` 使用 |
 
 **按项目调整**

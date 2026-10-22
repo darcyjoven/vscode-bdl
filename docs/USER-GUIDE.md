@@ -1,6 +1,6 @@
 # Genero BDL for VSCode 使用手册
 
-> 适用扩展 `0.3.0`，语言服务器 `bdl-lsp 0.3.0`。
+> 适用扩展 `0.4.0`，语言服务器 `bdl-lsp 0.3.0`。
 > 本文面向日常开发，不要求了解 LSP 或 Go。遇到问题时先看
 > [常见问题](#常见问题)，再按“显示服务器信息 / 显示输出”收集日志。
 
@@ -26,7 +26,7 @@
 
 - 在 VSCode 扩展市场搜索 `Genero BDL (4GL)`（扩展 ID
   `darcyjoven.4gl-full`），点“安装”；市场会按你的系统/芯片分发对应平台包；
-- 或下载平台 `.vsix`（如 `4gl-full-0.3.0-win32-x64.vsix`），在
+- 或下载平台 `.vsix`（如 `4gl-full-0.4.0-win32-x64.vsix`），在
   “扩展 → … → 从 VSIX 安装”中选择文件。
 
 **平台安装包已经内置 `bdl-lsp`，不需要另外安装语言服务器。** 支持：
@@ -393,6 +393,9 @@ bdl-lsp link status -root .
 部署 = 上传源码到远程服务器 + 远程编译。配置在
 `.bdl-lsp/deploy.json`，示例见仓库 `examples/deploy.json`。
 
+不需要部署的机器可以把 `bdl.deploy.enable` 关掉：命令面板里的四条部署
+命令会消失，命令即使被直接调用也不会执行。
+
 ### 7.1 最小配置
 
 ```json
@@ -440,6 +443,28 @@ bdl-lsp link status -root .
 
 ## 8. 配置说明
 
+### 8.0 设置界面分三层
+
+设置界面按用途分成三节（和 CSS 语言插件一样的多层次设置）：
+
+| 节 | 标题 | 内容 | 什么时候看 |
+|---|---|---|---|
+| 基础 | Genero BDL: 基础 | 诊断级别、格式化、项目解析、资源限制 | 大多数人只需要这一节 |
+| 链接资料 | Genero BDL: 链接资料 | 跨模块函数索引、资料采集 | 需要跨模块跳转/函数检查时 |
+| 部署 | Genero BDL: 部署 | 上传与远程编译 | 需要部署到服务器时 |
+
+后两节各有一个**总开关**：
+
+- `bdl.link.enable`（默认开）——关闭后不加载 `.link/` 资料、不启用
+  `function-not-found` / `link-data-*` 诊断、不启动自动采集，侧边栏
+  「链接资料」视图整个隐藏；
+- `bdl.deploy.enable`（默认开）——关闭后命令面板隐藏四条部署命令，
+  执行也不会调用 `bdl-lsp deploy`。
+
+两个开关都用于"减少资源占用"：不需要链接资料或部署的机器可以关掉。
+
+### 8.0.1 配置优先级
+
 配置有三层，优先级从高到低：
 
 1. VSCode 设置（`settings.json` 里的 `bdl.*`）；
@@ -450,6 +475,8 @@ bdl-lsp link status -root .
 VSCode 设置适合个人临时调整。
 
 ### 8.1 按“要不要改”分类
+
+（设置界面已按这三档分成三节，见 8.0。）
 
 **第一类：默认即可，基本不用动**
 
@@ -522,7 +549,7 @@ VSCode 设置适合个人临时调整。
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.link.enable` | `true` | 总开关 |
+| `bdl.link.enable` | `true` | **总开关**：关闭后不加载资料、不发相关诊断、不采集、隐藏链接资料视图 |
 | `bdl.link.dataDir` | `.link` | 资料目录 |
 | `bdl.link.moduleRoots` | `[]` | 模组根 |
 | `bdl.link.globalModules` | `["sub","lib","qry"]` | 全局模组名 |
@@ -543,6 +570,7 @@ VSCode 设置适合个人临时调整。
 
 | 键 | 默认 | 作用 |
 |---|---|---|
+| `bdl.deploy.enable` | `true` | **总开关**：关闭后命令面板隐藏部署命令，执行也不会调用 `bdl-lsp deploy` |
 | `bdl.deploy.target` | `""` | 默认部署目标名；留空用 `defaultTarget` |
 
 > 密码不在设置里。链接同步用 `BDL_ORA_PASSWORD` 或

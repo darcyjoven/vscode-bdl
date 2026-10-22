@@ -75,7 +75,7 @@ node scripts/package-vsix.mjs
 ## 4. 校验产物
 
 ```bash
-unzip -l dist-vsix/4gl-full-0.3.0-linux-x64.vsix
+unzip -l dist-vsix/4gl-full-0.4.0-linux-x64.vsix
 rm -rf /tmp/bdl-vsix && unzip -q dist-vsix/*.vsix -d /tmp/bdl-vsix
 /tmp/bdl-vsix/extension/bin/bdl-lsp version
 ```
@@ -96,10 +96,10 @@ rm -rf /tmp/bdl-vsix && unzip -q dist-vsix/*.vsix -d /tmp/bdl-vsix
 四个包分别发布，`--target` 必须与包一致：
 
 ```bash
-npx vsce publish --target win32-x64 --packagePath dist-vsix/4gl-full-0.3.0-win32-x64.vsix
-npx vsce publish --target linux-x64 --packagePath dist-vsix/4gl-full-0.3.0-linux-x64.vsix
-npx vsce publish --target darwin-x64 --packagePath dist-vsix/4gl-full-0.3.0-darwin-x64.vsix
-npx vsce publish --target darwin-arm64 --packagePath dist-vsix/4gl-full-0.3.0-darwin-arm64.vsix
+npx vsce publish --target win32-x64 --packagePath dist-vsix/4gl-full-0.4.0-win32-x64.vsix
+npx vsce publish --target linux-x64 --packagePath dist-vsix/4gl-full-0.4.0-linux-x64.vsix
+npx vsce publish --target darwin-x64 --packagePath dist-vsix/4gl-full-0.4.0-darwin-x64.vsix
+npx vsce publish --target darwin-arm64 --packagePath dist-vsix/4gl-full-0.4.0-darwin-arm64.vsix
 ```
 
 平台包不加 `--target` 直接安装会报平台不匹配。

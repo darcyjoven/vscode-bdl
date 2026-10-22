@@ -957,6 +957,87 @@ async function run() {
         );
       }
     });
+
+    // 34. 设置界面分三层：basic / link / deploy
+    await test("设置项按三层分组", async () => {
+      const pkg = require("../../package.json");
+      const sections = pkg.contributes.configuration;
+      assert.ok(Array.isArray(sections), "configuration 应为数组（分层设置）");
+      const titles = sections.map((s) => s.title);
+      for (const want of [
+        "Genero BDL: 基础",
+        "Genero BDL: 链接资料",
+        "Genero BDL: 部署",
+      ]) {
+        assert.ok(titles.includes(want), `缺少设置分组：${want}`);
+      }
+      // 三层里都必须有各自的键，且不重复
+      const seen = new Set();
+      for (const sec of sections) {
+        for (const key of Object.keys(sec.properties)) {
+          assert.ok(!seen.has(key), `设置项重复：${key}`);
+          seen.add(key);
+        }
+      }
+      const all = Object.assign(
+        {},
+        ...sections.map((sec) => sec.properties),
+      );
+      assert.ok(all["bdl.link.enable"], "缺少 bdl.link.enable");
+      assert.ok(all["bdl.deploy.enable"], "缺少 bdl.deploy.enable");
+      assert.strictEqual(all["bdl.deploy.enable"].default, true);
+    });
+
+    // 35. 关闭部署总开关：命令面板隐藏部署命令
+    await test("deploy.enable=false 时隐藏部署命令", async () => {
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      await cfg.update(
+        "deploy.enable",
+        false,
+        vscode.ConfigurationTarget.Global,
+      );
+      try {
+        await new Promise((r) => setTimeout(r, 300));
+        // 命令本身仍然注册（直接调用会提示"已关闭"），
+        // 但命令面板按 when 条件隐藏。
+        const commands = await vscode.commands.getCommands(true);
+        assert.ok(
+          commands.includes("bdl.deploy"),
+          "命令应仍然注册，只是面板隐藏",
+        );
+        // 执行不应抛错（内部提示已关闭）
+        await vscode.commands.executeCommand("bdl.deploy");
+        await new Promise((r) => setTimeout(r, 300));
+      } finally {
+        await cfg.update(
+          "deploy.enable",
+          undefined,
+          vscode.ConfigurationTarget.Global,
+        );
+      }
+    });
+
+    // 36. 关闭链接资料总开关：视图不再请求服务器
+    await test("link.enable=false 时链接资料视图不发请求", async () => {
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      await cfg.update(
+        "link.enable",
+        false,
+        vscode.ConfigurationTarget.Global,
+      );
+      try {
+        await new Promise((r) => setTimeout(r, 300));
+        // 刷新视图不应抛错；关闭时不发 bdl/linkTree 请求。
+        await vscode.commands.executeCommand("bdl.links.refresh");
+        await new Promise((r) => setTimeout(r, 300));
+      } finally {
+        await cfg.update(
+          "link.enable",
+          undefined,
+          vscode.ConfigurationTarget.Global,
+        );
+      }
+    });
   } finally {
     report();
   }

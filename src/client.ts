@@ -327,6 +327,9 @@ const RESTART_KEYS = [
   "bdl.server.path",
   "bdl.server.logLevel",
   "bdl.generoVersion",
+  // 总开关决定服务器启动时是否加载 .link/ 资料与采集调度，
+  // 热切换会造成“半开”状态，统一要求重启。
+  "bdl.link.enable",
 ];
 
 /** 注册配置变化监听：需要重启的键提示重启，其余自动同步。 */

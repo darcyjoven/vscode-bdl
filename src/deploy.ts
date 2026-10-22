@@ -74,10 +74,18 @@ export function registerDeployCommands(
 ): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("bdl.deploy", async () => {
+      if (!deployEnabled()) {
+        disabledNotice();
+        return;
+      }
       await runDeploy([]);
     }),
 
     vscode.commands.registerCommand("bdl.deployCurrentFile", async () => {
+      if (!deployEnabled()) {
+        disabledNotice();
+        return;
+      }
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         void vscode.window.showWarningMessage("没有打开的文件。");
@@ -98,13 +106,43 @@ export function registerDeployCommands(
     }),
 
     vscode.commands.registerCommand("bdl.deployDryRun", async () => {
+      if (!deployEnabled()) {
+        disabledNotice();
+        return;
+      }
       await runDeploy([], true);
     }),
 
     vscode.commands.registerCommand("bdl.deployListTargets", async () => {
+      if (!deployEnabled()) {
+        disabledNotice();
+        return;
+      }
       await runDeployList();
     }),
   );
+}
+
+/** 部署功能总开关（bdl.deploy.enable，默认开）。 */
+export function deployEnabled(): boolean {
+  return vscode.workspace
+    .getConfiguration("bdl")
+    .get<boolean>("deploy.enable", true);
+}
+
+/** 关闭时的统一提示：让用户知道命令为什么不可用。 */
+function disabledNotice(): void {
+  void vscode.window.showInformationMessage(
+    "部署功能已在设置中关闭（bdl.deploy.enable = false）。",
+    "打开设置",
+  ).then((choice) => {
+    if (choice === "打开设置") {
+      void vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "bdl.deploy.enable",
+      );
+    }
+  });
 }
 
 /** 判断 URI 是否为可部署的 Genero 源码。 */

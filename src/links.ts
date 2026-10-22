@@ -33,6 +33,13 @@ type Node =
   | { kind: "ref"; program: string }
   | { kind: "moreRefs"; total: number; loaded: number };
 
+/** 链接资料功能总开关（bdl.link.enable，默认开）。 */
+export function linkEnabled(): boolean {
+  return vscode.workspace
+    .getConfiguration("bdl")
+    .get<boolean>("link.enable", true);
+}
+
 /** 缓存最近一次请求的树，避免每次展开都跨进程要一次。 */
 export class LinkTreeProvider implements vscode.TreeDataProvider<Node> {
   private readonly changed = new vscode.EventEmitter<void>();
@@ -171,6 +178,15 @@ export class LinkTreeProvider implements vscode.TreeDataProvider<Node> {
   }
 
   private rootNodes(): Node[] {
+    if (!linkEnabled()) {
+      return [
+        {
+          kind: "info",
+          label: "链接资料功能已关闭",
+          tooltip: "设置 bdl.link.enable = false 后不加载资料、不启用相关诊断。\n打开后执行「Genero BDL: 重启语言服务器」生效。",
+        },
+      ];
+    }
     const t = this.tree;
     if (!t || (!t.found && !t.refTotal)) {
       return [
@@ -217,6 +233,12 @@ export class LinkTreeProvider implements vscode.TreeDataProvider<Node> {
 
   private async load(): Promise<void> {
     if (this.loaded) {
+      return;
+    }
+    // link.enable=false：服务器侧不加载资料，这里也别发请求。
+    if (!linkEnabled()) {
+      this.tree = undefined;
+      this.loaded = true;
       return;
     }
     if (this.loading) {
