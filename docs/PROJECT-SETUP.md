@@ -30,7 +30,7 @@
    │  ② 解压 → git init
    ▼
 本地工作区
-   │  ③ 导出 DS.GAL_FILE → link import → .link/links.jsonl
+   │  ③ 导出 DS.GAL_FILE → tiptop link import → .link/links.jsonl
    │  ④ 写 .bdl-lsp/config.json 与 deploy.json
    │  ⑤ tiptop deploy 单文件上传 + 远程编译
    ▼
@@ -306,7 +306,7 @@ ls -lh .link/
 tiptop link status -root "$WORKSPACE"
 ```
 
-`link status` 应显示链数、文件数、过期时间。**这一步没有输出"链 0"就说明没成功**。
+`tiptop link status` 应显示链数、文件数、过期时间。**这一步没有输出"链 0"就说明没成功**。
 
 > **`tiptop` 是什么**：链接资料的采集与部署由 tiptop 负责，它是从
 > 语言服务器 `bdl-lsp` 分离出来的独立工具。语言服务器只读取 `.link/` 资料，
@@ -565,7 +565,7 @@ tar tzf toppord-src.tar.gz | head -20
 若只有两层，说明生产端目录不是 `顶层/模组/类型` 的布局，
 第 1 步的 `find -mindepth 3 -maxdepth 3` 要按实际层级调整。
 
-### 9.2 `link import` 报"表头缺少 GAL01..GAL04"
+### 9.2 `tiptop link import` 报"表头缺少 GAL01..GAL04"
 
 CSV 表头不对。用 `SET MARKUP CSV ON` 导出（见 5.2），或手工加表头行：
 
@@ -574,7 +574,7 @@ head -1 .link/gal_file.csv
 # 期望：GAL01,GAL02,GAL03,GAL04
 ```
 
-### 9.3 `link import` 结果是"链 0"
+### 9.3 `tiptop link import` 结果是"链 0"
 
 - `gal04` 全是 `'N'`：SQL 条件写错了，应为 `WHERE gal04 = 'Y'`；
 - 表里确实没数据：确认连的是正确的库；
@@ -642,14 +642,21 @@ ORA_USER="${ORA_USER:?请设置 ORA_USER}"
 # 部署目标里的本地示例文件（换成你自己的）
 SAMPLE_FILE="${SAMPLE_FILE:-tiptop/aap/4gl/aapi202.4gl}"
 
-# ===== 找到 bdl-lsp =====
+# ===== 找到 bdl-lsp 与 tiptop =====
 if command -v bdl-lsp >/dev/null 2>&1; then
   BDL_LSP=bdl-lsp
 else
   BDL_LSP="$(ls "$HOME"/.vscode/extensions/darcyjoven.4gl-full-*/bin/bdl-lsp 2>/dev/null | head -1 || true)"
   [ -n "$BDL_LSP" ] || { echo "找不到 bdl-lsp：装好 VSCode 扩展，或把它放进 PATH" >&2; exit 2; }
 fi
-echo "==> 使用 $BDL_LSP"
+# 链接资料与部署由 tiptop 负责（0.3.2 从 bdl-lsp 分离）
+if command -v tiptop >/dev/null 2>&1; then
+  TIPTOP=tiptop
+else
+  TIPTOP="$(ls "$HOME"/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop 2>/dev/null | head -1 || true)"
+  [ -n "$TIPTOP" ] || { echo "找不到 tiptop：装好 VSCode 扩展，或把它放进 PATH" >&2; exit 2; }
+fi
+echo "==> 使用 $BDL_LSP / $TIPTOP"
 
 # ===== ① 生产端打包 =====
 echo "==> [1/6] 生产端打包"
@@ -686,14 +693,14 @@ fi
 # ===== ④ 链接资料 =====
 echo "==> [4/6] 导出链接资料"
 mkdir -p .link
-"$BDL_LSP" link sync -root "$WORKSPACE" -source golang \
+"$TIPTOP" link sync -root "$WORKSPACE" -source golang \
   -host "$ORA_HOST" -service "$ORA_SERVICE" -user "$ORA_USER"
-"$BDL_LSP" link status -root "$WORKSPACE"
+"$TIPTOP" link status -root "$WORKSPACE"
 
 # ===== ⑤ 部署测试 =====
 echo "==> [5/6] 部署预演 + 单文件测试"
-"$BDL_LSP" deploy -workspace "$WORKSPACE" -dry-run
-"$BDL_LSP" deploy -workspace "$WORKSPACE" -dry-run "$SAMPLE_FILE"
+"$TIPTOP" deploy -workspace "$WORKSPACE" -dry-run
+"$TIPTOP" deploy -workspace "$WORKSPACE" -dry-run "$SAMPLE_FILE"
 
 # ===== ⑥ 打开 =====
 echo "==> [6/6] 打开 VSCode"

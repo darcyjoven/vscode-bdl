@@ -362,39 +362,42 @@ tiptop link status -root .
 - `globalModules`：全局模组名；
 - `maxAgeDays`：过期提示阈值，超过后报 `link-data-stale`（hint）。
 
-### 6.4 自动同步
+### 6.4 采集与同步（在 tiptop，不在扩展里）
 
-默认关闭。需要时：
+链接资料的**采集/导入**自 `bdl-lsp 0.3.2` 起由 **tiptop** 负责，扩展里
+**没有** `bdl.link.sync.*` 设置项了（旧的自动同步已随分离移除）。在项目根用终端执行：
 
-```jsonc
-{
-  "bdl.link.sync.enable": true,
-  "bdl.link.sync.source": "golang", // golang / command / file
-  "bdl.link.sync.onStart": true,
-  "bdl.link.sync.interval": 0        // 秒；0 表示只手动/启动时同步
-}
+```bash
+# 从已导出的 CSV 导入
+tiptop link import -csv .link/gal_file.csv -root .
+
+# 直连 Oracle 采集（纯 Go 驱动，无需 Oracle 客户端）
+BDL_ORA_PASSWORD=... tiptop link sync -root . -source golang \
+  -host dbhost -service PROD -user readonly
+
+# 从命令 stdout / 本地文件采集
+tiptop link sync -root . -source command -command 'your-export-command'
+tiptop link sync -root . -source file -file /path/to/gal_file.csv
 ```
 
-`source=command` 时填 `bdl.link.sync.command`；`source=file` 时填
-`bdl.link.sync.file`。数据库源需要 `db.host/service/user/query`，
 密码**不放在设置里**：用环境变量 `BDL_ORA_PASSWORD`，或
-`.link/secrets.json`（权限 0600）。
+`.link/secrets.json`（权限 0600）。导入完成后编辑器按 mtime 自动热加载，无需重启。
 
 ### 6.5 链接资料常见问题
 
 | 现象 | 先查 |
 |---|---|
-| 函数仍然报找不到 | 是否生成过 `.link/links.jsonl`；`link status` 是否正常 |
+| 函数仍然报找不到 | 是否生成过 `.link/links.jsonl`；`tiptop link status` 是否正常 |
 | 链接视图为空 | 当前文件是否在 `moduleRoots` 内；是否点了刷新 |
-| 反查跳错文件 | 确认生成资料后重新 `link import`；旧索引可能过期 |
-| 资料过期提示 | 重新 `link sync`，或临时关掉 `link-data-stale` |
+| 反查跳错文件 | 确认生成资料后重新 `tiptop link import`；旧索引可能过期 |
+| 资料过期提示 | 重新 `tiptop link sync`，或临时关掉 `link-data-stale` |
 
 ---
 
 ## 7. 部署
 
 部署 = 上传源码到远程服务器 + 远程编译。配置在
-`.bdl-lsp/deploy.json`，示例见仓库 `examples/deploy.json`。
+`.bdl-lsp/deploy.json`，示例见 tiptop 仓库 `examples/deploy.json`。
 
 不需要部署的机器可以把 `bdl.deploy.enable` 关掉：命令面板里的四条部署
 命令会消失，命令即使被直接调用也不会执行。
@@ -552,22 +555,14 @@ VSCode 设置适合个人临时调整。
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.link.enable` | `true` | **总开关**：关闭后不加载资料、不发相关诊断、不采集、隐藏链接资料视图 |
+| `bdl.link.enable` | `true` | **总开关**：关闭后不加载资料、不发相关诊断、隐藏链接资料视图 |
 | `bdl.link.dataDir` | `.link` | 资料目录 |
 | `bdl.link.moduleRoots` | `[]` | 模组根 |
 | `bdl.link.globalModules` | `["sub","lib","qry"]` | 全局模组名 |
 | `bdl.link.maxAgeDays` | `7` | 过期提示阈值（天） |
-| `bdl.link.sync.enable` | `false` | 自动同步开关 |
-| `bdl.link.sync.source` | `golang` | `golang`/`command`/`file` |
-| `bdl.link.sync.onStart` | `false` | 启动时同步 |
-| `bdl.link.sync.interval` | `0` | 同步间隔（秒），0 为不定时 |
-| `bdl.link.sync.command` | `""` | `source=command` 时执行的命令 |
-| `bdl.link.sync.file` | `""` | `source=file` 时读取的文件 |
-| `bdl.link.sync.db.host` | `""` | Oracle 主机 |
-| `bdl.link.sync.db.port` | `1521` | Oracle 端口 |
-| `bdl.link.sync.db.service` | `""` | Oracle service name |
-| `bdl.link.sync.db.user` | `""` | Oracle 用户 |
-| `bdl.link.sync.db.query` | `""` | 自定义查询 |
+
+> 采集/同步的键（旧 `bdl.link.sync.*`）**不存在了**：采集由 tiptop 的命令行
+> 完成，见 §6.4。
 
 **部署（不配置不可用）**
 
@@ -631,7 +626,7 @@ VSCode 设置适合个人临时调整。
 
 - 先跑 `tiptop link status -root .`；
 - 确认 `.link/links.jsonl` 存在且不是空文件；
-- 重新 `link import` 后点“刷新”；
+- 重新 `tiptop link import` 后点“刷新”；
 - 反查只对已索引的程序有效，确认当前文件在 `moduleRoots` 内。
 
 ### 9.5 部署失败

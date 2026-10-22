@@ -169,24 +169,6 @@ function collectSettings(): Record<string, unknown> {
       moduleRoots: cfg.get<string[]>("link.moduleRoots") ?? [],
       globalModules: cfg.get<string[]>("link.globalModules") ?? ["sub", "lib", "qry"],
       maxAgeDays: cfg.get<number>("link.maxAgeDays") ?? 7,
-      sync: {
-        enable: cfg.get<boolean>("link.sync.enable") ?? false,
-        source: cfg.get<string>("link.sync.source") ?? "golang",
-        interval: cfg.get<number>("link.sync.interval") ?? 0,
-        onStart: cfg.get<boolean>("link.sync.onStart") ?? false,
-        command: cfg.get<string>("link.sync.command") ?? "",
-        file: cfg.get<string>("link.sync.file") ?? "",
-        db: {
-          host: cfg.get<string>("link.sync.db.host") ?? "",
-          port: cfg.get<number>("link.sync.db.port") ?? 1521,
-          service: cfg.get<string>("link.sync.db.service") ?? "",
-          user: cfg.get<string>("link.sync.db.user") ?? "",
-          query: cfg.get<string>("link.sync.db.query") ?? "",
-          // 密码**不从这里读**：故意不给设置项，避免被提交进 settings.json。
-          // 用环境变量 BDL_ORA_PASSWORD 或 <project>/.link/secrets.json。
-          password: "",
-        },
-      },
     },
     // 工作区索引 / schema 索引（P6）：显式转交，避免只靠后续
     // didChangeConfiguration 下发（首次启动时初始化选项里没有）。

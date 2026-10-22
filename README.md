@@ -195,35 +195,29 @@ tiptop link status
 { "bdl.diagnostics": { "function-not-found": "off" } }
 ```
 
-## 自动采集（P7-D-3）
+## 采集链接资料（在 tiptop，不在扩展里）
 
-不想手动导出 CSV 时，让语言服务器自己去取：
-
-```jsonc
-{
-  "bdl.link.sync.enable": true,
-  "bdl.link.sync.source": "golang",       // golang | command | file
-  "bdl.link.sync.onStart": true,
-  "bdl.link.sync.interval": 21600,        // 秒；0 = 只在启动时同步
-  "bdl.link.sync.db.host": "dbhost",
-  "bdl.link.sync.db.port": 1521,
-  "bdl.link.sync.db.service": "PROD",
-  "bdl.link.sync.db.user": "readonly"
-}
-```
+链接资料的**采集/导入**自 `bdl-lsp 0.3.2` 起由 **tiptop** 负责，
+扩展里**没有** `bdl.link.sync.*` 设置项了（旧的自动同步已随分离移除）。
+在项目根用终端采集，语言服务器只读取 `.link/`：
 
 ```bash
+# 从已导出的 CSV 导入
+tiptop link import -csv gal_file.csv -root .
+
+# 直连 Oracle（纯 Go 驱动，**不需要装 Oracle 客户端**）
 export BDL_ORA_PASSWORD=...        # 或者写 <项目>/.link/secrets.json（必须 chmod 600）
+tiptop link sync -root . -source golang \
+  -host dbhost -port 1521 -service PROD -user readonly
+
+# 从命令 stdout / 本地文件采集
+tiptop link sync -root . -source command -command 'your-export-command'
+tiptop link sync -root . -source file -file .link/gal_file.csv
 ```
 
-- `source: "golang"`：内置纯 Go 驱动直连 Oracle，**不需要装 Oracle 客户端**；
-- `source: "command"`：执行 `bdl.link.sync.command`，CSV 从 stdout 读回；
-- `source: "file"`：读 `bdl.link.sync.file`（默认 `.link/gal_file.csv`）。
-
-密码**不要**写进 settings.json（会被提交）；同步失败只记日志、不弹诊断，
-成功后自动重载资料并重算诊断，不需要重启窗口。默认全关。
-首次同步会解析全部 `.4gl`（7600 文件实测约 24 秒，Windows 通常更久）；
-手动跑 CLI 时 stderr 每 400 个文件打印一行进度。
+密码**不要**写进 settings.json（会被提交）。导入完成后扩展按 mtime 自动重载资料
+并重算诊断，不需要重启窗口。首次导入会解析全部 `.4gl`（7600 文件实测约 24 秒，
+Windows 通常更久）；采集时 stderr 每 400 个文件打印一行进度。
 
 ## 链接资料视图（P7-E）
 
