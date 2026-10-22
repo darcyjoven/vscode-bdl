@@ -393,6 +393,21 @@
           "scope": "machine-overridable",
           "markdownDescription": "`bdl-lsp` 可执行文件路径（文件或所在目录）。留空时依次查找：环境变量 `BDL_LSP_PATH`、工作区 `.bdl-lsp/bin/bdl-lsp`、系统 `PATH`。修改后需重启语言服务器。"
         },
+        "bdl.schema.enable": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "description": "解析工作区里的 .sch 文件建立数据库表结构索引。启用后 `DEFINE r RECORD LIKE t.*` 的记录成员可被校验，且 `r.` 补全会给出表的全部列。"
+        },
+        "bdl.schema.paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "scope": "window",
+          "description": "额外的 schema 目录（相对工作区根或绝对路径）。默认自动查找 `<模组根>/<模组>/sch/*.sch`。"
+        },
         "bdl.syntaxDiagnostics": {
           "type": "string",
           "enum": [
