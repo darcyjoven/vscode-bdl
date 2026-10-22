@@ -2,7 +2,7 @@
 
 Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 
-> 状态：**v0.1.1 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置）。
+> 状态：**v0.1.2 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置）。
 > 远程仓库：`git@github.com:darcyjoven/vscode-bdl.git`（本地目录仍叫 `vscode-extension/`）。
 > 本仓库只保留 VSCode 交付物；计划、测试脚本、过程记录统一在 `bdl-lsp` 仓库。
 > v1 验证平台：**Linux + Windows**；macOS 后续兼容。
@@ -26,7 +26,7 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
 ## 安装
 
 ```bash
-code --install-extension 4gl-full-0.1.1.vsix
+code --install-extension 4gl-full-0.1.2.vsix
 ```
 
 ## LSP 二进制来源
@@ -206,7 +206,7 @@ source ../bdl-lsp/scripts/dev-env.sh
 npm install          # NODE_ENV=production 会跳过 devDeps，需 `NODE_ENV= npm install --include=dev`
 npm run typecheck
 npm run build
-npm run package      # 生成 4gl-full-0.1.1.vsix
+npm run package      # 生成 4gl-full-0.1.2.vsix
 
 npm run grammars         # 从 grammar 源码重新生成 TextMate 语法
 npm run grammars:check   # 校验语法为最新

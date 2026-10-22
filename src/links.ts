@@ -120,10 +120,12 @@ export class LinkTreeProvider implements vscode.TreeDataProvider<Node> {
         item.iconPath = new vscode.ThemeIcon("symbol-class");
         // 反查结果里没有磁盘路径（同一代码可能在多个模组），所以不跳转；
         // 双击用快速打开去搜同名文件，比强行猜路径可靠。
+        // 必须带 .4gl：不带后缀时 quickOpen 会把同名 .per 一起列出来。
+        const base = node.program.replace(/^.*[\\/]/, "").replace(/\.(4gl|per)$/i, "");
         item.command = {
           command: "workbench.action.quickOpen",
           title: "打开程序",
-          arguments: [`${node.program.replace(/^.*\//, "")}`],
+          arguments: [`${base}.4gl`],
         };
         return item;
       }
@@ -203,6 +205,11 @@ export class LinkTreeProvider implements vscode.TreeDataProvider<Node> {
       return undefined;
     }
     if (!["bdl", "per"].includes(editor.document.languageId)) {
+      return undefined;
+    }
+    // untitled: 没有磁盘路径，发给服务器只会拿到"没有资料"；
+    // 旧版服务器还会因此 panic，这里直接不发。
+    if (editor.document.uri.scheme !== "file") {
       return undefined;
     }
     return editor.document.uri;
