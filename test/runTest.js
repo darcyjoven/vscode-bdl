@@ -123,15 +123,18 @@ function prepareRuntimeDirs(root) {
 }
 
 /**
- * 解析 bdl-lsp 可执行文件路径。
+ * 解析一个可执行文件路径。
  *
- * 顺序：BDL_LSP_PATH → PATH 查找 → 仓库内 artifacts/bin。
+ * 顺序：<envVar> → PATH 查找 → <repo>/artifacts/bin。
  * 返回绝对路径；找不到返回 undefined（测试会据此跳过/报错）。
+ *
+ * bdl-lsp 与 tiptop 分属两个仓库，所以要分别解析：
+ * 语言服务用前者，部署/采集用后者。
  */
-function resolveLspBinary() {
-  const name = isWindows ? "bdl-lsp.exe" : "bdl-lsp";
+function resolveBinary(envVar, base, repo) {
+  const name = isWindows ? `${base}.exe` : base;
 
-  const explicit = (process.env.BDL_LSP_PATH ?? "").trim();
+  const explicit = (process.env[envVar] ?? "").trim();
   if (explicit) {
     const stat = fs.existsSync(explicit) ? fs.statSync(explicit) : undefined;
     if (stat?.isFile()) {
@@ -159,12 +162,22 @@ function resolveLspBinary() {
     __dirname,
     "..",
     "..",
-    "bdl-lsp",
+    repo,
     "artifacts",
     "bin",
     name,
   );
   return fs.existsSync(fallback) ? fallback : undefined;
+}
+
+/** 语言服务器 bdl-lsp。 */
+function resolveLspBinary() {
+  return resolveBinary("BDL_LSP_PATH", "bdl-lsp", "bdl-lsp");
+}
+
+/** 采集/部署工具 tiptop。 */
+function resolveTiptopBinary() {
+  return resolveBinary("TIPTOP_PATH", "tiptop", "tiptop");
 }
 
 /** 准备临时工作区，放入测试用的 4gl/per 文件。 */
@@ -272,6 +285,7 @@ async function main() {
         // 显式解析并传入，让测试与语言客户端用同一个二进制；
         // 不依赖调用者事先 export（dev-env.sh 只把它放进 PATH）。
         BDL_LSP_PATH: resolveLspBinary() ?? "",
+        TIPTOP_PATH: resolveTiptopBinary() ?? "",
         BDL_E2E_REPORT: reportFile,
       },
     });

@@ -1,6 +1,9 @@
 name: bundle-vsix
 
-# 构建“安装即用”的平台 VSIX：每个包装对应平台的 bdl-lsp，用户不需要另外安装。
+# 构建“安装即用”的平台 VSIX：每个包装对应平台的两个二进制，用户不需要另外安装。
+#
+#   bin/bdl-lsp   语言服务器
+#   bin/tiptop    链接资料采集 + 部署（从 bdl-lsp 分离）
 #
 # 为什么按平台分开打包：
 #   bdl-lsp 是 CGO + tree-sitter 的原生二进制，不能一个包跨三个系统。
@@ -17,6 +20,11 @@ on:
     inputs:
       bdl_lsp_ref:
         description: "bdl-lsp 的 git ref（分支/tag/SHA）"
+    tiptop_ref:
+      description: "tiptop 的 git ref（分支/tag/SHA）"
+      required: false
+      default: "main"
+      type: string
         required: true
         default: main
         type: string
@@ -43,12 +51,14 @@ jobs:
             goos: windows
             goarch: amd64
             binary: bdl-lsp.exe
+            tiptop_binary: tiptop.exe
             uname_arch: x86_64
           - os: ubuntu-22.04
             target: linux-x64
             goos: linux
             goarch: amd64
             binary: bdl-lsp
+            tiptop_binary: tiptop
             uname_arch: x86_64
           # macOS 13 已下线；Intel 用 macos-15-intel，Apple Silicon 用 macos-15。
           - os: macos-15-intel
@@ -56,12 +66,14 @@ jobs:
             goos: darwin
             goarch: amd64
             binary: bdl-lsp
+            tiptop_binary: tiptop
             uname_arch: x86_64
           - os: macos-15
             target: darwin-arm64
             goos: darwin
             goarch: arm64
             binary: bdl-lsp
+            tiptop_binary: tiptop
             uname_arch: arm64
     steps:
       - name: 检出扩展
@@ -75,6 +87,15 @@ jobs:
           repository: darcyjoven/bdl-lsp
           path: bdl-lsp
           ref: ${{ inputs.bdl_lsp_ref || 'main' }}
+
+      # tiptop 的 go.mod 里有 `replace ... => ../bdl-lsp`，
+      # 所以两个仓库必须是**同级目录**：bdl-lsp/ 与 tiptop/。
+      - name: 检出 tiptop
+        uses: actions/checkout@v4
+        with:
+          repository: darcyjoven/tiptop
+          path: tiptop
+          ref: ${{ inputs.tiptop_ref || 'main' }}
 
       - name: 确认 runner 架构
         shell: bash
@@ -153,6 +174,55 @@ jobs:
 
           "../bdl-lsp-bin/${{ matrix.binary }}" version
 
+      # tiptop 依赖 bdl-lsp 的公开包（link / parser / index / builtin），
+      # 同样是 CGO，构建参数与上面保持一致。
+      - name: 构建 tiptop
+        id: tiptop
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd tiptop
+          VERSION="$(sed -n 's/^var version = "\(.*\)"/\1/p' main.go)"
+          test -n "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tiptop $VERSION -> ${{ matrix.target }}"
+
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            export PATH="/c/msys64/mingw64/bin:$PATH"
+            export CC=gcc
+          fi
+
+          mkdir -p ../tiptop-bin
+          export CGO_ENABLED=1
+          export GOOS=${{ matrix.goos }}
+          export GOARCH=${{ matrix.goarch }}
+
+          TIPTOP_BIN="tiptop.exe"
+          if [ "${{ runner.os }}" != "Windows" ]; then
+            TIPTOP_BIN="tiptop"
+          fi
+
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            if go build -trimpath \
+              -ldflags "-s -w -X main.version=$VERSION -linkmode external -extldflags '-static'" \
+              -o "../tiptop-bin/$TIPTOP_BIN" .; then
+              echo "Windows 静态链接成功"
+            else
+              echo "Windows 静态链接失败，退回动态链接并打包运行库"
+              go build -trimpath \
+                -ldflags "-s -w -X main.version=$VERSION" \
+                -o "../tiptop-bin/$TIPTOP_BIN" .
+              cp /c/msys64/mingw64/bin/libwinpthread-1.dll ../tiptop-bin/ 2>/dev/null || true
+              cp /c/msys64/mingw64/bin/libgcc_s_seh-1.dll ../tiptop-bin/ 2>/dev/null || true
+            fi
+          else
+            go build -trimpath \
+              -ldflags "-s -w -X main.version=$VERSION" \
+              -o "../tiptop-bin/$TIPTOP_BIN" .
+          fi
+
+          "../tiptop-bin/$TIPTOP_BIN" version
+
       - name: 安装扩展依赖
         working-directory: vscode-extension
         run: npm ci --include=dev
@@ -165,6 +235,8 @@ jobs:
           BDL_VSCODE_TARGET: ${{ matrix.target }}
           BDL_LSP_BINARY: ${{ github.workspace }}/bdl-lsp-bin/${{ matrix.binary }}
           BDL_LSP_VERSION: ${{ steps.lsp.outputs.version }}
+          TIPTOP_BINARY: ${{ github.workspace }}/tiptop-bin/${{ matrix.tiptop_binary }}
+          TIPTOP_VERSION: ${{ steps.tiptop.outputs.version }}
         run: npm run package
 
       - name: 校验 VSIX 内容

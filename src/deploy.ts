@@ -1,4 +1,8 @@
-// 部署命令：调用 bdl-lsp deploy 并把结果发布成诊断。
+// 部署命令：调用 tiptop deploy 并把结果发布成诊断。
+//
+// 部署从 bdl-lsp 分离出去了（见 bdl-lsp 的 docs/PLAN-SEPARATION.md）：
+// 语言服务器只做语言智能，采集链接资料与部署由 tiptop 负责。
+// 扩展必须分别定位两个二进制，两者可以来自不同位置。
 //
 // 设计要点：
 //   - 部署只由用户显式触发（命令/菜单），绝不挂在保存事件上；
@@ -9,7 +13,11 @@ import { spawn } from "node:child_process";
 import * as path from "node:path";
 import * as vscode from "vscode";
 
-import { currentBinary } from "./client";
+import { currentBinary, currentTools } from "./client";
+import { resolveTools } from "./server/binary";
+
+/** 扩展安装目录，用于定位内置的 tiptop（注册命令时写入）。 */
+let extensionPath: string | undefined;
 
 /** 部署诊断的 source（Problems 面板里的来源列）。 */
 const DIAG_SOURCE = "bdl-deploy";
@@ -72,6 +80,7 @@ export function disposeDeploy(): void {
 export function registerDeployCommands(
   context: vscode.ExtensionContext,
 ): void {
+  extensionPath = context.extensionPath;
   context.subscriptions.push(
     vscode.commands.registerCommand("bdl.deploy", async () => {
       if (!deployEnabled()) {
@@ -152,6 +161,35 @@ function isDeployable(uri: vscode.Uri): boolean {
 }
 
 /**
+ * 定位 `tiptop` 可执行文件。
+ *
+ * 优先用语言服务进程启动时解析到的那个（`currentTools`），
+ * 它为空时（服务器还没起来）再单独解析一次，并把失败原因告诉用户。
+ */
+function toolsBinary(): { command: string } | undefined {
+  const fromServer = currentTools();
+  if (fromServer) {
+    return fromServer;
+  }
+  const resolved = resolveTools(extensionPath);
+  if (resolved.ok) {
+    return resolved.binary;
+  }
+  void vscode.window.showErrorMessage(
+    `${resolved.message}。${resolved.hint}`,
+    "打开设置",
+  ).then((pick) => {
+    if (pick === "打开设置") {
+      void vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "bdl.tools.path",
+      );
+    }
+  });
+  return undefined;
+}
+
+/**
  * 执行部署。
  *
  * @param files 显式指定的文件（空表示按配置的 include/exclude 全量）
@@ -161,11 +199,8 @@ async function runDeploy(
   files: string[],
   dryRun = false,
 ): Promise<void> {
-  const binary = currentBinary();
+  const binary = toolsBinary();
   if (!binary) {
-    void vscode.window.showErrorMessage(
-      "语言服务器未运行，无法定位 bdl-lsp 可执行文件；请先重启服务器。",
-    );
     return;
   }
 
@@ -192,7 +227,7 @@ async function runDeploy(
   out.show(true);
   out.appendLine("");
   out.appendLine(
-    `$ bdl-lsp ${args.map((a) => (a.includes(" ") ? `"${a}"` : a)).join(" ")}`,
+    `$ tiptop ${args.map((a) => (a.includes(" ") ? `"${a}"` : a)).join(" ")}`,
   );
 
   const result = await vscode.window.withProgress(

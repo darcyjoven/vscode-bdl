@@ -12,9 +12,28 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
 
+/**
+ * 扩展涉及的两个可执行文件。
+ *
+ * - `lsp`：语言服务器，编辑器直接拉起，只读 `.link/` 资料；
+ * - `tools`：`tiptop`，负责采集链接资料与部署（生成 `.link/`、上传编译）。
+ *
+ * 两者**都必须**存在才能用全功能：LSP 负责语言智能，tiptop 负责
+ * "资料从哪来"和"改完怎么送上去"。分离的理由见 bdl-lsp 的
+ * docs/PLAN-SEPARATION.md。
+ */
+export type BinaryKind = "lsp" | "tools";
+
+/** 各二进制的基名；Windows 需要 .exe 后缀。 */
+const BASE_NAMES: Record<BinaryKind, string> = {
+  lsp: "bdl-lsp",
+  tools: "tiptop",
+};
+
 /** 可执行文件基名；Windows 需要 .exe 后缀。 */
-export function binaryName(): string {
-  return process.platform === "win32" ? "bdl-lsp.exe" : "bdl-lsp";
+export function binaryName(kind: BinaryKind = "lsp"): string {
+  const base = BASE_NAMES[kind];
+  return process.platform === "win32" ? `${base}.exe` : base;
 }
 
 /** 二进制来源，用于日志与「服务器信息」展示。 */
@@ -66,7 +85,7 @@ function isExecutableFile(candidate: string): boolean {
  * 允许目录是为了方便用户直接填 `~/tools/bdl-lsp/bin`，
  * 不必精确到文件名。
  */
-function fromFileOrDir(input: string): string | undefined {
+function fromFileOrDir(input: string, kind: BinaryKind): string | undefined {
   const trimmed = input.trim();
   if (trimmed === "") {
     return undefined;
@@ -77,7 +96,7 @@ function fromFileOrDir(input: string): string | undefined {
   if (isExecutableFile(resolved)) {
     return resolved;
   }
-  const inDir = path.join(resolved, binaryName());
+  const inDir = path.join(resolved, binaryName(kind));
   if (isExecutableFile(inDir)) {
     return inDir;
   }
@@ -105,9 +124,9 @@ function expandHome(p: string): string {
 }
 
 /** 在 PATH 中查找，行为与 shell 的 `which` 对齐。 */
-function fromPathEnv(): string | undefined {
+function fromPathEnv(kind: BinaryKind): string | undefined {
   const raw = process.env.PATH ?? process.env.Path ?? "";
-  const name = binaryName();
+  const name = binaryName(kind);
   for (const dir of raw.split(path.delimiter)) {
     if (dir.trim() === "") {
       continue;
@@ -129,7 +148,10 @@ function fromPathEnv(): string | undefined {
  * VSIX 解压后 POSIX 可执行位可能丢失，这里补一次 chmod；失败不抛异常，
  * 继续尝试其它来源。
  */
-function fromBundled(extensionPath?: string): string | undefined {
+function fromBundled(
+  kind: BinaryKind,
+  extensionPath?: string,
+): string | undefined {
   if (!extensionPath) {
     return undefined;
   }
@@ -145,7 +167,7 @@ function fromBundled(extensionPath?: string): string | undefined {
   } catch {
     // 没有 BUILD-INFO.json：按可执行文件本身判断
   }
-  const candidate = path.join(extensionPath, "bin", binaryName());
+  const candidate = path.join(extensionPath, "bin", binaryName(kind));
   if (process.platform !== "win32") {
     try {
       fs.accessSync(candidate, fs.constants.X_OK);
@@ -161,7 +183,9 @@ function fromBundled(extensionPath?: string): string | undefined {
 }
 
 /** 工作区内的约定位置；多根工作区按顺序尝试。 */
-function fromWorkspace(): { file: string; root: string } | undefined {
+function fromWorkspace(
+  kind: BinaryKind,
+): { file: string; root: string } | undefined {
   const folders = vscode.workspace.workspaceFolders ?? [];
   for (const folder of folders) {
     if (folder.uri.scheme !== "file") {
@@ -171,7 +195,7 @@ function fromWorkspace(): { file: string; root: string } | undefined {
       folder.uri.fsPath,
       ".bdl-lsp",
       "bin",
-      binaryName(),
+      binaryName(kind),
     );
     if (isExecutableFile(candidate)) {
       return { file: candidate, root: folder.uri.fsPath };
@@ -181,92 +205,137 @@ function fromWorkspace(): { file: string; root: string } | undefined {
 }
 
 /**
- * 按优先级查找语言服务器可执行文件。
+ * 按优先级查找一个可执行文件。
  *
  * 不做自动下载：发布与自动下载暂不排期，开发期用本地构建产物。
+ *
+ * @param kind      查语言服务器还是 tiptop
+ * @param settingKey  对应的 VSCode 设置名（如 `server.path`）
+ * @param envVar    对应的环境变量名
  */
-export function resolveBinary(extensionPath?: string): ResolveResult {
+function resolveExecutable(
+  kind: BinaryKind,
+  settingKey: string,
+  envVar: string,
+  extensionPath?: string,
+): ResolveResult {
   const attempts: string[] = [];
+  const name = binaryName(kind);
+  const label = kind === "lsp" ? "语言服务器" : "链接资料/部署工具";
 
   const configured = vscode.workspace
     .getConfiguration("bdl")
-    .get<string>("server.path", "")
+    .get<string>(settingKey, "")
     .trim();
   if (configured !== "") {
-    const hit = fromFileOrDir(configured);
+    const hit = fromFileOrDir(configured, kind);
     if (hit) {
       return {
         ok: true,
         binary: { command: hit, origin: "setting", detail: configured },
       };
     }
-    attempts.push(`设置 bdl.server.path = ${configured}`);
+    attempts.push(`设置 bdl.${settingKey} = ${configured}`);
   }
 
-  const envValue = (process.env.BDL_LSP_PATH ?? "").trim();
+  const envValue = (process.env[envVar] ?? "").trim();
   if (envValue !== "") {
-    const hit = fromFileOrDir(envValue);
+    const hit = fromFileOrDir(envValue, kind);
     if (hit) {
       return {
         ok: true,
         binary: { command: hit, origin: "env", detail: envValue },
       };
     }
-    attempts.push(`环境变量 BDL_LSP_PATH = ${envValue}`);
+    attempts.push(`环境变量 ${envVar} = ${envValue}`);
   }
 
-  const bundled = fromBundled(extensionPath);
+  const bundled = fromBundled(kind, extensionPath);
   if (bundled) {
     return {
       ok: true,
       binary: {
         command: bundled,
         origin: "bundled",
-        detail: path.join("bin", binaryName()),
+        detail: path.join("bin", name),
       },
     };
   }
-  attempts.push(
-    `扩展内置 bin/${binaryName()}（不存在，或安装包与当前平台不匹配）`,
-  );
+  attempts.push(`扩展内置 bin/${name}（不存在，或安装包与当前平台不匹配）`);
 
-  const ws = fromWorkspace();
+  const ws = fromWorkspace(kind);
   if (ws) {
     return {
       ok: true,
       binary: {
         command: ws.file,
         origin: "workspace",
-        detail: path.join(".bdl-lsp", "bin", binaryName()),
+        detail: path.join(".bdl-lsp", "bin", name),
       },
     };
   }
   attempts.push(
-    `工作区 .bdl-lsp/bin/${binaryName()}${
+    `工作区 .bdl-lsp/bin/${name}${
       (vscode.workspace.workspaceFolders ?? []).length === 0
         ? "（当前没有打开文件夹）"
         : ""
     }`,
   );
 
-  const onPath = fromPathEnv();
+  const onPath = fromPathEnv(kind);
   if (onPath) {
     return {
       ok: true,
       binary: { command: onPath, origin: "path", detail: onPath },
     };
   }
-  attempts.push(`系统 PATH 中的 ${binaryName()}`);
+  attempts.push(`系统 PATH 中的 ${name}`);
 
   return {
     ok: false,
-    message: `未找到语言服务器 ${binaryName()}`,
-    hint: buildHint(attempts),
+    message: `未找到${label} ${name}`,
+    hint: buildHint(attempts, kind),
   };
 }
 
+/**
+ * 查找语言服务器 `bdl-lsp`。
+ */
+export function resolveBinary(extensionPath?: string): ResolveResult {
+  return resolveExecutable("lsp", "server.path", "BDL_LSP_PATH", extensionPath);
+}
+
+/**
+ * 查找 `tiptop`（链接资料采集 + 部署）。
+ *
+ * 与语言服务器分开解析：两者可以来自不同位置（比如开发期 LSP 用内置，
+ * tiptop 用本地构建）。找不到时部署/采集命令给出各自的提示。
+ */
+export function resolveTools(extensionPath?: string): ResolveResult {
+  return resolveExecutable("tools", "tools.path", "TIPTOP_PATH", extensionPath);
+}
+
 /** 把失败原因组织成一段用户能照着做的提示。 */
-function buildHint(attempts: string[]): string {
+function buildHint(attempts: string[], kind: BinaryKind): string {
+  const name = binaryName(kind);
+  if (kind === "tools") {
+    return [
+      "已尝试以下位置，均未找到 " + name + "：",
+      ...attempts.map((a) => `  • ${a}`),
+      "",
+      "`tiptop` 负责采集链接资料与部署，从 bdl-lsp 分离而来。",
+      "解决办法（任选其一）：",
+      "  1. 重新安装与当前系统/芯片匹配的扩展包（安装包自带 tiptop）；",
+      "  2. 在设置中填写 bdl.tools.path（可填可执行文件或所在目录）；",
+      "  3. 设置环境变量 TIPTOP_PATH；",
+      `  4. 把 ${name} 放到工作区的 .bdl-lsp/bin/ 下；`,
+      `  5. 把 ${name} 加入系统 PATH。`,
+      "",
+      "从源码运行扩展时，可先在 tiptop 仓库执行：",
+      "  make build   # 产出 tiptop/artifacts/bin/tiptop",
+    ].join("\n");
+  }
+
   const lines = [
     "已尝试以下位置，均未找到可执行文件：",
     ...attempts.map((a) => `  • ${a}`),
@@ -275,8 +344,8 @@ function buildHint(attempts: string[]): string {
     "  1. 重新安装与当前系统/芯片匹配的扩展包（安装包自带语言服务器）；",
     "  2. 在设置中填写 bdl.server.path（可填可执行文件或所在目录）；",
     "  3. 设置环境变量 BDL_LSP_PATH；",
-    `  4. 把 ${binaryName()} 放到工作区的 .bdl-lsp/bin/ 下；`,
-    `  5. 把 ${binaryName()} 加入系统 PATH。`,
+    `  4. 把 ${name} 放到工作区的 .bdl-lsp/bin/ 下；`,
+    `  5. 把 ${name} 加入系统 PATH。`,
     "",
     "从源码运行扩展时，可先在 bdl-lsp 仓库执行：",
     "  make build   # 产出 bdl-lsp/artifacts/bin/bdl-lsp",

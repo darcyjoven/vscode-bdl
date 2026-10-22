@@ -312,16 +312,16 @@ GLOBALS 文件找不到时默认 warning；确认是历史遗留、不打算修�
 
 ```bash
 # 方式一：已有 DS.GAL_FILE 导出 CSV
-bdl-lsp link import -csv /path/to/gal_file.csv -root .
+tiptop link import -csv /path/to/gal_file.csv -root .
 
 # 方式二：从文件采集（CSV 格式与方式一相同）
-bdl-lsp link sync -root . -source file -file /path/to/gal_file.csv
+tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 # 方式三：从命令采集（命令需输出 CSV）
-bdl-lsp link sync -root . -source command -command 'your-export-command'
+tiptop link sync -root . -source command -command 'your-export-command'
 
 # 方式四：直连 Oracle 采集
-BDL_ORA_PASSWORD=... bdl-lsp link sync -root . -source golang \
+BDL_ORA_PASSWORD=... tiptop link sync -root . -source golang \
   -host db.example.com -service MYDB -user apps
 ```
 
@@ -329,7 +329,7 @@ BDL_ORA_PASSWORD=... bdl-lsp link sync -root . -source golang \
 `扫描源码 X/Y` 进度。完成后检查：
 
 ```bash
-bdl-lsp link status -root .
+tiptop link status -root .
 ```
 
 ### 6.2 在 VSCode 里使用
@@ -462,7 +462,7 @@ bdl-lsp link status -root .
   `function-not-found` / `link-data-*` 诊断、不启动自动采集，侧边栏
   「链接资料」视图整个隐藏；
 - `bdl.deploy.enable`（默认开）——关闭后命令面板隐藏四条部署命令，
-  执行也不会调用 `bdl-lsp deploy`。
+  执行也不会调用 `tiptop deploy`。
 
 两个开关都用于"减少资源占用"：不需要链接资料或部署的机器可以关掉。
 
@@ -573,7 +573,7 @@ VSCode 设置适合个人临时调整。
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.deploy.enable` | `true` | **总开关**：关闭后命令面板隐藏部署命令，执行也不会调用 `bdl-lsp deploy` |
+| `bdl.deploy.enable` | `true` | **总开关**：关闭后命令面板隐藏部署命令，执行也不会调用 `tiptop deploy` |
 | `bdl.deploy.target` | `""` | 默认部署目标名；留空用 `defaultTarget` |
 
 > 密码不在设置里。链接同步用 `BDL_ORA_PASSWORD` 或
@@ -629,7 +629,7 @@ VSCode 设置适合个人临时调整。
 
 ### 9.4 链接资料视图空 / 反查不到
 
-- 先跑 `bdl-lsp link status -root .`；
+- 先跑 `tiptop link status -root .`；
 - 确认 `.link/links.jsonl` 存在且不是空文件；
 - 重新 `link import` 后点“刷新”；
 - 反查只对已索引的程序有效，确认当前文件在 `moduleRoots` 内。

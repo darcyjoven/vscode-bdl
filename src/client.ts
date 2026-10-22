@@ -10,7 +10,12 @@ import {
   TransportKind,
 } from "vscode-languageclient/node";
 
-import { describeBinary, resolveBinary, type ResolvedBinary } from "./server/binary";
+import {
+  describeBinary,
+  resolveBinary,
+  resolveTools,
+  type ResolvedBinary,
+} from "./server/binary";
 
 /** 两种语言的 documentSelector：与 package.json 的 languages.id 保持一致。 */
 const DOCUMENT_SELECTOR = [
@@ -40,9 +45,24 @@ export interface StartOutcome {
   hint?: string;
 }
 
+/** 扩展安装目录，供命令侧解析 tiptop 使用。 */
+let extensionPath: string | undefined;
+
 /** 当前二进制解析结果的只读快照（供命令使用）。 */
 export function currentBinary(): ResolvedBinary | undefined {
   return binaryInfo;
+}
+
+/**
+ * `tiptop` 的解析结果快照（供部署命令使用）。
+ *
+ * 与语言服务器分开解析：部署/采集由 tiptop 负责，它可能不在同一个位置
+ * （例如开发期内置了 LSP、tiptop 用本地构建产物）。
+ * 服务器没启动时这里是 undefined，命令侧会再单独解析一次。
+ */
+export function currentTools(): ResolvedBinary | undefined {
+  const resolved = resolveTools(extensionPath);
+  return resolved.ok ? resolved.binary : undefined;
 }
 
 /** 供状态栏/日志使用的客户端实例。 */
@@ -235,6 +255,7 @@ export async function startClient(
     return { ok: false, message: resolved.message, hint: resolved.hint };
   }
 
+  extensionPath = context.extensionPath;
   binaryInfo = resolved.binary;
   const serverOptions = serverOptionsFor(resolved.binary);
   const clientOptions = clientOptionsFor(context);

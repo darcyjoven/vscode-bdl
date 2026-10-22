@@ -92,7 +92,7 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 
 关闭 `bdl.link.enable`：不加载 `.link/` 资料、不启用 `function-not-found` /
 `link-data-*` 诊断、不启动自动采集，侧边栏「链接资料」视图隐藏。
-关闭 `bdl.deploy.enable`：命令面板隐藏部署命令，执行也不会调用 `bdl-lsp deploy`。
+关闭 `bdl.deploy.enable`：命令面板隐藏部署命令，执行也不会调用 `tiptop deploy`。
 
 按“要不要改”分成三档，详细说明、示例与全部 41 个键见
 [使用手册第 8 节](docs/USER-GUIDE.md#8-配置说明)。
@@ -167,10 +167,10 @@ Genero 自带的变量/函数/类名（`SQLCA`、`INT_FLAG`、`STATUS`、`ARG_VA
 
 ```bash
 # 1) 从数据库导出 DS.GAL_FILE（SQL 见项目文档），然后在终端导入：
-bdl-lsp link import -csv gal_file.csv -root .
+tiptop link import -csv gal_file.csv -root .
 #    输出：链 5398 / orphan 451 / 缺失文件 800 …，写入 <项目根>/.link/
 # 2) 随时查看状态：
-bdl-lsp link status
+tiptop link status
 ```
 
 导入完成后**不需要重启窗口**：打开文件时发现资料变了会自动重载（约 2 秒）。
@@ -245,7 +245,7 @@ Explorer 侧栏多一个「链接资料」视图，显示当前文件属于哪�
   被 324 组引用，一次铺开会卡；
 - 没有 `.link/links.jsonl` 时只显示一句引导文案，不报错。
 
-Zed 没有等价的自定义视图，用 `bdl-lsp link status` 看同样的数据。
+Zed 没有等价的自定义视图，用 `tiptop link status` 看同样的数据。
 
 ## 命令
 

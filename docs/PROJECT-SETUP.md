@@ -32,7 +32,7 @@
 本地工作区
    │  ③ 导出 DS.GAL_FILE → link import → .link/links.jsonl
    │  ④ 写 .bdl-lsp/config.json 与 deploy.json
-   │  ⑤ bdl-lsp deploy 单文件上传 + 远程编译
+   │  ⑤ tiptop deploy 单文件上传 + 远程编译
    ▼
 VSCode 里完整可用
 ```
@@ -218,7 +218,7 @@ mkdir -p .link
 
 export BDL_ORA_PASSWORD='<只读账号密码>'   # 不要写进任何文件
 
-bdl-lsp link sync \
+tiptop link sync \
   -root "$WORKSPACE" \
   -source golang \
   -host <Oracle主机> \
@@ -278,7 +278,7 @@ SQL
 scp <用户名>@<生产主机>:/tmp/gal_file.csv "$WORKSPACE/.link/"
 cd "$WORKSPACE"
 
-bdl-lsp link import -csv .link/gal_file.csv -root "$WORKSPACE"
+tiptop link import -csv .link/gal_file.csv -root "$WORKSPACE"
 ```
 
 > CSV 必须有表头 `GAL01,GAL02,GAL03,GAL04`（`link import` 按表头定位列）。
@@ -291,7 +291,7 @@ bdl-lsp link import -csv .link/gal_file.csv -root "$WORKSPACE"
 ```bash
 cd "$WORKSPACE"
 
-bdl-lsp link sync \
+tiptop link sync \
   -root "$WORKSPACE" \
   -source command \
   -command '<你们的导出命令，输出 CSV 到 stdout>'
@@ -303,19 +303,23 @@ bdl-lsp link sync \
 cd "$WORKSPACE"
 
 ls -lh .link/
-bdl-lsp link status -root "$WORKSPACE"
+tiptop link status -root "$WORKSPACE"
 ```
 
 `link status` 应显示链数、文件数、过期时间。**这一步没有输出"链 0"就说明没成功**。
 
-如果 `bdl-lsp` 不在 PATH 里（平台包内置，命令行不一定有）：
+> **`tiptop` 是什么**：链接资料的采集与部署由 tiptop 负责，它是从
+> 语言服务器 `bdl-lsp` 分离出来的独立工具。语言服务器只读取 `.link/` 资料，
+> 不负责生成它。平台扩展包同时内置两者。
+
+如果 `tiptop` 不在 PATH 里（平台包内置，命令行不一定有）：
 
 ```bash
 # 用 VSCode 内置的那份
-ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/bdl-lsp
+ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop
 # 或
-BDL_LSP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/bdl-lsp | head -1)
-"$BDL_LSP" link status -root "$WORKSPACE"
+TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
+"$TIPTOP" link status -root "$WORKSPACE"
 ```
 
 ---
@@ -424,10 +428,10 @@ Genero BDL: 显示语言服务器信息
 cd "$WORKSPACE"
 
 # 列出配置里的目标
-bdl-lsp deploy -workspace "$WORKSPACE" -list
+tiptop deploy -workspace "$WORKSPACE" -list
 
 # 预演：只打印要传什么、编译什么，不真的连生产机
-bdl-lsp deploy -workspace "$WORKSPACE" -target prod -dry-run
+tiptop deploy -workspace "$WORKSPACE" -target prod -dry-run
 ```
 
 输出应包含"待处理 N 个文件"与将要执行的编译命令。
@@ -438,7 +442,7 @@ bdl-lsp deploy -workspace "$WORKSPACE" -target prod -dry-run
 cd "$WORKSPACE"
 
 # 只部署这一个文件：上传 + 在生产端编译
-bdl-lsp deploy -workspace "$WORKSPACE" -target prod \
+tiptop deploy -workspace "$WORKSPACE" -target prod \
   tiptop/aap/4gl/aapi202.4gl
 ```
 
@@ -462,7 +466,7 @@ ssh <生产账号>@<生产主机> \
 
 ### 7.3 编译结果怎么判断
 
-`bdl-lsp deploy` 会把远程编译的输出解析成诊断：
+`tiptop deploy` 会把远程编译的输出解析成诊断：
 
 - 编译失败 → 在 VSCode 的 Problems 面板里出现该文件的错误；
 - 编译成功 → 没有错误诊断，命令输出面板里显示成功。
@@ -470,14 +474,14 @@ ssh <生产账号>@<生产主机> \
 用 JSON 看结构化结果：
 
 ```bash
-bdl-lsp deploy -workspace "$WORKSPACE" -target prod -json \
+tiptop deploy -workspace "$WORKSPACE" -target prod -json \
   tiptop/aap/4gl/aapi202.4gl
 ```
 
 ### 7.4 试一个 `.per` 表单
 
 ```bash
-bdl-lsp deploy -workspace "$WORKSPACE" -target prod \
+tiptop deploy -workspace "$WORKSPACE" -target prod \
   tiptop/aap/per/<某个表单>.per
 ```
 
@@ -487,10 +491,10 @@ bdl-lsp deploy -workspace "$WORKSPACE" -target prod \
 
 ```bash
 # 只上传
-bdl-lsp deploy -workspace "$WORKSPACE" -target prod -no-compile <文件>
+tiptop deploy -workspace "$WORKSPACE" -target prod -no-compile <文件>
 
 # 只编译（文件已在生产端）
-bdl-lsp deploy -workspace "$WORKSPACE" -target prod -no-upload <文件>
+tiptop deploy -workspace "$WORKSPACE" -target prod -no-upload <文件>
 ```
 
 ### 7.6 在 VSCode 里做同样的事
@@ -526,7 +530,7 @@ bdl-lsp deploy -workspace "$WORKSPACE" -target prod -no-upload <文件>
 
 ```bash
 cd "$WORKSPACE"
-bdl-lsp link status -root "$WORKSPACE"
+tiptop link status -root "$WORKSPACE"
 ```
 
 > 侧边栏"链接资料"视图受 `bdl.link.enable` 控制（设置界面
@@ -542,9 +546,9 @@ cd "$WORKSPACE"
 # 1) 文件能解析
 bdl-lsp check tiptop/aap/4gl/aapi202.4gl
 # 2) 链接资料在
-bdl-lsp link status -root "$WORKSPACE"
+tiptop link status -root "$WORKSPACE"
 # 3) 部署计划对
-bdl-lsp deploy -workspace "$WORKSPACE" -dry-run tiptop/aap/4gl/aapi202.4gl
+tiptop deploy -workspace "$WORKSPACE" -dry-run tiptop/aap/4gl/aapi202.4gl
 ```
 
 ---
@@ -574,7 +578,7 @@ head -1 .link/gal_file.csv
 
 - `gal04` 全是 `'N'`：SQL 条件写错了，应为 `WHERE gal04 = 'Y'`；
 - 表里确实没数据：确认连的是正确的库；
-- 用 `bdl-lsp link status -root "$WORKSPACE"` 复核。
+- 用 `tiptop link status -root "$WORKSPACE"` 复核。
 
 ### 9.4 链接资料有，但 `function-not-found` 还是报
 
@@ -591,7 +595,7 @@ head -1 .link/gal_file.csv
 
 | 现象 | 检查 |
 |---|---|
-| 找不到 `bdl-lsp` | 用平台包里的：`~/.vscode/extensions/darcyjoven.4gl-full-*/bin/bdl-lsp` |
+| 找不到 `tiptop` | 用平台包里的：`~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop`；或在设置里填 `bdl.tools.path` |
 | SSH 认证失败 | `ssh <账号>@<主机> 'echo ok'` 手动验证；检查 key/agent |
 | 远端没有该目录 | `remoteRoot` 要与生产端源码目录一致（`/u1/toppord`） |
 | 远端找不到 `fglcomp` | 远程命令走登录 shell 的 `PATH`；用绝对路径或确认 `.bash_profile` 里有 Genero 环境 |
@@ -730,15 +734,15 @@ git add -A && git commit -m "从生产端导入源码"
 # ===== ④ 链接资料 =====
 cd "$WORKSPACE" && mkdir -p .link
 export BDL_ORA_PASSWORD='<密码>'
-bdl-lsp link sync -root "$WORKSPACE" -source golang \
+tiptop link sync -root "$WORKSPACE" -source golang \
   -host <Oracle主机> -service <服务名> -user <只读账号>
-bdl-lsp link status -root "$WORKSPACE"
+tiptop link status -root "$WORKSPACE"
 
 # ===== ⑤ 部署测试 =====
 cd "$WORKSPACE"
-bdl-lsp deploy -workspace "$WORKSPACE" -list
-bdl-lsp deploy -workspace "$WORKSPACE" -target prod -dry-run
-bdl-lsp deploy -workspace "$WORKSPACE" -target prod \
+tiptop deploy -workspace "$WORKSPACE" -list
+tiptop deploy -workspace "$WORKSPACE" -target prod -dry-run
+tiptop deploy -workspace "$WORKSPACE" -target prod \
   tiptop/aap/4gl/aapi202.4gl
 
 # ===== ⑥ 打开 =====

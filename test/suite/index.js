@@ -627,10 +627,10 @@ async function run() {
       const root = process.env.BDL_E2E_WORKSPACE;
       assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
       const { execFileSync } = require("node:child_process");
-      // 二进制路径由 runTest.js 通过 BDL_LSP_PATH 传入（与语言客户端同源），
-      // 避免在测试里猜相对路径。
-      const binary = process.env.BDL_LSP_PATH;
-      assert.ok(binary && fs.existsSync(binary), `找不到 bdl-lsp: ${binary}`);
+      // 部署已从 bdl-lsp 分离到 tiptop：路径由 runTest.js 通过 TIPTOP_PATH
+      // 传入，避免在测试里猜相对路径。
+      const binary = process.env.TIPTOP_PATH;
+      assert.ok(binary && fs.existsSync(binary), `找不到 tiptop: ${binary}`);
 
       // 在工作区里放一份配置：远程地址随便写，dry-run 不连接。
       const cfgDir = path.join(root, ".bdl-lsp");
