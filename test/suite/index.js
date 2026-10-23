@@ -102,6 +102,8 @@ async function run() {
         "bdl.links.references",
         // P0-3：文件因上限/超时没被解析时的"强制解析当前文件"
         "bdl.forceParseCurrentFile",
+        // P1-2：把旧目录 .link/ 搬到 .project/
+        "bdl.migrateLinkDir",
       ]) {
         assert.ok(commands.includes(id), `缺少命令 ${id}`);
       }

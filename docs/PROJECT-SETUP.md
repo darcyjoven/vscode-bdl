@@ -30,7 +30,7 @@
    │  ② 解压 → git init
    ▼
 本地工作区
-   │  ③ 导出 DS.GAL_FILE → tiptop link import → .link/links.jsonl
+   │  ③ 导出 DS.GAL_FILE → tiptop link import → .project/links.jsonl
    │  ④ 写 .bdl-lsp/config.json 与 deploy.json
    │  ⑤ tiptop deploy 单文件上传 + 远程编译
    ▼
@@ -62,7 +62,10 @@ cd "$WORKSPACE"
 ```
 
 工作区根会被 VSCode 打开，`.bdl-lsp/config.json`、`.bdl-lsp/deploy.json`、
-`.link/` 都要放在它下面。
+`.project/` 都要放在它下面。
+
+> 迁移前的项目资料在 `.link/`；语言服务器仍会读取旧目录并提示迁移，
+> 一键命令：**`Genero BDL: 迁移链接资料目录`**（搬完自动重启语言服务器）。
 
 确认插件已安装（平台包自带语言服务器，不用另外装 `bdl-lsp`）：
 
@@ -164,7 +167,7 @@ git init -b main
 # 忽略不该进版本库的东西
 cat > .gitignore <<'EOF'
 # 链接资料（由工具生成，含环境相关信息）
-.link/
+.project/
 
 # 部署配置（含主机名、账号，不同开发者不同）
 .bdl-lsp/deploy.json
@@ -190,7 +193,7 @@ git log --oneline -1
 VSCode 必须打开 `$WORKSPACE` 本身（不是它的子目录），否则：
 
 - `.bdl-lsp/config.json` 读不到；
-- 链接资料目录 `.link/` 找不到；
+- 链接资料目录 `.project/` 找不到；
 - GLOBALS 相对路径解析的起点不对。
 
 打开方式：
@@ -227,10 +230,10 @@ tiptop link sync \
   -user <只读账号>
 ```
 
-成功后 `.link/` 下会有：
+成功后 `.project/` 下会有：
 
 ```text
-.link/
+.project/
 ├── links.jsonl        # 链接资料（链、文件、MAIN）
 ├── links.meta.json    # 元信息（来源、统计、schema 版本）
 └── secrets.json       # 密码（仅当用了密文件方式时才有）
@@ -243,10 +246,10 @@ tiptop link sync \
 export BDL_ORA_PASSWORD='<密码>'
 
 # 方式 A-2：密文件（无人值守 / 不想每次 export）
-cat > .link/secrets.json <<'EOF'
+cat > .project/secrets.json <<'EOF'
 { "<只读账号>": "<密码>" }
 EOF
-chmod 600 .link/secrets.json
+chmod 600 .project/secrets.json
 ```
 
 ### 5.2 方式 B：从生产端用 sqlplus 导出 CSV，再本地导入
@@ -275,10 +278,10 @@ SQL
 **拉回本地并导入**：
 
 ```bash
-scp <用户名>@<生产主机>:/tmp/gal_file.csv "$WORKSPACE/.link/"
+scp <用户名>@<生产主机>:/tmp/gal_file.csv "$WORKSPACE/.project/"
 cd "$WORKSPACE"
 
-tiptop link import -csv .link/gal_file.csv -root "$WORKSPACE"
+tiptop link import -csv .project/gal_file.csv -root "$WORKSPACE"
 ```
 
 > CSV 必须有表头 `GAL01,GAL02,GAL03,GAL04`（`link import` 按表头定位列）。
@@ -302,14 +305,14 @@ tiptop link sync \
 ```bash
 cd "$WORKSPACE"
 
-ls -lh .link/
+ls -lh .project/
 tiptop link status -root "$WORKSPACE"
 ```
 
 `tiptop link status` 应显示链数、文件数、过期时间。**这一步没有输出"链 0"就说明没成功**。
 
 > **`tiptop` 是什么**：链接资料的采集与部署由 tiptop 负责，它是从
-> 语言服务器 `bdl-lsp` 分离出来的独立工具。语言服务器只读取 `.link/` 资料，
+> 语言服务器 `bdl-lsp` 分离出来的独立工具。语言服务器只读取 `.project/` 资料，
 > 不负责生成它。平台扩展包同时内置两者。
 
 如果 `tiptop` 不在 PATH 里（平台包内置，命令行不一定有）：
@@ -358,7 +361,7 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
   // 链接资料
   "link": {
     "enable": true,
-    "dataDir": ".link",
+    "dataDir": ".project",
     // 模组根：留空则自动探测（tiptop / topcust 优先），一般不用配
     "moduleRoots": [],
     "globalModules": ["sub", "lib", "qry"],
@@ -385,7 +388,7 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
       "localRoot": ".",
       "upload": {
         "include": ["**/*.4gl", "**/*.global", "**/*.per", "**/*.sch"],
-        "exclude": ["**/.git/**", "**/.link/**", "**/.bdl-lsp/**"],
+        "exclude": ["**/.git/**", "**/.project/**", "**/.bdl-lsp/**"],
         "mode": "rsync",
         "rsyncArgs": ["-az"],
         "fallback": "scp",
@@ -570,7 +573,7 @@ tar tzf toppord-src.tar.gz | head -20
 CSV 表头不对。用 `SET MARKUP CSV ON` 导出（见 5.2），或手工加表头行：
 
 ```bash
-head -1 .link/gal_file.csv
+head -1 .project/gal_file.csv
 # 期望：GAL01,GAL02,GAL03,GAL04
 ```
 
@@ -583,7 +586,7 @@ head -1 .link/gal_file.csv
 ### 9.4 链接资料有，但 `function-not-found` 还是报
 
 - 确认 `bdl.link.enable` 是 `true`（设置界面 "Genero BDL: 链接资料" 一节）；
-- 确认 `bdl.link.dataDir` 与实际目录一致（默认 `.link`）；
+- 确认 `bdl.link.dataDir` 与实际目录一致（默认 `.project`）；
 - 资料过期会报 `link-data-stale`（hint 级），重新导入即可。
 
 ### 9.5 GLOBALS 变量跳转不到
@@ -614,8 +617,8 @@ head -1 .link/gal_file.csv
 ### 9.8 密码相关
 
 - **不要**把 Oracle 密码写进 `settings.json` 或提交进仓库；
-- 用 `BDL_ORA_PASSWORD` 环境变量，或 `.link/secrets.json`（`chmod 600`，
-  且 `.link/` 已在 `.gitignore` 里）。
+- 用 `BDL_ORA_PASSWORD` 环境变量，或 `.project/secrets.json`（`chmod 600`，
+  且 `.project/` 已在 `.gitignore` 里）。
 
 ---
 
@@ -678,7 +681,7 @@ echo "==> [3/6] 初始化 Git 仓库"
 if [ ! -d .git ]; then
   git init -b main
   cat > .gitignore <<'EOF'
-.link/
+.project/
 .bdl-lsp/deploy.json
 *.o
 *.err
@@ -735,7 +738,7 @@ cd "$WORKSPACE" && tar xzf toppord-src.tar.gz
 # ===== ③ Git 初始化 =====
 cd "$WORKSPACE"
 git init -b main
-printf '.link/\n.bdl-lsp/deploy.json\n*.o\n*.err\n*.form\n' > .gitignore
+printf '.project/\n.bdl-lsp/deploy.json\n*.o\n*.err\n*.form\n' > .gitignore
 git add -A && git commit -m "从生产端导入源码"
 
 # ===== ④ 链接资料 =====
@@ -764,7 +767,7 @@ $WORKSPACE/
 │   ├── config.json          # 项目配置（可提交）
 │   ├── deploy.json          # 部署配置（含主机，建议不提交）
 │   └── builtins.json        # 可选：项目自定义内置符号
-├── .link/                   # 链接资料（不提交）
+├── .project/                   # 链接资料（不提交）
 │   ├── links.jsonl
 │   ├── links.meta.json
 │   └── gal_file.csv         # 方式 B 的中间产物

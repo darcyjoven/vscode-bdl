@@ -165,7 +165,7 @@ function collectSettings(): Record<string, unknown> {
     // 链接资料（P7-D）：同样必须显式转交（collectSettings 是白名单）。
     link: {
       enable: cfg.get<boolean>("link.enable") ?? true,
-      dataDir: cfg.get<string>("link.dataDir") ?? ".link",
+      dataDir: cfg.get<string>("link.dataDir") ?? ".project",
       moduleRoots: cfg.get<string[]>("link.moduleRoots") ?? [],
       globalModules: cfg.get<string[]>("link.globalModules") ?? ["sub", "lib", "qry"],
       maxAgeDays: cfg.get<number>("link.maxAgeDays") ?? 7,

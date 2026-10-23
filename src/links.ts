@@ -1,7 +1,7 @@
 // 「链接资料」TreeView（P7-E）：显示当前文件属于哪条链接链，以及反查引用程序。
 //
 // 数据全部来自语言服务器的两个自定义请求（bdl/linkTree / bdl/linkReferences）：
-// 插件不读 .link/*.json，避免 schema 演进时两处都要改，也复用服务器已建好的
+// 插件不读 .project/*.json，避免 schema 演进时两处都要改，也复用服务器已建好的
 // 内存索引（反查 aws_xml 那种 324 组的场景，插件自己扫要几百毫秒）。
 import * as path from "node:path";
 import * as vscode from "vscode";
@@ -299,8 +299,122 @@ export function registerLinks(context: vscode.ExtensionContext): LinkTreeProvide
     vscode.commands.registerCommand("bdl.links.moreRefs", () => provider.moreReferences()),
     // 切文件就换内容；不监听文档内容变化（链接资料与正文无关）。
     vscode.window.onDidChangeActiveTextEditor(() => provider.refresh()),
+    vscode.commands.registerCommand("bdl.migrateLinkDir", () => migrateLinkDir()),
   );
+  registerLegacyDirWatcher(context);
   return provider;
+}
+
+/** 旧資料目录名（P1-2 之前）与默认新目录名。 */
+const LEGACY_DIR = ".link";
+const DEFAULT_DIR = ".project";
+
+/**
+ * 把 `.link/` 整体搬到 `.project/`（P1-2）。
+ *
+ * 为什么让插件做而不是让用户手动 mv：还要保证"服务器重新加载、
+ * 旧目录不残留、已有 `.project/` 不被覆盖"，这几件事一起做才不会出错。
+ * 只在用户确认后动手，不动 `.gitignore` 等用户文件（旧决定 E8 保留）。
+ */
+async function migrateLinkDir(): Promise<void> {
+  const folders = vscode.workspace.workspaceFolders;
+  if (!folders || folders.length === 0) {
+    void vscode.window.showWarningMessage("请先打开一个工作区");
+    return;
+  }
+  const root = folders[0].uri;
+  const legacy = vscode.Uri.joinPath(root, LEGACY_DIR);
+  const target = vscode.Uri.joinPath(root, DEFAULT_DIR);
+
+  let entries: [string, vscode.FileType][];
+  try {
+    entries = await vscode.workspace.fs.readDirectory(legacy);
+  } catch {
+    void vscode.window.showInformationMessage(`没有找到旧目录 ${LEGACY_DIR}/，无需迁移`);
+    return;
+  }
+
+  // 目标目录已有 links.jsonl 时不覆盖：让用户自己决定
+  try {
+    await vscode.workspace.fs.stat(vscode.Uri.joinPath(target, "links.jsonl"));
+    const pick = await vscode.window.showWarningMessage(
+      `${DEFAULT_DIR}/links.jsonl 已存在，迁移会保留它、只搬旧目录里其余文件。继续？`,
+      { modal: true },
+      "继续",
+    );
+    if (pick !== "继续") {
+      return;
+    }
+  } catch {
+    // 目标不存在：正常情况
+  }
+
+  const pick = await vscode.window.showWarningMessage(
+    `将把 ${LEGACY_DIR}/ 下的资料搬到 ${DEFAULT_DIR}/（${entries.length} 项），搬完自动重启语言服务器。继续？`,
+    { modal: true },
+    "迁移",
+  );
+  if (pick !== "迁移") {
+    return;
+  }
+
+  await vscode.workspace.fs.createDirectory(target);
+  let moved = 0;
+  for (const [name, type] of entries) {
+    const from = vscode.Uri.joinPath(legacy, name);
+    const to = vscode.Uri.joinPath(target, name);
+    if (type === vscode.FileType.Directory) {
+      continue; // 旧目录里目前只有文件；子目录留给用户自己处理
+    }
+    try {
+      // 目标已存在则不覆盖（例如刚确认过的 links.jsonl）
+      await vscode.workspace.fs.stat(to);
+      continue;
+    } catch {
+      // fallthrough：目标不存在
+    }
+    await vscode.workspace.fs.rename(from, to, { overwrite: false });
+    moved += 1;
+  }
+  void vscode.window.showInformationMessage(
+    `已迁移 ${moved} 个文件到 ${DEFAULT_DIR}/，正在重启语言服务器`,
+  );
+  await vscode.commands.executeCommand("bdl.restartServer");
+}
+
+/**
+ * 服务端读到旧目录时会发 `link-data-legacy-dir`（hint）。
+ * 这里接住它，弹一次"要不要迁移"的提示——PowerShell 用户不会去翻 Problems。
+ */
+function registerLegacyDirWatcher(context: vscode.ExtensionContext): void {
+  let asked = false;
+  context.subscriptions.push(
+    vscode.languages.onDidChangeDiagnostics((e) => {
+      if (asked) {
+        return;
+      }
+      const hit = e.uris.some((uri) =>
+        vscode.languages
+          .getDiagnostics(uri)
+          .some((d) => d.code === "link-data-legacy-dir"),
+      );
+      if (!hit) {
+        return;
+      }
+      asked = true;
+      void vscode.window
+        .showInformationMessage(
+          `链接资料还在旧目录 ${LEGACY_DIR}/，建议迁移到 ${DEFAULT_DIR}/`,
+          "迁移",
+          "稍后",
+        )
+        .then((pick) => {
+          if (pick === "迁移") {
+            void vscode.commands.executeCommand("bdl.migrateLinkDir");
+          }
+        });
+    }),
+  );
 }
 
 /** 供信息面板展示：当前文件属于哪个链（没有则空串）。 */

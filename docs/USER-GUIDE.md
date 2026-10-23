@@ -179,7 +179,7 @@
 几个容易误解的点：
 
 - **变量检查只查来源**，不查类型、不查赋值是否兼容；
-- **函数检查需要链接资料**。没有 `.link/links.jsonl` 时整项不启用，避免误报；
+- **函数检查需要链接资料**。没有 `.project/links.jsonl` 时整项不启用，避免误报；
 - **字段检查只在表单唯一解析成功时报告**；解析不到表单不会硬猜；
 - **记录成员默认关闭**。`RECORD LIKE table.*` 需要 schema 索引才能展开；
 - `file-too-large` 是提示，不是错误；大文件会跳过语法检查。
@@ -299,7 +299,8 @@ GLOBALS 文件找不到时默认 warning；确认是历史遗留、不打算修�
 
 ## 6. 链接资料
 
-链接资料是程序/函数/全局变量的跨模块索引，保存在项目的 `.link/` 下。
+链接资料是程序/函数/全局变量的跨模块索引，保存在项目的 `.project/` 下。 迁移前它放在 `.link/`：语言服务器**仍会读取旧目录**并发一条提示，
+执行命令 `Genero BDL: 迁移链接资料目录` 可以整体搬到 `.project/`（搬完自动重启服务器）。
 它**不是**打开项目就自动有的，需要先生成；没有它时：
 
 - `function-not-found` 不启用；
@@ -350,14 +351,14 @@ tiptop link status -root .
 ```jsonc
 {
   "bdl.link.enable": true,
-  "bdl.link.dataDir": ".link",
+  "bdl.link.dataDir": ".project",
   "bdl.link.moduleRoots": ["src"],
   "bdl.link.globalModules": ["sub", "lib", "qry"],
   "bdl.link.maxAgeDays": 7
 }
 ```
 
-- `dataDir`：资料目录，默认 `.link`；
+- `dataDir`：资料目录，默认 `.project`；
 - `moduleRoots`：模组根，影响跨模组查找；
 - `globalModules`：全局模组名；
 - `maxAgeDays`：过期提示阈值，超过后报 `link-data-stale`（hint）。
@@ -369,7 +370,7 @@ tiptop link status -root .
 
 ```bash
 # 从已导出的 CSV 导入
-tiptop link import -csv .link/gal_file.csv -root .
+tiptop link import -csv .project/gal_file.csv -root .
 
 # 直连 Oracle 采集（纯 Go 驱动，无需 Oracle 客户端）
 BDL_ORA_PASSWORD=... tiptop link sync -root . -source golang \
@@ -381,13 +382,13 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 ```
 
 密码**不放在设置里**：用环境变量 `BDL_ORA_PASSWORD`，或
-`.link/secrets.json`（权限 0600）。导入完成后编辑器按 mtime 自动热加载，无需重启。
+`.project/secrets.json`（权限 0600）。导入完成后编辑器按 mtime 自动热加载，无需重启。
 
 ### 6.5 链接资料常见问题
 
 | 现象 | 先查 |
 |---|---|
-| 函数仍然报找不到 | 是否生成过 `.link/links.jsonl`；`tiptop link status` 是否正常 |
+| 函数仍然报找不到 | 是否生成过 `.project/links.jsonl`；`tiptop link status` 是否正常 |
 | 链接视图为空 | 当前文件是否在 `moduleRoots` 内；是否点了刷新 |
 | 反查跳错文件 | 确认生成资料后重新 `tiptop link import`；旧索引可能过期 |
 | 资料过期提示 | 重新 `tiptop link sync`，或临时关掉 `link-data-stale` |
@@ -461,7 +462,7 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 后两节各有一个**总开关**：
 
-- `bdl.link.enable`（默认开）——关闭后不加载 `.link/` 资料、不启用
+- `bdl.link.enable`（默认开）——关闭后不加载 `.project/` 资料、不启用
   `function-not-found` / `link-data-*` 诊断、不启动自动采集，侧边栏
   「链接资料」视图整个隐藏；
 - `bdl.deploy.enable`（默认开）——关闭后命令面板隐藏四条部署命令，
@@ -494,7 +495,7 @@ VSCode 设置适合个人临时调整。
 
 **第二类：不配置就用不了**
 
-- 链接资料：需要先生成 `.link`，再按需配 `link.*`；
+- 链接资料：需要先生成 `.project`，再按需配 `link.*`；
 - 部署：需要 `.bdl-lsp/deploy.json` 和 SSH 访问；
 - schema：只有需要展开 `LIKE table.*` 时才配 `schema.paths`；
 - 表单/ GLOBALS 搜索路径：项目层级特殊时才需要加。
@@ -556,7 +557,7 @@ VSCode 设置适合个人临时调整。
 | 键 | 默认 | 作用 |
 |---|---|---|
 | `bdl.link.enable` | `true` | **总开关**：关闭后不加载资料、不发相关诊断、隐藏链接资料视图 |
-| `bdl.link.dataDir` | `.link` | 资料目录 |
+| `bdl.link.dataDir` | `.project` | 资料目录 |
 | `bdl.link.moduleRoots` | `[]` | 模组根 |
 | `bdl.link.globalModules` | `["sub","lib","qry"]` | 全局模组名 |
 | `bdl.link.maxAgeDays` | `7` | 过期提示阈值（天） |
@@ -572,7 +573,7 @@ VSCode 设置适合个人临时调整。
 | `bdl.deploy.target` | `""` | 默认部署目标名；留空用 `defaultTarget` |
 
 > 密码不在设置里。链接同步用 `BDL_ORA_PASSWORD` 或
-> `.link/secrets.json`；部署用 SSH key / agent。
+> `.project/secrets.json`；部署用 SSH key / agent。
 
 ### 8.3 项目级配置示例
 
@@ -611,7 +612,7 @@ VSCode 设置适合个人临时调整。
 ### 9.2 变量或函数全是波浪线
 
 - 变量：先确认 GLOBALS 路径是否正确，必要时加 `globals.searchPaths`；
-- 函数：先确认链接资料是否生成；没有 `.link` 时函数检查不会启用；
+- 函数：先确认链接资料是否生成；没有 `.project` 时函数检查不会启用；
 - 内置函数被误报：确认 `builtins.enable=true`，版本是否匹配
   `generoVersion`。
 
@@ -625,7 +626,7 @@ VSCode 设置适合个人临时调整。
 ### 9.4 链接资料视图空 / 反查不到
 
 - 先跑 `tiptop link status -root .`；
-- 确认 `.link/links.jsonl` 存在且不是空文件；
+- 确认 `.project/links.jsonl` 存在且不是空文件；
 - 重新 `tiptop link import` 后点“刷新”；
 - 反查只对已索引的程序有效，确认当前文件在 `moduleRoots` 内。
 

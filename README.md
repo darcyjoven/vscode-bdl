@@ -90,7 +90,7 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 | Genero BDL: 链接资料 | 跨模块函数索引、资料采集 | `bdl.link.enable` |
 | Genero BDL: 部署 | 上传与远程编译 | `bdl.deploy.enable` |
 
-关闭 `bdl.link.enable`：不加载 `.link/` 资料、不启用 `function-not-found` /
+关闭 `bdl.link.enable`：不加载 `.project/` 资料、不启用 `function-not-found` /
 `link-data-*` 诊断、不启动自动采集，侧边栏「链接资料」视图隐藏。
 关闭 `bdl.deploy.enable`：命令面板隐藏部署命令，执行也不会调用 `tiptop deploy`。
 
@@ -113,7 +113,7 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 | 键 | 默认 | 作用 |
 |---|---|---|
 | `bdl.link.enable` | `true` | 链接资料总开关；不需要跨模块检查时可关 |
-| `bdl.link.*` | 链接资料目录 `.link` | 跨模块函数索引；先生成 `.link/links.jsonl` |
+| `bdl.link.*` | 链接资料目录 `.project` | 跨模块函数索引；先生成 `.project/links.jsonl` |
 | `bdl.schema.paths` | `[]` | 只有需要展开 `LIKE table.*` 时才配 |
 | `bdl.perRoots` | `[]` | `.per` 不在同级 `per/` 时加解析根 |
 | `bdl.globals.searchPaths` | `[]` | GLOBALS 路径解析不到时加候选根 |
@@ -168,7 +168,7 @@ Genero 自带的变量/函数/类名（`SQLCA`、`INT_FLAG`、`STATUS`、`ARG_VA
 ```bash
 # 1) 从数据库导出 DS.GAL_FILE（SQL 见项目文档），然后在终端导入：
 tiptop link import -csv gal_file.csv -root .
-#    输出：链 5398 / orphan 451 / 缺失文件 800 …，写入 <项目根>/.link/
+#    输出：链 5398 / orphan 451 / 缺失文件 800 …，写入 <项目根>/.project/
 # 2) 随时查看状态：
 tiptop link status
 ```
@@ -199,20 +199,20 @@ tiptop link status
 
 链接资料的**采集/导入**自 `bdl-lsp 0.3.2` 起由 **tiptop** 负责，
 扩展里**没有** `bdl.link.sync.*` 设置项了（旧的自动同步已随分离移除）。
-在项目根用终端采集，语言服务器只读取 `.link/`：
+在项目根用终端采集，语言服务器只读取 `.project/`：
 
 ```bash
 # 从已导出的 CSV 导入
 tiptop link import -csv gal_file.csv -root .
 
 # 直连 Oracle（纯 Go 驱动，**不需要装 Oracle 客户端**）
-export BDL_ORA_PASSWORD=...        # 或者写 <项目>/.link/secrets.json（必须 chmod 600）
+export BDL_ORA_PASSWORD=...        # 或者写 <项目>/.project/secrets.json（必须 chmod 600）
 tiptop link sync -root . -source golang \
   -host dbhost -port 1521 -service PROD -user readonly
 
 # 从命令 stdout / 本地文件采集
 tiptop link sync -root . -source command -command 'your-export-command'
-tiptop link sync -root . -source file -file .link/gal_file.csv
+tiptop link sync -root . -source file -file .project/gal_file.csv
 ```
 
 密码**不要**写进 settings.json（会被提交）。导入完成后扩展按 mtime 自动重载资料
@@ -237,7 +237,7 @@ Explorer 侧栏多一个「链接资料」视图，显示当前文件属于哪�
 - 打开**子文件**（没有 MAIN）时，视图只有「反查引用程序」一项，
   点击后显示"被 N 个程序链接"，超过 50 个可「显示更多」——实测 `aws_xml`
   被 324 组引用，一次铺开会卡；
-- 没有 `.link/links.jsonl` 时只显示一句引导文案，不报错。
+- 没有 `.project/links.jsonl` 时只显示一句引导文案，不报错。
 
 Zed 没有等价的自定义视图，用 `tiptop link status` 看同样的数据。
 

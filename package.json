@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "publisher": "darcyjoven",
   "license": "MIT",
   "engines": {
@@ -31,7 +31,8 @@
   "activationEvents": [
     "onLanguage:bdl",
     "onLanguage:per",
-    "onCommand:bdl.forceParseCurrentFile"
+    "onCommand:bdl.forceParseCurrentFile",
+    "onCommand:bdl.migrateLinkDir"
   ],
   "contributes": {
     "languages": [
@@ -295,9 +296,9 @@
           },
           "bdl.link.dataDir": {
             "type": "string",
-            "default": ".link",
+            "default": ".project",
             "scope": "window",
-            "markdownDescription": "程序链接资料目录（相对工作区根）。里面是 `links.jsonl` 与 `links.meta.json`，由 `tiptop link import` 生成。"
+            "markdownDescription": "项目资料目录（相对工作区根），默认 `.project`：里面是 `links.jsonl`、`links.meta.json`、`gal_file.csv`、`secrets.json`，由 `tiptop link import`/`sync` 生成（迁移前放在 `.link/`，仍兼容读取）。"
           },
           "bdl.link.moduleRoots": {
             "type": "array",
@@ -413,6 +414,11 @@
         "title": "强制解析当前文件",
         "category": "Genero BDL",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "bdl.migrateLinkDir",
+        "title": "迁移链接资料目录",
+        "category": "Genero BDL"
       }
     ],
     "views": {
@@ -468,6 +474,10 @@
         },
         {
           "command": "bdl.links.moreRefs",
+          "when": "false"
+        },
+        {
+          "command": "bdl.migrateLinkDir",
           "when": "false"
         }
       ],
