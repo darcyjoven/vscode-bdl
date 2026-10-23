@@ -292,7 +292,7 @@
             "type": "boolean",
             "default": true,
             "scope": "window",
-            "markdownDescription": "链接资料功能总开关。\n\n关闭后完全不启动相关功能，减少资源占用：不加载 `.link/` 资料、不发 `function-not-found` / `link-data-*` 诊断、隐藏侧边栏「链接资料」视图。\n\n资料的采集/导入在 tiptop 命令行（`tiptop link import` / `tiptop link sync`），与本开关无关。\n\n重新打开后需执行「Genero BDL: 重启语言服务器」生效。"
+            "markdownDescription": "链接资料功能总开关。\n\n关闭后完全不启动相关功能，减少资源占用：不加载 `.project/` 资料、不发 `function-not-found` / `link-data-*` 诊断、隐藏侧边栏「链接资料」视图。\n\n资料的采集/导入在 tiptop 命令行（`tiptop link import` / `tiptop link sync`），与本开关无关。\n\n重新打开后需执行「Genero BDL: 重启语言服务器」生效。"
           },
           "bdl.link.dataDir": {
             "type": "string",

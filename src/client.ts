@@ -330,7 +330,7 @@ const RESTART_KEYS = [
   "bdl.server.path",
   "bdl.server.logLevel",
   "bdl.generoVersion",
-  // 总开关决定服务器启动时是否加载 .link/ 资料与采集调度，
+  // 总开关决定服务器启动时是否加载 .project/ 资料与采集调度，
   // 热切换会造成“半开”状态，统一要求重启。
   "bdl.link.enable",
 ];

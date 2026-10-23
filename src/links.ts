@@ -194,7 +194,7 @@ export class LinkTreeProvider implements vscode.TreeDataProvider<Node> {
           kind: "info",
           label: "未找到这个文件的链接资料",
           tooltip:
-            "没有 .link/links.jsonl 时先运行 `tiptop link import -csv <导出.csv>` " +
+            "没有 .project/links.jsonl 时先运行 `tiptop link import -csv <导出.csv>` " +
             "或 `tiptop link sync`。子文件不属于任何链时也会显示这条。",
         },
       ];
