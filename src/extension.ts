@@ -3,6 +3,7 @@ import * as vscode from "vscode";
 
 import {
   currentBinary,
+  currentClient,
   logToFile,
   registerConfigWatcher,
   restartClient,
@@ -111,7 +112,69 @@ function registerCommands(context: vscode.ExtensionContext): void {
         "workbench.action.output.showChannel",
       );
     }),
+
+    vscode.commands.registerCommand("bdl.forceParseCurrentFile", async () => {
+      await forceParseCurrentFile();
+    }),
   );
+
+  registerParseSkippedContext(context);
+}
+
+/**
+ * 强制解析当前文件。
+ *
+ * 服务端在文件超过 bdl.limits.maxFileBytes / maxFileLines、或解析超时时会
+ * 跳过解析，只发一条 `file-too-large` / `parse-timeout` 警告（见 PLAN P0-3）。
+ * 这个命令让它忽略上限解析当前文件——**直到该文件被关闭**（用户确认的语义）。
+ */
+async function forceParseCurrentFile(): Promise<void> {
+  const doc = vscode.window.activeTextEditor?.document;
+  if (!doc) {
+    void vscode.window.showWarningMessage("没有打开的文件");
+    return;
+  }
+  const client = currentClient();
+  if (!client) {
+    void vscode.window.showWarningMessage(
+      "语言服务器未运行，无法强制解析当前文件",
+    );
+    return;
+  }
+  try {
+    await client.sendRequest("bdl/forceParse", { uri: doc.uri.toString() });
+    vscode.window.setStatusBarMessage(
+      "已强制解析当前文件（关闭该文件后失效）",
+      5000,
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    void vscode.window.showErrorMessage(`强制解析失败：${msg}`);
+  }
+}
+
+/**
+ * 维护 `bdl.parseSkipped` 上下文：只有服务端明确说"这个文件没被解析"
+ * （file-too-large / parse-timeout）时，编辑器标题栏才显示"强制解析"按钮，
+ * 免得每个 .4gl 都挂一个没用的图标。文件被解析后诊断变化，按钮自动消失。
+ */
+function registerParseSkippedContext(
+  context: vscode.ExtensionContext,
+): void {
+  const refresh = (): void => {
+    const uri = vscode.window.activeTextEditor?.document.uri;
+    const skipped = uri
+      ? vscode.languages
+          .getDiagnostics(uri)
+          .some((d) => d.code === "file-too-large" || d.code === "parse-timeout")
+      : false;
+    void vscode.commands.executeCommand("setContext", "bdl.parseSkipped", skipped);
+  };
+  context.subscriptions.push(
+    vscode.languages.onDidChangeDiagnostics(refresh),
+    vscode.window.onDidChangeActiveTextEditor(refresh),
+  );
+  refresh();
 }
 
 /**

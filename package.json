@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "publisher": "darcyjoven",
   "license": "MIT",
   "engines": {
@@ -30,7 +30,8 @@
   },
   "activationEvents": [
     "onLanguage:bdl",
-    "onLanguage:per"
+    "onLanguage:per",
+    "onCommand:bdl.forceParseCurrentFile"
   ],
   "contributes": {
     "languages": [
@@ -406,6 +407,12 @@
         "command": "bdl.links.moreRefs",
         "title": "显示更多反查结果",
         "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.forceParseCurrentFile",
+        "title": "强制解析当前文件",
+        "category": "Genero BDL",
+        "icon": "$(refresh)"
       }
     ],
     "views": {
@@ -462,6 +469,13 @@
         {
           "command": "bdl.links.moreRefs",
           "when": "false"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "bdl.forceParseCurrentFile",
+          "when": "bdl.parseSkipped && (resourceLangId == bdl || resourceLangId == per)",
+          "group": "navigation"
         }
       ]
     }

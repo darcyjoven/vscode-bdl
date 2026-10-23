@@ -100,6 +100,8 @@ async function run() {
         // P7-E：链接资料视图的刷新与反查
         "bdl.links.refresh",
         "bdl.links.references",
+        // P0-3：文件因上限/超时没被解析时的"强制解析当前文件"
+        "bdl.forceParseCurrentFile",
       ]) {
         assert.ok(commands.includes(id), `缺少命令 ${id}`);
       }
