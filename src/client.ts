@@ -176,9 +176,10 @@ function collectSettings(): Record<string, unknown> {
       enable: cfg.get<boolean>("index.enable") ?? true,
     },
     schema: {
-      // P1-4：默认关闭（`RECORD LIKE t.*` 成员校验要用时才开）。
+      // P1-4：默认关闭（要用 `LIKE t.*` 成员校验/悬停字段说明时才开）。
       enable: cfg.get<boolean>("schema.enable") ?? false,
-      paths: cfg.get<string[]>("schema.paths") ?? [],
+      // P2-1：资料目录（默认 .project/.schema，由 tiptop schema import 生成）。
+      dataDir: cfg.get<string>("schema.dataDir") ?? ".project/.schema",
     },
     // 忽略列表（P8）：文件/字段/表单 glob。
     ignore: {

@@ -33,7 +33,7 @@ export function disposeLinkTools(): void {
 }
 
 /** 一次 tiptop 运行的结果。 */
-interface RunResult {
+export interface RunResult {
   code: number | null;
   stdout: string;
   stderr: string;
@@ -67,11 +67,24 @@ export function toolsBinary(): string | undefined {
 
 /** 运行 tiptop，stdout/stderr 实时写进输出通道。 */
 async function runTiptop(root: string, args: string[]): Promise<RunResult> {
+  return runTiptopOn(output(), root, args);
+}
+
+/**
+ * 运行 tiptop，输出写进**指定**通道。
+ *
+ * 数据库字段功能复用同一套二进制解析与执行逻辑，但用自己的通道
+ *（两边的日志混在一个通道里不好找）。
+ */
+export async function runTiptopOn(
+  out: vscode.OutputChannel,
+  root: string,
+  args: string[],
+): Promise<RunResult> {
   const bin = toolsBinary();
   if (!bin) {
     return { code: null, stdout: "", stderr: "" };
   }
-  const out = output();
   out.appendLine(`\n> tiptop ${args.join(" ")}`);
   return new Promise<RunResult>((resolve) => {
     const child = spawn(bin, args, { cwd: root, windowsHide: true });
@@ -103,13 +116,13 @@ function cfg(): vscode.WorkspaceConfiguration {
 }
 
 /** 第一个工作区根（资料目录、相对路径都相对它）。 */
-function workspaceRoot(): string | undefined {
+export function workspaceRoot(): string | undefined {
   const folders = vscode.workspace.workspaceFolders;
   return folders && folders.length > 0 ? folders[0].uri.fsPath : undefined;
 }
 
 /** 项目资料目录名（默认 `.project`，旧项目可能配了 `.link`）。 */
-function dataDirName(): string {
+export function dataDirName(): string {
   return cfg().get<string>("link.dataDir") || ".project";
 }
 

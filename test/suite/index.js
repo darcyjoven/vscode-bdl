@@ -102,6 +102,12 @@ async function run() {
         "bdl.links.references",
         // P0-3：文件因上限/超时没被解析时的"强制解析当前文件"
         "bdl.forceParseCurrentFile",
+        // P2-1：数据库字段视图与命令
+        "bdl.schema.refresh",
+        "bdl.schema.filter",
+        "bdl.schema.import",
+        "bdl.schema.syncTable",
+        "bdl.schema.copyColumn",
         // P1-1：链接资料的采集/导入/状态命令（调用 tiptop）
         "bdl.link.importCsv",
         "bdl.link.syncCurrent",
@@ -1240,6 +1246,97 @@ async function run() {
     });
 
     // 38. 关闭链接资料总开关：视图不再请求服务器
+    // 37b. P2-1：数据库字段端到端（写资料 → 开开关 → 请求 → 过滤 → 清掉）
+    await test("数据库字段：端到端查询与正则过滤（P2-1）", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const api = await ext.activate();
+      assert.ok(api.querySchemaTables, "应导出 querySchemaTables");
+
+      const schemaDir = path.join(root, ".project", ".schema");
+      fs.mkdirSync(path.join(schemaDir, "tables"), { recursive: true });
+      fs.writeFileSync(
+        path.join(schemaDir, "tables.json"),
+        JSON.stringify({
+          schema: 1,
+          importedAt: "2026-10-23T21:00:00+08:00",
+          source: "gal_schema.csv",
+          rowsTotal: 4,
+          tables: {
+            APA_FILE: { name: "apa_file", desc: "", columns: 2, file: "APA_FILE.json" },
+            IMA_FILE: { name: "ima_file", desc: "物料主档", columns: 2, file: "IMA_FILE.json" },
+          },
+        }),
+      );
+      fs.writeFileSync(
+        path.join(schemaDir, "tables", "APA_FILE.json"),
+        JSON.stringify({
+          table: "APA_FILE",
+          columns: [
+            { name: "apa01", desc: "物料编号", type: "VARCHAR2", length: 10 },
+            { name: "apa02", desc: "数量", type: "NUMBER", precision: 5 },
+          ],
+        }),
+      );
+      fs.writeFileSync(
+        path.join(schemaDir, "tables", "IMA_FILE.json"),
+        JSON.stringify({
+          table: "IMA_FILE",
+          columns: [{ name: "ima01", desc: "物料编号", type: "CHAR", length: 10 }],
+        }),
+      );
+
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      await cfg.update("schema.enable", true, vscode.ConfigurationTarget.Global);
+      try {
+        await new Promise((r) => setTimeout(r, 600)); // 等配置下发 + 服务端重载
+
+        const all = await api.querySchemaTables("");
+        assert.ok(all && all.present, `应有资料：${JSON.stringify(all)}`);
+        assert.strictEqual(all.total, 2, "应有 2 张表");
+        assert.strictEqual(all.enabled, true, "开关应已打开");
+
+        const filtered = await api.querySchemaTables("^APA");
+        assert.strictEqual(filtered.total, 2, "total 是表总数，不受过滤影响");
+        assert.strictEqual(filtered.matched, 1, "^APA 应匹配 1 张");
+        assert.strictEqual(
+          (filtered.tables || [])[0].name,
+          "apa_file",
+          "匹配到的应是 apa_file",
+        );
+
+        const bad = await api.querySchemaTables("(ima");
+        assert.ok(bad.filterError, "非法正则应给 filterError");
+        assert.strictEqual(bad.matched, 2, "非法正则应退回全部");
+
+        const cols = await api.querySchemaColumns("APA_FILE");
+        assert.ok(cols && !cols.missing, `应有列：${JSON.stringify(cols)}`);
+        assert.strictEqual(cols.columns.length, 2, "apa_file 应有 2 列");
+        assert.strictEqual(cols.columns[0].name, "apa01");
+        assert.strictEqual(cols.columns[0].desc, "物料编号");
+
+        const missing = await api.querySchemaColumns("nosuch");
+        assert.strictEqual(missing.missing, true, "不存在的表应 missing");
+
+        // 视图命令不抛错
+        await vscode.commands.executeCommand("bdl.schema.refresh");
+        await vscode.commands.executeCommand("bdl.schema.clearFilter");
+        await new Promise((r) => setTimeout(r, 200));
+
+        // 关掉开关后：请求报 enabled=false（视图也被 when 隐藏）
+        await cfg.update("schema.enable", false, vscode.ConfigurationTarget.Global);
+        await new Promise((r) => setTimeout(r, 600));
+        const off = await api.querySchemaTables("");
+        assert.strictEqual(off.enabled, false, "关掉后 enabled 应为 false");
+        assert.ok(!off.present, "关掉后不应再持有资料");
+      } finally {
+        await cfg.update("schema.enable", undefined, vscode.ConfigurationTarget.Global);
+        fs.rmSync(path.join(root, ".project"), { recursive: true, force: true });
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    });
+
     await test("link.enable=false 时链接资料视图不发请求", async () => {
       const cfg = vscode.workspace.getConfiguration("bdl");
       await cfg.update(

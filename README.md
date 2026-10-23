@@ -91,7 +91,7 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 | 生产环境 | Oracle 连接、部署服务器（**密码不在这里**） | 空 | — |
 | 链接资料 | 跨模块函数索引、资料采集 | **关** | `bdl.link.enable` |
 | 部署 | 上传与远程编译（配置由插件合成为 `.project/deploy.json`） | **关** | `bdl.deploy.enable` |
-| 数据库字段 | `.sch` 表结构 / `.project/.schema` 字段资料 | **关** | `bdl.schema.enable` |
+| 数据库字段 | `.project/.schema` 字段资料（表/列/中文说明） | **关** | `bdl.schema.enable` |
 
 > ⚠️ 生产环境这一节的设置**只写 Workspace 设置**，并且**不要让 `settings.json`
 > 进 git 管理**；密码用环境变量 `BDL_ORA_PASSWORD` 或 `<项目>/.project/secrets.json`
@@ -106,7 +106,7 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 `.project/deploy.json`（不用手写 JSON）。
 `bdl.schema.enable` **默认关闭**：需要 `RECORD LIKE t.*` 的成员校验时打开。
 
-按“要不要改”分成三档，详细说明、示例与全部 49 个键见
+按“要不要改”分成三档，详细说明、示例与全部 47 个键见
 [使用手册第 8 节](docs/USER-GUIDE.md#8-配置说明)。
 
 **默认即可（基本不用改）**
@@ -127,7 +127,7 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 |---|---|---|
 | `bdl.link.enable` | `false` | 链接资料总开关；**轻量档默认关**，需要跨模块检查时打开 |
 | `bdl.link.*` | 资料目录 `.project` | 跨模块函数索引；先生成 `.project/links.jsonl` |
-| `bdl.schema.paths` | `[]` | `.sch` 的附加搜索路径；要展开 `LIKE table.*` 时才配 |
+
 | `bdl.perRoots` | `[]` | `.per` 不在同级 `per/` 时加解析根 |
 | `bdl.globals.searchPaths` | `[]` | GLOBALS 路径解析不到时加候选根 |
 | `bdl.deploy.enable` | `false` | 部署总开关；**轻量档默认关**，要部署时打开 |
@@ -278,6 +278,12 @@ Zed 没有等价的自定义视图，用 `tiptop link status` 看同样的数据
 | `链接资料：全量更新` | 从数据库/CSV 全量采集（耗时长，会先确认） |
 | `链接资料：查看状态` | `tiptop link status` 输出到通道 |
 | `Genero BDL: 重新同步` | 链接视图里「反查引用程序」旁边的按钮，等同"更新当前文件" |
+| `Genero BDL: 数据库字段：从 CSV 导入` | 选 Oracle 导出的表字段 CSV → 复制到 `.project/gal_schema.csv` → `-dry-run` 预演 → 确认后导入 |
+| `Genero BDL: 数据库字段：正则过滤表名` | 视图顶部查询框（支持正则），非法正则退回显示全部 |
+| `Genero BDL: 数据库字段：刷新` | 重新拉表清单 |
+| `Genero BDL: 数据库字段：同步选中的表` | 表上右键：只从项目里的 CSV 更新这张表 |
+| `Genero BDL: 数据库字段：复制列定义` | 列上右键/点击：复制 `LIKE 表.列` |
+| `Genero BDL: 数据库字段：打开表资料文件` | 表上右键：打开 `.project/.schema/tables/<表>.json` |
 
 ## 本地开发
 

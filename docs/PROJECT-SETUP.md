@@ -43,7 +43,7 @@ VSCode 里完整可用
 |---|---|---|
 | `*/*/4gl/*.4gl` | Genero 4GL 源码（含 `.global`） | 语言服务的主对象：解析、跳转、诊断 |
 | `*/*/per/*.per` | 表单定义 | 字段校验（`field-not-in-form`）、表单内部一致性检查 |
-| `*/*/sch/*.sch` | 数据库表结构 | 展开 `RECORD LIKE t.*` 的成员；不开 schema 时记录成员校验不可用 |
+| `*/*/sch/*.sch` | 数据库表结构（**旧**） | **P2-1 起不再读取**：改用 `<项目>/.project/.schema/` 里的字段资料（由 `tiptop schema import` 从 Oracle 导出生成） |
 
 > `*/*/` 是**两级**目录：`/<顶层>/<模组>/4gl/...`，例如
 > `/u1/toppord/tiptop/aap/4gl/aapi202.4gl`。
@@ -126,8 +126,11 @@ tar tzf toppord-src.tar.gz | head -20
 echo "---- 统计 ----"
 tar tzf toppord-src.tar.gz | grep -c '/4gl/.*\.4gl$'
 tar tzf toppord-src.tar.gz | grep -c '/per/.*\.per$'
-tar tzf toppord-src.tar.gz | grep -c '/sch/.*\.sch$'
+tar tzf toppord-src.tar.gz | grep -c '/4gl/.*\.global$'
 ```
+
+> 表字段资料**不在源码包里**：它来自 DBA 导出的 CSV，`tiptop schema import` 生成到
+> `.project/.schema/`（见 §6.3）。
 
 三个计数应与生产端一致（生产端可先跑同样的 `find | wc -l` 对照）。
 
@@ -337,7 +340,7 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
 
   // 诊断级别：只写要改的，其余用默认值（默认 warning）
   "diagnostics": {
-    "record-member-unknown": "warning",   // 有 .sch 了才建议开
+    "record-member-unknown": "warning",   // 有字段资料（.project/.schema）了才建议开
     "function-not-found": "warning"        // 有链接资料了才有意义
   },
 
@@ -350,12 +353,11 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
   // 默认规则已经能处理"引用文件同级的 ../per/"，只有跨模组引用才需要配。
   "perRoots": ["tiptop/aap/per"],
 
-  // schema 索引：展开 RECORD LIKE t.*
-  // 注意：paths 填**目录**，不是 glob；目录本身叫 sch 或其下有 sch 都可以。
-  // 模组根（tiptop/topcust）下的 sch 目录会被自动发现，通常不用配。
+  // 数据库字段资料：展开 RECORD LIKE t.*、悬停 LIKE t.col 显示中文说明
+  // 资料由 tiptop schema import -csv <Oracle导出.csv> 生成到下面的目录。
   "schema": {
     "enable": true,
-    "paths": []
+    "dataDir": ".project/.schema"
   },
 
   // 链接资料
@@ -786,7 +788,7 @@ $WORKSPACE/
 │   └── <模组>/
 │       ├── 4gl/*.4gl *.global
 │       ├── per/*.per
-│       └── sch/*.sch
+│       └── sch/*.sch        # 旧：P2-1 起不再读；表字段改用 .project/.schema（DBA 导出）
 └── topcust/
     └── ...
 ```

@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.5.6",
+  "version": "0.6.0",
   "publisher": "darcyjoven",
   "license": "MIT",
   "engines": {
@@ -38,7 +38,14 @@
     "onCommand:bdl.link.syncModules",
     "onCommand:bdl.link.syncAll",
     "onCommand:bdl.link.status",
-    "onCommand:bdl.links.resync"
+    "onCommand:bdl.links.resync",
+    "onCommand:bdl.schema.import",
+    "onCommand:bdl.schema.refresh",
+    "onCommand:bdl.schema.filter",
+    "onCommand:bdl.schema.clearFilter",
+    "onCommand:bdl.schema.syncTable",
+    "onCommand:bdl.schema.copyColumn",
+    "onCommand:bdl.schema.openTable"
   ],
   "contributes": {
     "languages": [
@@ -463,24 +470,14 @@
             "type": "boolean",
             "default": false,
             "scope": "window",
-            "description": "解析工作区里的 .sch 文件建立数据库表结构索引。启用后 `DEFINE r RECORD LIKE t.*` 的记录成员可被校验，且 `r.` 补全会给出表的全部列。",
-            "markdownDescription": "解析工作区里的 `.sch` 表结构（供 `RECORD LIKE t.*` 的成员校验使用）。\n\n**默认关闭**（轻量档不扫这些文件）。要用 `record-member-unknown` 校验 `LIKE t.*` 记录时打开它，否则那类成员只能按“不可校验”放过。"
-          },
-          "bdl.schema.paths": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": [],
-            "scope": "window",
-            "description": "额外的 schema 目录（相对工作区根或绝对路径）。默认自动查找 `<模组根>/<模组>/sch/*.sch`。",
-            "markdownDescription": "额外的 `.sch` 搜索路径（相对工作区根，按序尝试）。留空则按模组根自动查找 `<根>/<模组>/sch/`。"
+            "description": "读取项目里的数据库字段资料（`.project/.schema`，由 tiptop schema import 生成）",
+            "markdownDescription": "读取项目里的**数据库字段资料**（`.project/.schema`），用于三件事：\n\n1. `DEFINE r RECORD LIKE t.*` 的成员校验（配合 `record-member-unknown`）；\n2. 悬停 `LIKE t.col` / `LIKE t.*` 时显示字段类型与中文说明；\n3. `r.` 补全带上列的类型与说明。\n\n**默认关闭**（轻量档）。资料由 `tiptop schema import -csv <Oracle导出.csv>` 生成，或命令面板 `Genero BDL: 数据库字段：` 系列命令。"
           },
           "bdl.schema.dataDir": {
             "type": "string",
             "default": ".project/.schema",
             "scope": "window",
-            "markdownDescription": "数据库字段资料目录（相对工作区根，默认 `.project/.schema`）：放 Oracle 导出的字段数据，由插件与 tiptop 维护（**下一版启用**，现在留空即可）。"
+            "markdownDescription": "字段资料目录（相对工作区根，默认 `.project/.schema`）：`tables.json` 是总索引，`tables/<表>.json` 是每张表的列。由 `tiptop schema import` 生成。"
           }
         }
       }
@@ -583,6 +580,41 @@
         "command": "bdl.links.resync",
         "title": "重新同步",
         "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.schema.import",
+        "title": "数据库字段：从 CSV 导入",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.schema.refresh",
+        "title": "数据库字段：刷新",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.schema.filter",
+        "title": "数据库字段：正则过滤表名",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.schema.clearFilter",
+        "title": "数据库字段：清除过滤",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.schema.syncTable",
+        "title": "数据库字段：同步选中的表",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.schema.copyColumn",
+        "title": "数据库字段：复制列定义",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.schema.openTable",
+        "title": "数据库字段：打开表资料文件",
+        "category": "Genero BDL"
       }
     ],
     "views": {
@@ -593,6 +625,13 @@
           "when": "workspaceFolderCount > 0 && config.bdl.link.enable",
           "icon": "$(link)",
           "contextualTitle": "Genero BDL 链接资料"
+        },
+        {
+          "id": "bdlSchema",
+          "name": "数据库字段",
+          "when": "workspaceFolderCount > 0 && config.bdl.schema.enable",
+          "icon": "$(database)",
+          "contextualTitle": "Genero BDL 数据库字段"
         }
       ]
     },
@@ -607,6 +646,21 @@
           "command": "bdl.links.resync",
           "when": "view == bdlLinks && config.bdl.link.enable",
           "group": "navigation@2"
+        },
+        {
+          "command": "bdl.schema.filter",
+          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "group": "navigation@1"
+        },
+        {
+          "command": "bdl.schema.refresh",
+          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "group": "navigation@2"
+        },
+        {
+          "command": "bdl.schema.import",
+          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -618,6 +672,21 @@
         {
           "command": "bdl.links.resync",
           "when": "view == bdlLinks && viewItem == bdlLinkRefsButton && config.bdl.link.enable",
+          "group": "inline"
+        },
+        {
+          "command": "bdl.schema.syncTable",
+          "when": "view == bdlSchema && viewItem == bdlSchemaTable",
+          "group": "1_sync"
+        },
+        {
+          "command": "bdl.schema.openTable",
+          "when": "view == bdlSchema && viewItem == bdlSchemaTable",
+          "group": "2_open"
+        },
+        {
+          "command": "bdl.schema.copyColumn",
+          "when": "view == bdlSchema && viewItem =~ /^bdlSchemaColumn/",
           "group": "inline"
         }
       ],
@@ -677,6 +746,34 @@
         {
           "command": "bdl.links.resync",
           "when": "config.bdl.link.enable"
+        },
+        {
+          "command": "bdl.schema.import",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.refresh",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.filter",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.clearFilter",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.syncTable",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.copyColumn",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.openTable",
+          "when": "config.bdl.schema.enable"
         }
       ],
       "editor/title": [

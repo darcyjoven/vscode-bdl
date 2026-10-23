@@ -20,6 +20,12 @@ import {
   registerLinkToolCommands,
   toolsPath,
 } from "./linktools";
+import {
+  disposeSchemaView,
+  querySchemaColumns,
+  querySchemaTables,
+  registerSchemaView,
+} from "./schema";
 
 /** 首次失败时是否已经提示过，避免每次打开文件都弹窗。 */
 let informedFailure = false;
@@ -34,6 +40,10 @@ interface ExtensionApi {
   ensureDeployConfig: typeof ensureDeployConfig;
   /** 读出当前部署设置（e2e 校验用）。 */
   readDeployValues: typeof readDeployValues;
+  /** 查表清单（e2e 校验字段资料端到端可用）。 */
+  querySchemaTables: typeof querySchemaTables;
+  /** 查单表列（e2e 用）。 */
+  querySchemaColumns: typeof querySchemaColumns;
 }
 
 export async function activate(
@@ -44,6 +54,8 @@ export async function activate(
   registerLinks(context);
   // P1-1：链接资料的采集/导入/状态命令（调用 tiptop，不再让用户自己找可执行文件）
   registerLinkToolCommands(context);
+  // P2-1：数据库字段视图与命令（数据来自语言服务器，同步由 tiptop 执行）
+  registerSchemaView(context);
   registerConfigWatcher(context);
 
   // 激活事件是 onLanguage:bdl / onLanguage:per，此时已经有目标文件了。
@@ -68,12 +80,15 @@ export async function activate(
     toolsPath,
     ensureDeployConfig,
     readDeployValues,
+    querySchemaTables,
+    querySchemaColumns,
   };
 }
 
 export async function deactivate(): Promise<void> {
   disposeDeploy();
   disposeLinkTools();
+  disposeSchemaView();
   await stopClient(false);
 }
 

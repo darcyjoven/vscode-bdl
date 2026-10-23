@@ -170,7 +170,7 @@
 | 表单重复 item | `form-duplicate-item` | warning | `.per` |
 | 表单布局 tag 未定义 | `form-layout-tag-undefined` | warning | `.per` |
 | `SCREEN RECORD` 引用未定义 item | `form-screen-record-undefined` | warning | `.per` |
-| 记录成员不存在 | `record-member-unknown` | **off** | `RECORD` 声明或 schema |
+| 记录成员不存在 | `record-member-unknown` | **off** | `RECORD` 声明或 `.project/.schema` 字段资料 |
 | 函数找不到定义 | `function-not-found` | warning | **链接资料** |
 | 链接资料格式错误 | `link-data-invalid` | warning | 链接资料 |
 | 格式资料还在旧目录 | `link-data-legacy-dir` | hint | 链接资料 |
@@ -182,7 +182,7 @@
 - **变量检查只查来源**，不查类型、不查赋值是否兼容；
 - **函数检查需要链接资料**。没有 `.project/links.jsonl` 时整项不启用，避免误报；
 - **字段检查只在表单唯一解析成功时报告**；解析不到表单不会硬猜；
-- **记录成员默认关闭**。`RECORD LIKE table.*` 需要 schema 索引才能展开；
+- **记录成员默认关闭**。`RECORD LIKE table.*` 需要字段资料（`.project/.schema`）才能展开；
 - `file-too-large` / `parse-timeout` 是**警告**（0.3.7 起从 information 上调）：
   这个文件确实没被检查，点编辑器标题栏的"强制解析"或调大 `bdl.limits.*` 即可；
 - 资料**旧**不会有任何提示（P1-6 去掉了 7 天过期告警）。
@@ -282,20 +282,35 @@ glob 写错不会让服务器崩，但那条规则不会匹配；日志里会有
 GLOBALS 文件找不到时默认 warning；确认是历史遗留、不打算修，可以把
 `globals-file-not-found` 关掉或加进 `ignore.files`。
 
-### 5.3 数据库结构索引（schema）
+### 5.3 数据库字段资料（schema）
 
-`RECORD LIKE table.*` 的成员来自数据库表结构，静态源码里看不到。
-配置 schema 后可以展开：
+`RECORD LIKE table.*` 的成员、`LIKE table.col` 的类型与中文说明，都不在源码里——
+它们来自 **Oracle 导出的"表字段"CSV**，由 tiptop 转换成项目资料：
 
-```jsonc
-{
-  "bdl.schema.enable": true,
-  "bdl.schema.paths": ["schema/*.sch"]
-}
+```bash
+# 一次性导入（表名/列名/说明/类型/长度/精度/是否可空）
+tiptop schema import -csv gal_schema.csv -root .
+tiptop schema status -root .          # 看表数/列数/导入时间
 ```
 
-没有 schema 时，记录成员检查默认关闭是正确的；不要为了“看起来开了”
-把它强行设成 warning，否则 `LIKE table.*` 会成片误报。
+资料落在 `.project/.schema/`（`tables.json` 总索引 + `tables/<表>.json` 每表一列）。
+在设置里打开 **`bdl.schema.enable`**（默认关）之后：
+
+- 侧边栏出现 **「数据库字段」** 视图：顶部查询框支持**正则**（`^APF`、`(apg|aph)0`），
+  表**展开时才加载**列（几千张表也不卡）；右键表可以"同步选中的表 / 打开表资料文件"，
+  右键列可以"复制列定义"（得到 `LIKE tab.col`）；
+- 悬停 `DEFINE r RECORD LIKE ima_file.*` → 列出该表字段（列名 · 类型(长度) · 中文说明，超 20 行折叠）；
+- 悬停 `DEFINE f LIKE ima_file.ima01` → 多出一段 `字段资料：ima_file.ima01 · VARCHAR2(40) · 料件编号`；
+- 悬停表名本身 → 该表摘要；
+- `r.` 补全会带上每列的类型与中文说明。
+
+也可以完全在 VSCode 里做：命令面板 `Genero BDL: 数据库字段：从 CSV 导入`
+（先 `-dry-run` 预演，确认后才写盘）。
+
+> 没有资料时记录成员检查默认关闭是正确的；不要为了"看起来开了"把它强行设成
+> warning，否则 `LIKE table.*` 会成片误报。
+>
+> 旧版的"扫各模组下分散的 `sch/*.sch`"与 `bdl.schema.paths` 已**下线**（一个项目一份资料）。
 
 ---
 
@@ -481,7 +496,7 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 | 生产环境 | Oracle 连接、部署服务器（**密码不放这里**） | 空 | 要采集链接资料/部署时 |
 | 链接资料 | 跨模块函数索引、资料采集 | **关** | 需要跨模块跳转/函数检查时 |
 | 部署 | 上传与远程编译（配置由插件合成） | **关** | 需要部署到服务器时 |
-| 数据库字段 | `.sch` 表结构 / `.project/.schema` 字段资料 | **关** | 要用 `LIKE t.*` 成员校验时 |
+| 数据库字段 | `.project/.schema` 字段资料（表/列/说明/类型） | **关** | 要用 `LIKE t.*` 成员校验、或想看到字段中文说明时 |
 
 三个**总开关**（后三组各一个）：
 
@@ -490,7 +505,7 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
   命令面板里的链接命令隐藏；
 - `bdl.deploy.enable`（**默认关**）——关闭后命令面板隐藏四条部署命令，
   执行也不会调用 `tiptop deploy`；
-- `bdl.schema.enable`（**默认关**）——关闭后不解析工作区的 `.sch` 文件。
+- `bdl.schema.enable`（**默认关**）——关闭后不读字段资料：悬停不追加说明、`LIKE t.*` 成员退回"不校验"。
 
 > **生产环境这组只写 Workspace 设置，并且不要让 `settings.json` 进 git 管理**；
 > 密码/密钥一律不放在设置里（见 §8.4）。
@@ -520,13 +535,13 @@ VSCode 设置适合个人临时调整。
 - 格式化：`format.keywords=unchanged`、`indentStyle=auto`、`indentSize=0`；
 - 资源限制：大文件、行数、诊断条数、解析超时都有安全默认值；
 - 项目解析：`index.enable=true`、`builtins.enable=true`、
-  `schema.enable=false`（要用 `LIKE t.*` 成员校验时打开）。
+  `schema.enable=false`（要用 `LIKE t.*` 成员校验/字段说明时打开，资料见 §5.3）。
 
 **第二类：不配置就用不了**
 
 - 链接资料：需要先生成 `.project`，再按需配 `link.*`；
 - 部署：需要 `.project/deploy.json` 和 SSH 访问；
-- schema：只有需要展开 `LIKE table.*` 时才配 `schema.paths`；
+- schema：只有需要展开 `LIKE table.*` / 字段说明时才配 `schema.enable`（资料目录 `schema.dataDir` 默认 `.project/.schema`）；
 - 表单/ GLOBALS 搜索路径：项目层级特殊时才需要加。
 
 **第三类：按项目调整**
@@ -561,8 +576,9 @@ VSCode 设置适合个人临时调整。
 | 键 | 默认 | 作用 |
 |---|---|---|
 | `bdl.index.enable` | `true` | 工作区符号索引 |
-| `bdl.schema.enable` | `false` | `.sch` 表结构索引（`LIKE t.*` 成员校验要用） |
-| `bdl.schema.paths` | `[]` | `.sch` 文件路径/glob |
+| `bdl.schema.enable` | `false` | 字段资料（`LIKE t.*` 成员校验、悬停字段说明要用） |
+| `bdl.schema.dataDir` | `.project/.schema` | 字段资料目录 |
+
 | `bdl.globals.searchPaths` | `[]` | GLOBALS 附加解析根 |
 | `bdl.perRoots` | `[]` | `.per` 附加解析根 |
 | `bdl.builtins.enable` | `true` | 内置函数/变量符号表 |
