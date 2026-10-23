@@ -102,6 +102,13 @@ async function run() {
         "bdl.links.references",
         // P0-3：文件因上限/超时没被解析时的"强制解析当前文件"
         "bdl.forceParseCurrentFile",
+        // P1-1：链接资料的采集/导入/状态命令（调用 tiptop）
+        "bdl.link.importCsv",
+        "bdl.link.syncCurrent",
+        "bdl.link.syncModules",
+        "bdl.link.syncAll",
+        "bdl.link.status",
+        "bdl.links.resync",
         // P1-2：把旧目录 .link/ 搬到 .project/
         "bdl.migrateLinkDir",
       ]) {
@@ -972,6 +979,8 @@ async function run() {
         "Genero BDL: 基础",
         "Genero BDL: 链接资料",
         "Genero BDL: 部署",
+        // P1-1：数据库连接（密码不放设置里）
+        "Genero BDL: 生产环境",
       ]) {
         assert.ok(titles.includes(want), `缺少设置分组：${want}`);
       }
@@ -990,6 +999,58 @@ async function run() {
       assert.ok(all["bdl.link.enable"], "缺少 bdl.link.enable");
       assert.ok(all["bdl.deploy.enable"], "缺少 bdl.deploy.enable");
       assert.strictEqual(all["bdl.deploy.enable"].default, true);
+    });
+
+    // 34b. P1-1：链接资料命令的影响面解析 + 总开关关闭时行为
+    await test("链接资料命令：影响面解析（P1-1）", async () => {
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      assert.ok(ext, "找不到扩展");
+      const api = await ext.activate();
+      assert.ok(api, "activate 应返回 API 对象");
+      assert.deepStrictEqual(
+        api.parseAffectedJobs(
+          "文件条件        aap/4gl/saapt310.4gl\n受影响作业      2 个（PROG1, PROG2）\n",
+        ),
+        { count: 2, names: "PROG1, PROG2" },
+        "应解析出受影响作业数",
+      );
+      assert.strictEqual(
+        api.parseAffectedJobs("没有这一行"),
+        undefined,
+        "解析不出来时应返回 undefined（调用方退化成让用户看输出）",
+      );
+      // 0 个作业也能解析出来（调用方据此提示"没有匹配"）
+      assert.deepStrictEqual(
+        api.parseAffectedJobs("受影响作业      0 个"),
+        { count: 0, names: "" },
+        "0 个作业应能解析",
+      );
+    });
+
+    // 34c. 关闭链接总开关：链接命令仍注册、执行不抛错（面板按 when 隐藏）
+    await test("link.enable=false 时链接命令不报错", async () => {
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      await cfg.update(
+        "link.enable",
+        false,
+        vscode.ConfigurationTarget.Global,
+      );
+      try {
+        await new Promise((r) => setTimeout(r, 300));
+        const commands = await vscode.commands.getCommands(true);
+        for (const id of ["bdl.link.status", "bdl.link.syncCurrent"]) {
+          assert.ok(commands.includes(id), `命令应仍然注册：${id}`);
+        }
+        // 没有 tiptop 二进制 / 没有工作区时也不该抛错（内部只提示）
+        await vscode.commands.executeCommand("bdl.link.status");
+        await new Promise((r) => setTimeout(r, 300));
+      } finally {
+        await cfg.update(
+          "link.enable",
+          undefined,
+          vscode.ConfigurationTarget.Global,
+        );
+      }
     });
 
     // 35. 关闭部署总开关：命令面板隐藏部署命令

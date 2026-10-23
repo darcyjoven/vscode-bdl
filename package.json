@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "publisher": "darcyjoven",
   "license": "MIT",
   "engines": {
@@ -32,7 +32,13 @@
     "onLanguage:bdl",
     "onLanguage:per",
     "onCommand:bdl.forceParseCurrentFile",
-    "onCommand:bdl.migrateLinkDir"
+    "onCommand:bdl.migrateLinkDir",
+    "onCommand:bdl.link.importCsv",
+    "onCommand:bdl.link.syncCurrent",
+    "onCommand:bdl.link.syncModules",
+    "onCommand:bdl.link.syncAll",
+    "onCommand:bdl.link.status",
+    "onCommand:bdl.links.resync"
   ],
   "contributes": {
     "languages": [
@@ -349,6 +355,35 @@
           }
         },
         "description": "部署（上传源码到远程服务器并远程编译）。由 tiptop 执行，命令为 `tiptop deploy`。配置见工作区 `.bdl-lsp/deploy.json`。"
+      },
+      {
+        "title": "Genero BDL: 生产环境",
+        "properties": {
+          "bdl.prod.oracle.host": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "Oracle 主机（`source=golang` 采集链接资料时用）。\n\n**只写在 Workspace 设置里**，并且**不要让 `settings.json` 进 git 管理**。\n\n密码**不在这里**：用环境变量 `BDL_ORA_PASSWORD`，或项目里的 `.project/secrets.json`（chmod 600）。\n\n填好后即可在命令面板用「Genero BDL: 链接资料：…」系列命令从 VSCode 里采集。"
+          },
+          "bdl.prod.oracle.port": {
+            "type": "number",
+            "default": 1521,
+            "scope": "window",
+            "markdownDescription": "Oracle 端口，默认 1521。"
+          },
+          "bdl.prod.oracle.service": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "Oracle service name（如 `PROD`）。"
+          },
+          "bdl.prod.oracle.user": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "只读账号（只查 `DS.GAL_FILE`）。"
+          }
+        }
       }
     ],
     "configurationDefaults": {
@@ -419,6 +454,36 @@
         "command": "bdl.migrateLinkDir",
         "title": "迁移链接资料目录",
         "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.link.importCsv",
+        "title": "链接资料：从 CSV 导入",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.link.syncCurrent",
+        "title": "链接资料：更新当前文件",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.link.syncModules",
+        "title": "链接资料：按模组更新",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.link.syncAll",
+        "title": "链接资料：全量更新",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.link.status",
+        "title": "链接资料：查看状态",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.links.resync",
+        "title": "重新同步",
+        "category": "Genero BDL"
       }
     ],
     "views": {
@@ -438,12 +503,22 @@
           "command": "bdl.links.refresh",
           "when": "view == bdlLinks",
           "group": "navigation@1"
+        },
+        {
+          "command": "bdl.links.resync",
+          "when": "view == bdlLinks && config.bdl.link.enable",
+          "group": "navigation@2"
         }
       ],
       "view/item/context": [
         {
           "command": "bdl.links.references",
           "when": "view == bdlLinks && viewItem == bdlLinkRefsButton",
+          "group": "inline"
+        },
+        {
+          "command": "bdl.links.resync",
+          "when": "view == bdlLinks && viewItem == bdlLinkRefsButton && config.bdl.link.enable",
           "group": "inline"
         }
       ],
@@ -479,6 +554,30 @@
         {
           "command": "bdl.migrateLinkDir",
           "when": "false"
+        },
+        {
+          "command": "bdl.link.importCsv",
+          "when": "config.bdl.link.enable"
+        },
+        {
+          "command": "bdl.link.syncCurrent",
+          "when": "config.bdl.link.enable"
+        },
+        {
+          "command": "bdl.link.syncModules",
+          "when": "config.bdl.link.enable"
+        },
+        {
+          "command": "bdl.link.syncAll",
+          "when": "config.bdl.link.enable"
+        },
+        {
+          "command": "bdl.link.status",
+          "when": "config.bdl.link.enable"
+        },
+        {
+          "command": "bdl.links.resync",
+          "when": "config.bdl.link.enable"
         }
       ],
       "editor/title": [

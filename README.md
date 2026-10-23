@@ -82,13 +82,18 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 
 ## 设置项
 
-设置界面按用途分成三节（类似 CSS 语言插件的多层次设置）：
+设置界面按用途分节（类似 CSS 语言插件的多层次设置）：
 
 | 节 | 内容 | 总开关 |
 |---|---|---|
 | Genero BDL: 基础 | 诊断级别、格式化、项目解析、资源限制 | — |
 | Genero BDL: 链接资料 | 跨模块函数索引、资料采集 | `bdl.link.enable` |
 | Genero BDL: 部署 | 上传与远程编译 | `bdl.deploy.enable` |
+| Genero BDL: 生产环境 | Oracle 连接（**密码不在这里**） | — |
+
+> ⚠️ 生产环境这一节的设置**只写 Workspace 设置**，并且**不要让 `settings.json`
+> 进 git 管理**；密码用环境变量 `BDL_ORA_PASSWORD` 或 `<项目>/.project/secrets.json`
+> （`chmod 600`）。
 
 关闭 `bdl.link.enable`：不加载 `.project/` 资料、不启用 `function-not-found` /
 `link-data-*` 诊断、不启动自动采集，侧边栏「链接资料」视图隐藏。
@@ -195,11 +200,17 @@ tiptop link status
 { "bdl.diagnostics": { "function-not-found": "off" } }
 ```
 
-## 采集链接资料（在 tiptop，不在扩展里）
+## 采集链接资料（tiptop 在跑，扩展只调它）
 
 链接资料的**采集/导入**自 `bdl-lsp 0.3.2` 起由 **tiptop** 负责，
 扩展里**没有** `bdl.link.sync.*` 设置项了（旧的自动同步已随分离移除）。
-在项目根用终端采集，语言服务器只读取 `.project/`：
+
+两种用法（选一种即可，都会写 `<项目>/.project/`）：
+
+1. **在 VSCode 里**：配置好「Genero BDL: 生产环境」后，用命令面板的
+   `Genero BDL: 链接资料：…` 系列命令（见上面「命令」表）。局部更新会先
+   `-dry-run` 预演并告诉你"将更新几个作业"，确认后才写盘；
+2. **在终端里**：直接跑 `tiptop`（适合脚本/CI）：
 
 ```bash
 # 从已导出的 CSV 导入
@@ -252,6 +263,12 @@ Zed 没有等价的自定义视图，用 `tiptop link status` 看同样的数据
 | `Genero BDL: 部署当前文件并编译` | 只部署当前 `.4gl/.global/.per`（先保存未保存内容） |
 | `Genero BDL: 部署预演（不上传）` | dry-run，列出将要上传/编译的文件 |
 | `Genero BDL: 列出部署目标` | 打印配置里的目标 |
+| `Genero BDL: 链接资料：从 CSV 导入` | 选 CSV → 复制到 `.project/gal_file.csv` → 全量导入或只更新当前文件 |
+| `Genero BDL: 链接资料：更新当前文件` | 只重算当前 `.4gl/.global/.per` 涉及的作业（先预演并确认） |
+| `Genero BDL: 链接资料：按模组更新` | 多选模组（`lib`/`sub`/`qry` 或项目里探测到的），只重算这些作业 |
+| `Genero BDL: 链接资料：全量更新` | 从数据库/CSV 全量采集（耗时长，会先确认） |
+| `Genero BDL: 链接资料：查看状态` | `tiptop link status` 输出到通道 |
+| `Genero BDL: 重新同步` | 链接视图里「反查引用程序」旁边的按钮，等同"更新当前文件" |
 
 ## 本地开发
 

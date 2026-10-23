@@ -13,16 +13,32 @@ import {
 import { describeBinary, resolveBinary } from "./server/binary";
 import { disposeDeploy, registerDeployCommands } from "./deploy";
 import { registerLinks } from "./links";
+import {
+  disposeLinkTools,
+  parseAffectedJobs,
+  registerLinkToolCommands,
+  toolsPath,
+} from "./linktools";
 
 /** 首次失败时是否已经提示过，避免每次打开文件都弹窗。 */
 let informedFailure = false;
 
+/** 供 e2e 使用的导出 API（activate 的返回值）。 */
+interface ExtensionApi {
+  /** 解析 `link … -dry-run` 报告里的"受影响作业 N 个"（P1-1）。 */
+  parseAffectedJobs: typeof parseAffectedJobs;
+  /** 当前解析到的 tiptop 路径（解析不出为空串）。 */
+  toolsPath: typeof toolsPath;
+}
+
 export async function activate(
   context: vscode.ExtensionContext,
-): Promise<void> {
+): Promise<ExtensionApi> {
   registerCommands(context);
   registerDeployCommands(context);
   registerLinks(context);
+  // P1-1：链接资料的采集/导入/状态命令（调用 tiptop，不再让用户自己找可执行文件）
+  registerLinkToolCommands(context);
   registerConfigWatcher(context);
 
   // 激活事件是 onLanguage:bdl / onLanguage:per，此时已经有目标文件了。
@@ -41,10 +57,13 @@ export async function activate(
       }
     }),
   );
+
+  return { parseAffectedJobs, toolsPath };
 }
 
 export async function deactivate(): Promise<void> {
   disposeDeploy();
+  disposeLinkTools();
   await stopClient(false);
 }
 
