@@ -13,6 +13,7 @@ import {
 import { describeBinary, resolveBinary } from "./server/binary";
 import { disposeDeploy, registerDeployCommands } from "./deploy";
 import { registerLinks } from "./links";
+import { ensureDeployConfig, readDeployValues } from "./deployconfig";
 import {
   disposeLinkTools,
   parseAffectedJobs,
@@ -29,6 +30,10 @@ interface ExtensionApi {
   parseAffectedJobs: typeof parseAffectedJobs;
   /** 当前解析到的 tiptop 路径（解析不出为空串）。 */
   toolsPath: typeof toolsPath;
+  /** 把「生产环境 → 部署」设置合成为 `<root>/.project/deploy.json`（P1-5）。 */
+  ensureDeployConfig: typeof ensureDeployConfig;
+  /** 读出当前部署设置（e2e 校验用）。 */
+  readDeployValues: typeof readDeployValues;
 }
 
 export async function activate(
@@ -58,7 +63,12 @@ export async function activate(
     }),
   );
 
-  return { parseAffectedJobs, toolsPath };
+  return {
+    parseAffectedJobs,
+    toolsPath,
+    ensureDeployConfig,
+    readDeployValues,
+  };
 }
 
 export async function deactivate(): Promise<void> {

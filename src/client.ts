@@ -164,7 +164,8 @@ function collectSettings(): Record<string, unknown> {
     },
     // 链接资料（P7-D）：同样必须显式转交（collectSettings 是白名单）。
     link: {
-      enable: cfg.get<boolean>("link.enable") ?? true,
+      // P1-4：轻量档默认关闭（package.json 的默认值也是 false）。
+      enable: cfg.get<boolean>("link.enable") ?? false,
       dataDir: cfg.get<string>("link.dataDir") ?? ".project",
       moduleRoots: cfg.get<string[]>("link.moduleRoots") ?? [],
       globalModules: cfg.get<string[]>("link.globalModules") ?? ["sub", "lib", "qry"],
@@ -176,7 +177,8 @@ function collectSettings(): Record<string, unknown> {
       enable: cfg.get<boolean>("index.enable") ?? true,
     },
     schema: {
-      enable: cfg.get<boolean>("schema.enable") ?? true,
+      // P1-4：默认关闭（`RECORD LIKE t.*` 成员校验要用时才开）。
+      enable: cfg.get<boolean>("schema.enable") ?? false,
       paths: cfg.get<string[]>("schema.paths") ?? [],
     },
     // 忽略列表（P8）：文件/字段/表单 glob。

@@ -969,18 +969,19 @@ async function run() {
       }
     });
 
-    // 34. 设置界面分三层：basic / link / deploy
-    await test("设置项按三层分组", async () => {
+    // 34. 设置界面分五组（P1-5），且默认是"轻量档"（P1-4）
+    await test("设置项按五组分组且默认轻量", async () => {
       const pkg = require("../../package.json");
       const sections = pkg.contributes.configuration;
       assert.ok(Array.isArray(sections), "configuration 应为数组（分层设置）");
       const titles = sections.map((s) => s.title);
+      // P1-5：组标题不再重复 "Genero BDL: " 前缀（面板本身已按扩展分组）
       for (const want of [
-        "Genero BDL: 基础",
-        "Genero BDL: 链接资料",
-        "Genero BDL: 部署",
-        // P1-1：数据库连接（密码不放设置里）
-        "Genero BDL: 生产环境",
+        "基础",
+        "生产环境",
+        "链接资料",
+        "部署",
+        "数据库字段",
       ]) {
         assert.ok(titles.includes(want), `缺少设置分组：${want}`);
       }
@@ -998,7 +999,92 @@ async function run() {
       );
       assert.ok(all["bdl.link.enable"], "缺少 bdl.link.enable");
       assert.ok(all["bdl.deploy.enable"], "缺少 bdl.deploy.enable");
-      assert.strictEqual(all["bdl.deploy.enable"].default, true);
+      // P1-4：轻量档是默认——不连库、不部署、不扫 schema
+      assert.strictEqual(
+        all["bdl.link.enable"].default,
+        false,
+        "link.enable 默认应为 false（轻量档）",
+      );
+      assert.strictEqual(
+        all["bdl.deploy.enable"].default,
+        false,
+        "deploy.enable 默认应为 false（轻量档）",
+      );
+      assert.strictEqual(
+        all["bdl.schema.enable"].default,
+        false,
+        "schema.enable 默认应为 false（轻量档）",
+      );
+      // 运行时的实际取值也必须一致（代码里显式传默认值的地方别写反）
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      assert.strictEqual(cfg.get("link.enable"), false, "link.enable 实际值应为 false");
+      assert.strictEqual(cfg.get("deploy.enable"), false, "deploy.enable 实际值应为 false");
+      assert.strictEqual(cfg.get("schema.enable"), false, "schema.enable 实际值应为 false");
+      assert.ok(all["bdl.prod.deploy.host"], "缺少 bdl.prod.deploy.host");
+      assert.ok(all["bdl.schema.dataDir"], "缺少 bdl.schema.dataDir");
+    });
+
+    // 34a2. 轻量档的硬约束：不往项目里写文件
+    await test("轻量档不往项目里写文件（P1-4）", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+      assert.ok(
+        !fs.existsSync(path.join(root, ".project")),
+        "默认（轻量档）不该创建 .project/",
+      );
+    });
+
+    // 34a3. 部署配置由设置合成（P1-5）
+    await test("部署配置由设置合成（P1-5）", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const api = await ext.activate();
+      assert.ok(api.ensureDeployConfig, "应导出 ensureDeployConfig");
+
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      const target = "e2e-synth";
+      await cfg.update("prod.deploy.host", "127.0.0.1", vscode.ConfigurationTarget.Global);
+      await cfg.update("prod.deploy.user", "e2e", vscode.ConfigurationTarget.Global);
+      await cfg.update("prod.deploy.remoteRoot", "/tmp/e2e", vscode.ConfigurationTarget.Global);
+      await cfg.update("deploy.target", target, vscode.ConfigurationTarget.Global);
+      const dest = path.join(root, ".project", "deploy.json");
+      try {
+        const res = await api.ensureDeployConfig(root, "test");
+        assert.ok(res.path === dest, `合成的路径应为 ${dest}，实际 ${res.path}`);
+        const doc = JSON.parse(fs.readFileSync(dest, "utf8"));
+        assert.ok(
+          String(doc.createdBy).startsWith("vscode-bdl"),
+          `createdBy 应标明插件来源：${doc.createdBy}`,
+        );
+        assert.strictEqual(doc.defaultTarget, target);
+        const t = doc.targets[target];
+        assert.ok(t, "应生成目标");
+        assert.strictEqual(t.host, "127.0.0.1");
+        assert.strictEqual(t.user, "e2e");
+        assert.strictEqual(t.remoteRoot, "/tmp/e2e");
+        assert.strictEqual(t.upload.mode, "rsync");
+
+        // 不是插件生成的文件（没有 createdBy）在覆盖前要备份
+        fs.writeFileSync(dest, JSON.stringify({ targets: { hand: {} } }));
+        const res2 = await api.ensureDeployConfig(root, "test");
+        assert.ok(res2.backup, "手写文件应被备份");
+        assert.ok(fs.existsSync(res2.backup), `备份文件应存在：${res2.backup}`);
+
+        // 缺必填项时要给出"缺什么"，而不是含糊失败
+        await cfg.update("prod.deploy.host", "", vscode.ConfigurationTarget.Global);
+        const res3 = await api.ensureDeployConfig(root, "test");
+        assert.ok(!res3.path && res3.error, "缺设置时应返回错误");
+        assert.ok(
+          (res3.missing ?? []).length > 0,
+          "应列出缺哪些设置项",
+        );
+      } finally {
+        fs.rmSync(path.join(root, ".project"), { recursive: true, force: true });
+        for (const key of ["prod.deploy.host", "prod.deploy.user", "prod.deploy.remoteRoot", "deploy.target"]) {
+          await cfg.update(key, undefined, vscode.ConfigurationTarget.Global);
+        }
+      }
     });
 
     // 34b. P1-1：链接资料命令的影响面解析 + 总开关关闭时行为

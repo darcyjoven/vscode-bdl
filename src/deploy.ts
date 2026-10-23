@@ -13,11 +13,15 @@ import { spawn } from "node:child_process";
 import * as path from "node:path";
 import * as vscode from "vscode";
 
-import { currentBinary, currentTools } from "./client";
+import { currentTools } from "./client";
+import { ensureDeployConfig } from "./deployconfig";
 import { resolveTools } from "./server/binary";
 
 /** 扩展安装目录，用于定位内置的 tiptop（注册命令时写入）。 */
 let extensionPath: string | undefined;
+
+/** 扩展版本号（写进合成配置的 `createdBy`；注册命令时写入）。 */
+let extensionVersion = "0.0.0";
 
 /** 部署诊断的 source（Problems 面板里的来源列）。 */
 const DIAG_SOURCE = "bdl-deploy";
@@ -81,6 +85,8 @@ export function registerDeployCommands(
   context: vscode.ExtensionContext,
 ): void {
   extensionPath = context.extensionPath;
+  const pkg = context.extension.packageJSON as { version?: string } | undefined;
+  extensionVersion = pkg?.version ?? "0.0.0";
   context.subscriptions.push(
     vscode.commands.registerCommand("bdl.deploy", async () => {
       if (!deployEnabled()) {
@@ -132,11 +138,16 @@ export function registerDeployCommands(
   );
 }
 
-/** 部署功能总开关（bdl.deploy.enable，默认开）。 */
+/**
+ * 部署功能总开关（`bdl.deploy.enable`）。
+ *
+ * P1-4：**默认关闭**（轻量档）。打开后命令面板才出现部署命令，
+ * 配置走「生产环境 → 部署」设置（插件合成 `.project/deploy.json`）。
+ */
 export function deployEnabled(): boolean {
   return vscode.workspace
     .getConfiguration("bdl")
-    .get<boolean>("deploy.enable", true);
+    .get<boolean>("deploy.enable", false);
 }
 
 /** 关闭时的统一提示：让用户知道命令为什么不可用。 */
@@ -210,7 +221,39 @@ async function runDeploy(
     return;
   }
 
-  const args = ["deploy", "-workspace", workspace, "-json"];
+  // P1-5：部署配置由设置合成到 <项目>/.project/deploy.json，
+  // 用户不再需要手写 JSON（tiptop 的配置模型不变）。
+  const synth = await ensureDeployConfig(workspace, extensionVersion);
+  if (!synth.path) {
+    const out0 = outputChannel();
+    out0.show(true);
+    out0.appendLine(synth.error ?? "部署配置生成失败。");
+    const pick = await vscode.window.showErrorMessage(
+      synth.error ?? "部署配置生成失败。",
+      "打开设置",
+    );
+    if (pick === "打开设置") {
+      await vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "bdl.prod.deploy",
+      );
+    }
+    return;
+  }
+  if (synth.backup) {
+    outputChannel().appendLine(
+      `原来的 deploy.json 不是本插件生成的，已备份到 ${synth.backup}`,
+    );
+  }
+
+  const args = [
+    "deploy",
+    "-workspace",
+    workspace,
+    "-config",
+    synth.path,
+    "-json",
+  ];
   if (dryRun) {
     args.push("-dry-run");
   }
@@ -400,18 +443,27 @@ function reportOutcome(result: DeployResult, published: number): void {
 
 /** 列出配置里的部署目标。 */
 async function runDeployList(): Promise<void> {
-  const binary = currentBinary();
+  // 列出目标同样要用 **tiptop**（部署已从 bdl-lsp 分离；原先这里错用了
+  // 语言服务器二进制，命令必然失败——P1-5 顺手修掉）。
+  const binary = toolsBinary();
   const workspace = workspaceRoot();
   if (!binary || !workspace) {
-    void vscode.window.showErrorMessage("需要先打开工作区并启动语言服务器。");
+    void vscode.window.showErrorMessage("需要先打开工作区并找到 tiptop。");
     return;
   }
   const out = outputChannel();
   out.show(true);
+  // 有设置就合成后再列；没设置/合成失败则退回 tiptop 自己找配置文件
+  //（用户手写的 .project/deploy.json 仍然可用）。
+  const synth = await ensureDeployConfig(workspace, extensionVersion);
+  const args = ["deploy", "-workspace", workspace, "-list"];
+  if (synth.path) {
+    args.push("-config", synth.path);
+  }
   await new Promise<void>((resolve) => {
     const child = spawn(
       binary.command,
-      ["deploy", "-workspace", workspace, "-list"],
+      args,
       { windowsHide: true },
     );
     child.stdout.on("data", (c: Buffer) => out.append(c.toString("utf8")));

@@ -33,11 +33,16 @@ type Node =
   | { kind: "ref"; program: string }
   | { kind: "moreRefs"; total: number; loaded: number };
 
-/** 链接资料功能总开关（bdl.link.enable，默认开）。 */
+/**
+ * 链接资料功能总开关（`bdl.link.enable`）。
+ *
+ * P1-4：**默认关闭**（轻量档：零配置、不连库、不后台跑任务、不往项目写文件）。
+ * 显式给默认值是为了不依赖 package.json（两者必须一致：false）。
+ */
 export function linkEnabled(): boolean {
   return vscode.workspace
     .getConfiguration("bdl")
-    .get<boolean>("link.enable", true);
+    .get<boolean>("link.enable", false);
 }
 
 /** 缓存最近一次请求的树，避免每次展开都跨进程要一次。 */

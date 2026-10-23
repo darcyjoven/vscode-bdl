@@ -61,7 +61,7 @@ mkdir -p "$WORKSPACE"
 cd "$WORKSPACE"
 ```
 
-工作区根会被 VSCode 打开，`.bdl-lsp/config.json`、`.bdl-lsp/deploy.json`、
+工作区根会被 VSCode 打开，`.bdl-lsp/config.json`、`.project/deploy.json`、
 `.project/` 都要放在它下面。
 
 > 迁移前的项目资料在 `.link/`；语言服务器仍会读取旧目录并提示迁移，
@@ -170,7 +170,7 @@ cat > .gitignore <<'EOF'
 .project/
 
 # 部署配置（含主机名、账号，不同开发者不同）
-.bdl-lsp/deploy.json
+.project/deploy.json
 
 # 编译产物与临时文件
 *.o
@@ -184,7 +184,7 @@ git commit -m "从生产端导入源码（tiptop/topcust）"
 git log --oneline -1
 ```
 
-> **`.bdl-lsp/deploy.json` 建议不进版本库**：它含生产主机名与账号。
+> **`.project/deploy.json` 建议不进版本库**：它含生产主机名与账号。
 > 用 `deploy.json.example` 做模板提交，或由每个开发者本地维护。
 > `.bdl-lsp/config.json`（不含敏感信息）可以提交，供团队共享。
 
@@ -375,7 +375,16 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
 }
 ```
 
-### 6.2 `.bdl-lsp/deploy.json`（部署配置，建议不提交）
+### 6.2 `.project/deploy.json`（部署配置：**插件从设置生成**，建议不提交）
+
+> **不用手写**：在设置里填「生产环境 → 部署」（主机/端口/账号/远程根/上传规则），
+> 每次部署前插件会把它合成为 `<项目>/.project/deploy.json` 再交给 tiptop，
+> 文件里带 `createdBy: "vscode-bdl <版本>"` 标记。改设置即可，改完自动生效。
+>
+> 手写仍然支持（`tiptop deploy -config <文件>`）；如果不是插件生成的文件，
+> 第一次被覆盖前会备份成 `deploy.json.bak`。
+
+下面是生成出来的样子（也可以照着手写）：
 
 ```jsonc
 {
@@ -506,13 +515,14 @@ tiptop deploy -workspace "$WORKSPACE" -target prod -no-upload <文件>
 
 | 命令 | 作用 |
 |---|---|
-| `Genero BDL: 部署当前文件并编译` | 上传当前打开的文件并远程编译 |
-| `Genero BDL: 部署到远程服务器并编译` | 按 `include` 传整个工作区 |
-| `Genero BDL: 部署预演（不上传）` | 只打印计划 |
+| `部署当前文件并编译` | 上传当前打开的文件并远程编译 |
+| `部署到远程服务器并编译` | 按 `include` 传整个工作区 |
+| `部署预演（不上传）` | 只打印计划 |
 | `Genero BDL: 列出部署目标` | 打印 `targets` |
 
-> 部署功能可以在设置里关掉：`bdl.deploy.enable = false`
-> （设置界面 "Genero BDL: 部署" 一节）。关闭后命令面板不再显示这四条命令。
+> 部署功能**默认关闭**（轻量档）：`bdl.deploy.enable = false`（设置界面 "部署" 一组）。
+> 要部署时打开它，并在 "生产环境" 一组填主机/账号/远程根；
+> 没填全的话部署命令会明确告诉你缺哪一项，而不是含糊失败。
 
 ---
 
@@ -527,7 +537,7 @@ tiptop deploy -workspace "$WORKSPACE" -target prod -no-upload <文件>
 | 3 | 悬停一个 GLOBALS 引入的变量 | 弹出"来源（GLOBALS 引入）"，只列一次来源文件 |
 | 4 | `F12` 跳转到定义 | 跳到 `.global` 文件里的定义处 |
 | 5 | 侧边栏"链接资料" | 展开当前程序 → 链内的 4gl 文件列表（需要第 3 步已生成资料） |
-| 6 | 命令面板 → `Genero BDL: 部署预演（不上传）` | 输出面板列出将上传的文件与编译命令 |
+| 6 | 命令面板 → `部署预演（不上传）` | 输出面板列出将上传的文件与编译命令 |
 
 侧边栏"链接资料"为空，说明第 3 步的链接资料没生成或路径不对：
 
@@ -536,9 +546,9 @@ cd "$WORKSPACE"
 tiptop link status -root "$WORKSPACE"
 ```
 
-> 侧边栏"链接资料"视图受 `bdl.link.enable` 控制（设置界面
-> "Genero BDL: 链接资料" 一节）。关掉后整个视图会隐藏，
-> 打开它才会显示"链接资料功能已关闭"。
+> 侧边栏"链接资料"视图受 `bdl.link.enable` 控制（设置界面 "链接资料" 一组）。
+> **默认关闭**（轻量档）：视图与命令面板里的链接命令都隐藏。
+> 需要时打开，并用 `Genero BDL: 链接资料：从 CSV 导入` 生成资料。
 
 ### 8.1 只想快速验证一个文件
 
@@ -585,7 +595,8 @@ head -1 .project/gal_file.csv
 
 ### 9.4 链接资料有，但 `function-not-found` 还是报
 
-- 确认 `bdl.link.enable` 是 `true`（设置界面 "Genero BDL: 链接资料" 一节）；
+- 确认 `bdl.link.enable` 是 `true`（设置界面 "链接资料" 一组；**默认是关的**，
+  轻量档不会自动去加载资料）；
 - 确认 `bdl.link.dataDir` 与实际目录一致（默认 `.project`）；
 - 资料过期会报 `link-data-stale`（hint 级），重新导入即可。
 
@@ -682,7 +693,7 @@ if [ ! -d .git ]; then
   git init -b main
   cat > .gitignore <<'EOF'
 .project/
-.bdl-lsp/deploy.json
+.project/deploy.json
 *.o
 *.err
 *.form
@@ -738,7 +749,7 @@ cd "$WORKSPACE" && tar xzf toppord-src.tar.gz
 # ===== ③ Git 初始化 =====
 cd "$WORKSPACE"
 git init -b main
-printf '.project/\n.bdl-lsp/deploy.json\n*.o\n*.err\n*.form\n' > .gitignore
+printf '.project/\n.project/deploy.json\n*.o\n*.err\n*.form\n' > .gitignore
 git add -A && git commit -m "从生产端导入源码"
 
 # ===== ④ 链接资料 =====

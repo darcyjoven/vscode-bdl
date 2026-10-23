@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.5.4",
+  "version": "0.5.5",
   "publisher": "darcyjoven",
   "license": "MIT",
   "engines": {
@@ -81,7 +81,7 @@
     ],
     "configuration": [
       {
-        "title": "Genero BDL: 基础",
+        "title": "基础",
         "order": 0,
         "properties": {
           "bdl.server.path": {
@@ -180,21 +180,6 @@
             "scope": "window",
             "description": "在工作区后台建立符号索引（全工作区符号搜索、跨文件跳转与引用的基础）。关闭后这些功能只覆盖已打开的文件。"
           },
-          "bdl.schema.enable": {
-            "type": "boolean",
-            "default": true,
-            "scope": "window",
-            "description": "解析工作区里的 .sch 文件建立数据库表结构索引。启用后 `DEFINE r RECORD LIKE t.*` 的记录成员可被校验，且 `r.` 补全会给出表的全部列。"
-          },
-          "bdl.schema.paths": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": [],
-            "scope": "window",
-            "description": "额外的 schema 目录（相对工作区根或绝对路径）。默认自动查找 `<模组根>/<模组>/sch/*.sch`。"
-          },
           "bdl.globals.searchPaths": {
             "type": "array",
             "items": {
@@ -291,14 +276,135 @@
         }
       },
       {
-        "title": "Genero BDL: 链接资料",
+        "title": "生产环境",
+        "properties": {
+          "bdl.prod.oracle.host": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "Oracle 主机（`source=golang` 采集链接资料时用）。\n\n**只写在 Workspace 设置里**，并且**不要让 `settings.json` 进 git 管理**。\n\n密码**不在这里**：用环境变量 `BDL_ORA_PASSWORD`，或项目里的 `.project/secrets.json`（chmod 600）。\n\n填好后即可在命令面板用「Genero BDL: 链接资料：…」系列命令从 VSCode 里采集。"
+          },
+          "bdl.prod.oracle.port": {
+            "type": "number",
+            "default": 1521,
+            "scope": "window",
+            "markdownDescription": "Oracle 端口，默认 1521。"
+          },
+          "bdl.prod.oracle.service": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "Oracle service name（如 `PROD`）。"
+          },
+          "bdl.prod.oracle.user": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "只读账号（只查 `DS.GAL_FILE`）。"
+          },
+          "bdl.prod.deploy.host": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "部署目标主机（SSH）。\n\n**只写在 Workspace 设置里**，并且**不要让 `settings.json`（工作区的或 `~/.vscode/settings.json`）进 git 管理**。\n\n密码/密钥**不放在设置里**：Oracle 密码用环境变量 `BDL_ORA_PASSWORD` 或 `<项目>/.project/secrets.json`（chmod 600）；SSH 用密钥文件或 ssh-agent。"
+          },
+          "bdl.prod.deploy.port": {
+            "type": "number",
+            "default": 22,
+            "scope": "window",
+            "markdownDescription": "SSH 端口，默认 22。（只写 Workspace 设置；别把 `settings.json` 提交到 git）"
+          },
+          "bdl.prod.deploy.user": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "SSH 用户名（建议用密钥登录）。（只写 Workspace 设置；别把 `settings.json` 提交到 git）"
+          },
+          "bdl.prod.deploy.remoteRoot": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "远程工作根目录（POSIX 绝对路径，如 `/home/apps/tiptop`）。（只写 Workspace 设置；别把 `settings.json` 提交到 git）"
+          },
+          "bdl.prod.deploy.localRoot": {
+            "type": "string",
+            "default": ".",
+            "scope": "window",
+            "markdownDescription": "本地根目录（相对工作区根），默认 `.`。"
+          },
+          "bdl.prod.deploy.transport": {
+            "type": "string",
+            "enum": [
+              "rsync",
+              "scp"
+            ],
+            "default": "rsync",
+            "scope": "window",
+            "markdownDescription": "首选传输方式：`rsync`（默认）或 `scp`。"
+          },
+          "bdl.prod.deploy.fallback": {
+            "type": "string",
+            "enum": [
+              "scp",
+              "none"
+            ],
+            "default": "scp",
+            "scope": "window",
+            "markdownDescription": "首选方式失败后的回退：`scp`（默认）或 `none`（不回退）。"
+          },
+          "bdl.prod.deploy.delete": {
+            "type": "boolean",
+            "default": false,
+            "scope": "window",
+            "markdownDescription": "rsync 是否加 `--delete`。**默认关闭**：远程目录常混有编译产物，误删代价高。"
+          },
+          "bdl.prod.deploy.include": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "scope": "window",
+            "markdownDescription": "上传包含的 glob（相对本地根）。留空 = tiptop 默认（`4gl`/`per`）。"
+          },
+          "bdl.prod.deploy.exclude": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "scope": "window",
+            "markdownDescription": "上传排除的 glob（优先于 include）。留空 = tiptop 默认。"
+          },
+          "bdl.prod.deploy.strictHostKey": {
+            "type": "boolean",
+            "default": true,
+            "scope": "window",
+            "markdownDescription": "严格校验 SSH host key（默认开）。只有在受控内网且你清楚风险时才关。"
+          },
+          "bdl.prod.deploy.compile4gl": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "远程编译 `.4gl` 的命令模板。留空 = tiptop 默认（`fglcomp`）。可用 `${file}`/`${dir}` 占位。"
+          },
+          "bdl.prod.deploy.compilePer": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "远程编译 `.per` 的命令模板。留空 = tiptop 默认（`fglform`）。"
+          }
+        }
+      },
+      {
+        "title": "链接资料",
         "order": 1,
         "properties": {
           "bdl.link.enable": {
             "type": "boolean",
-            "default": true,
+            "default": false,
             "scope": "window",
-            "markdownDescription": "链接资料功能总开关。\n\n关闭后完全不启动相关功能，减少资源占用：不加载 `.project/` 资料、不发 `function-not-found` / `link-data-*` 诊断、隐藏侧边栏「链接资料」视图。\n\n资料的采集/导入在 tiptop 命令行（`tiptop link import` / `tiptop link sync`），与本开关无关。\n\n重新打开后需执行「Genero BDL: 重启语言服务器」生效。"
+            "markdownDescription": "跨模块函数可见性、侧边栏「链接资料」视图、反查引用程序。\n\n**默认关闭**（轻量档：零配置、不连库、不后台跑任务、不往项目里写文件）。需要时打开，并二选一准备资料：\n1. 直连 Oracle 采集：填「生产环境」的连接信息，再用命令 `Genero BDL: 链接资料：全量更新`；\n2. 用 DS.GAL_FILE 导出：命令 `Genero BDL: 链接资料：从 CSV 导入`。\n\n资料落在 `<项目>/.project/`（迁移前的 `.link/` 仍兼容读取）。"
           },
           "bdl.link.dataDir": {
             "type": "string",
@@ -338,50 +444,49 @@
         "description": "链接资料（程序与 4GL 文件的链接关系）。资料由 tiptop 生成：`tiptop link import -csv <导出.csv>` 或 `tiptop link sync`；语言服务器只读取它。"
       },
       {
-        "title": "Genero BDL: 部署",
+        "title": "部署",
         "order": 2,
         "properties": {
           "bdl.deploy.enable": {
             "type": "boolean",
-            "default": true,
+            "default": false,
             "scope": "window",
-            "markdownDescription": "部署功能总开关。\n\n关闭后完全不启动相关功能：命令面板隐藏四条部署命令，执行也不会调用 `tiptop deploy`。\n\n部署只在手动触发时才运行，本身无后台开销；不需要部署的机器可以关掉以简化命令面板。"
+            "markdownDescription": "上传源码到远程服务器并远程编译。\n\n**默认关闭**。打开后命令面板才出现部署命令。部署配置不用手写 JSON：插件会把「生产环境 → 部署」里的设置合成为 `<项目>/.project/deploy.json` 再交给 tiptop。"
           },
           "bdl.deploy.target": {
             "type": "string",
             "default": "",
             "scope": "window",
-            "markdownDescription": "部署目标名（对应 `.bdl-lsp/deploy.json` 的 `targets` 键）。留空则用配置里的 `defaultTarget`。"
+            "markdownDescription": "部署目标名（插件生成的 `.project/deploy.json` 里的 `targets` 键）。留空则用 `defaultTarget`。"
           }
         },
         "description": "部署（上传源码到远程服务器并远程编译）。由 tiptop 执行，命令为 `tiptop deploy`。配置见工作区 `.bdl-lsp/deploy.json`。"
       },
       {
-        "title": "Genero BDL: 生产环境",
+        "title": "数据库字段",
         "properties": {
-          "bdl.prod.oracle.host": {
-            "type": "string",
-            "default": "",
+          "bdl.schema.enable": {
+            "type": "boolean",
+            "default": false,
             "scope": "window",
-            "markdownDescription": "Oracle 主机（`source=golang` 采集链接资料时用）。\n\n**只写在 Workspace 设置里**，并且**不要让 `settings.json` 进 git 管理**。\n\n密码**不在这里**：用环境变量 `BDL_ORA_PASSWORD`，或项目里的 `.project/secrets.json`（chmod 600）。\n\n填好后即可在命令面板用「Genero BDL: 链接资料：…」系列命令从 VSCode 里采集。"
+            "description": "解析工作区里的 .sch 文件建立数据库表结构索引。启用后 `DEFINE r RECORD LIKE t.*` 的记录成员可被校验，且 `r.` 补全会给出表的全部列。",
+            "markdownDescription": "解析工作区里的 `.sch` 表结构（供 `RECORD LIKE t.*` 的成员校验使用）。\n\n**默认关闭**（轻量档不扫这些文件）。要用 `record-member-unknown` 校验 `LIKE t.*` 记录时打开它，否则那类成员只能按“不可校验”放过。"
           },
-          "bdl.prod.oracle.port": {
-            "type": "number",
-            "default": 1521,
+          "bdl.schema.paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
             "scope": "window",
-            "markdownDescription": "Oracle 端口，默认 1521。"
+            "description": "额外的 schema 目录（相对工作区根或绝对路径）。默认自动查找 `<模组根>/<模组>/sch/*.sch`。",
+            "markdownDescription": "额外的 `.sch` 搜索路径（相对工作区根，按序尝试）。留空则按模组根自动查找 `<根>/<模组>/sch/`。"
           },
-          "bdl.prod.oracle.service": {
+          "bdl.schema.dataDir": {
             "type": "string",
-            "default": "",
+            "default": ".project/.schema",
             "scope": "window",
-            "markdownDescription": "Oracle service name（如 `PROD`）。"
-          },
-          "bdl.prod.oracle.user": {
-            "type": "string",
-            "default": "",
-            "scope": "window",
-            "markdownDescription": "只读账号（只查 `DS.GAL_FILE`）。"
+            "markdownDescription": "数据库字段资料目录（相对工作区根，默认 `.project/.schema`）：放 Oracle 导出的字段数据，由插件与 tiptop 维护（**下一版启用**，现在留空即可）。"
           }
         }
       }

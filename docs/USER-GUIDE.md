@@ -64,7 +64,7 @@
 用 VSCode 打开**项目根目录**（通常是含 `.4gl` / `.per` 和
 `.bdl-lsp/` 的那一层），不要只打开单个文件。工作区根决定：
 
-- `.bdl-lsp/config.json`、`.bdl-lsp/deploy.json` 从哪里读；
+- `.bdl-lsp/config.json`、`.project/deploy.json` 从哪里读；
 - 链接资料、schema、表单在哪个范围里查找；
 - 哪些文件进入工作区索引。
 
@@ -343,7 +343,7 @@ tiptop link status -root .
 
 #### 直接在这里采集/更新（不用开终端）
 
-命令面板（`Ctrl+Shift+P`）里的 `Genero BDL: 链接资料：…`：
+命令面板（`Ctrl+Shift+P`）里的 `链接资料：…`：
 
 | 命令 | 什么时候用 |
 |---|---|
@@ -353,7 +353,7 @@ tiptop link status -root .
 | `全量更新` | 第一次、或链接结构大改后：从数据库/CSV 重算全部（会先确认，耗时较长） |
 | `查看状态` | 看链数、生成时间、是否局部更新过 |
 
-采集需要有数据库配置：在设置里选 **Genero BDL: 生产环境** 填主机 / 服务名 / 只读账号，
+采集需要有数据库配置：在设置里选 **生产环境** 填主机 / 服务名 / 只读账号，
 密码放环境变量 `BDL_ORA_PASSWORD` 或 `<项目>/.project/secrets.json`（`chmod 600`）。
 没配时命令会明确提示，并给“打开设置”“改用 CSV 导入”两个按钮。
 **生产环境设置只写 Workspace，且 `settings.json` 不要进 git 管理。**
@@ -416,7 +416,7 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 ## 7. 部署
 
 部署 = 上传源码到远程服务器 + 远程编译。配置在
-`.bdl-lsp/deploy.json`，示例见 tiptop 仓库 `examples/deploy.json`。
+`.project/deploy.json`，示例见 tiptop 仓库 `examples/deploy.json`。
 
 不需要部署的机器可以把 `bdl.deploy.enable` 关掉：命令面板里的四条部署
 命令会消失，命令即使被直接调用也不会执行。
@@ -447,9 +447,9 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 | 命令 | 作用 |
 |---|---|
-| `Genero BDL: 部署到远程服务器并编译` | 按 include 上传整个工作区并编译 |
-| `Genero BDL: 部署当前文件并编译` | 只处理当前文件 |
-| `Genero BDL: 部署预演（不上传）` | 打印计划，不执行 |
+| `部署到远程服务器并编译` | 按 include 上传整个工作区并编译 |
+| `部署当前文件并编译` | 只处理当前文件 |
+| `部署预演（不上传）` | 打印计划，不执行 |
 | `Genero BDL: 列出部署目标` | 查看 `targets` |
 
 设置 `bdl.deploy.target` 可指定默认目标；留空用 `defaultTarget`。
@@ -462,31 +462,38 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 - 先跑“部署预演”，确认文件列表和编译命令；
 - SSH 失败先手动 `ssh user@host`，确认 key/agent；
 - 编译失败看输出里的远程命令和 stderr；
-- `.bdl-lsp/deploy.json` 含主机信息，建议加入 `.gitignore`，只提交模板。
+- `.project/deploy.json` 含主机信息，建议加入 `.gitignore`，只提交模板。
 
 ---
 
 ## 8. 配置说明
 
-### 8.0 设置界面分三层
+### 8.0 设置界面分五组
 
-设置界面按用途分成三节（和 CSS 语言插件一样的多层次设置）：
+设置界面按用途分成五组（和 CSS 语言插件一样的多层次设置）。
+**默认是轻量档**：零配置开箱即用，不连库、不后台跑任务、不往项目里写文件。
 
-| 节 | 标题 | 内容 | 什么时候看 |
+| 组 | 内容 | 默认 | 什么时候看 |
 |---|---|---|---|
-| 基础 | Genero BDL: 基础 | 诊断级别、格式化、项目解析、资源限制 | 大多数人只需要这一节 |
-| 链接资料 | Genero BDL: 链接资料 | 跨模块函数索引、资料采集 | 需要跨模块跳转/函数检查时 |
-| 部署 | Genero BDL: 部署 | 上传与远程编译 | 需要部署到服务器时 |
+| 基础 | 诊断级别、格式化、项目解析、资源限制 | 开 | 大多数人只需要这一组 |
+| 生产环境 | Oracle 连接、部署服务器（**密码不放这里**） | 空 | 要采集链接资料/部署时 |
+| 链接资料 | 跨模块函数索引、资料采集 | **关** | 需要跨模块跳转/函数检查时 |
+| 部署 | 上传与远程编译（配置由插件合成） | **关** | 需要部署到服务器时 |
+| 数据库字段 | `.sch` 表结构 / `.project/.schema` 字段资料 | **关** | 要用 `LIKE t.*` 成员校验时 |
 
-后两节各有一个**总开关**：
+三个**总开关**（后三组各一个）：
 
-- `bdl.link.enable`（默认开）——关闭后不加载 `.project/` 资料、不启用
-  `function-not-found` / `link-data-*` 诊断、不启动自动采集，侧边栏
-  「链接资料」视图整个隐藏；
-- `bdl.deploy.enable`（默认开）——关闭后命令面板隐藏四条部署命令，
-  执行也不会调用 `tiptop deploy`。
+- `bdl.link.enable`（**默认关**）——关闭后不加载 `.project/` 资料、不启用
+  `function-not-found` / `link-data-*` 诊断、侧边栏「链接资料」视图整个隐藏、
+  命令面板里的链接命令隐藏；
+- `bdl.deploy.enable`（**默认关**）——关闭后命令面板隐藏四条部署命令，
+  执行也不会调用 `tiptop deploy`；
+- `bdl.schema.enable`（**默认关**）——关闭后不解析工作区的 `.sch` 文件。
 
-两个开关都用于"减少资源占用"：不需要链接资料或部署的机器可以关掉。
+> **生产环境这组只写 Workspace 设置，并且不要让 `settings.json` 进 git 管理**；
+> 密码/密钥一律不放在设置里（见 §8.4）。
+
+需要第 3–5 组的能力时，**只在这个设置面板里打开开关**，不用手写 JSON、不用找命令行。
 
 ### 8.0.1 配置优先级
 
@@ -509,12 +516,13 @@ VSCode 设置适合个人临时调整。
   默认 off、`link-data-stale` 默认 hint、`file-too-large` 默认 information；
 - 格式化：`format.keywords=unchanged`、`indentStyle=auto`、`indentSize=0`；
 - 资源限制：大文件、行数、诊断条数、解析超时都有安全默认值；
-- 项目解析：`index.enable=true`、`schema.enable=true`、`builtins.enable=true`。
+- 项目解析：`index.enable=true`、`builtins.enable=true`、
+  `schema.enable=false`（要用 `LIKE t.*` 成员校验时打开）。
 
 **第二类：不配置就用不了**
 
 - 链接资料：需要先生成 `.project`，再按需配 `link.*`；
-- 部署：需要 `.bdl-lsp/deploy.json` 和 SSH 访问；
+- 部署：需要 `.project/deploy.json` 和 SSH 访问；
 - schema：只有需要展开 `LIKE table.*` 时才配 `schema.paths`；
 - 表单/ GLOBALS 搜索路径：项目层级特殊时才需要加。
 
@@ -550,7 +558,7 @@ VSCode 设置适合个人临时调整。
 | 键 | 默认 | 作用 |
 |---|---|---|
 | `bdl.index.enable` | `true` | 工作区符号索引 |
-| `bdl.schema.enable` | `true` | 数据库 schema 索引开关 |
+| `bdl.schema.enable` | `false` | `.sch` 表结构索引（`LIKE t.*` 成员校验要用） |
 | `bdl.schema.paths` | `[]` | `.sch` 文件路径/glob |
 | `bdl.globals.searchPaths` | `[]` | GLOBALS 附加解析根 |
 | `bdl.perRoots` | `[]` | `.per` 附加解析根 |
@@ -574,7 +582,7 @@ VSCode 设置适合个人临时调整。
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.link.enable` | `true` | **总开关**：关闭后不加载资料、不发相关诊断、隐藏链接资料视图 |
+| `bdl.link.enable` | `false` | **总开关**（轻量档默认关）：关闭后不加载资料、不发相关诊断、隐藏视图与命令 |
 | `bdl.link.dataDir` | `.project` | 资料目录 |
 | `bdl.link.moduleRoots` | `[]` | 模组根 |
 | `bdl.link.globalModules` | `["sub","lib","qry"]` | 全局模组名 |
@@ -587,8 +595,20 @@ VSCode 设置适合个人临时调整。
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.deploy.enable` | `true` | **总开关**：关闭后命令面板隐藏部署命令，执行也不会调用 `tiptop deploy` |
-| `bdl.deploy.target` | `""` | 默认部署目标名；留空用 `defaultTarget` |
+| `bdl.deploy.enable` | `false` | **总开关**（轻量档默认关）：关闭后命令面板隐藏部署命令 |
+| `bdl.deploy.target` | `""` | 目标名；留空用合成的 `defaultTarget` |
+| `bdl.schema.dataDir` | `.project/.schema` | 字段资料目录（下一版启用） |
+
+**生产环境（不配置就用不了采集/部署；只写 Workspace）**
+
+| 键 | 默认 | 作用 |
+|---|---|---|
+| `bdl.prod.oracle.host` / `port` / `service` / `user` | 空 / `1521` / 空 / 空 | 采集链接资料时的 Oracle 连接（密码走环境变量或 `.project/secrets.json`） |
+| `bdl.prod.deploy.host` / `port` / `user` / `remoteRoot` | 空 / `22` / 空 / 空 | 部署目标（插件合成为 `.project/deploy.json`） |
+| `bdl.prod.deploy.localRoot` / `transport` / `fallback` / `delete` | `.` / `rsync` / `scp` / `false` | 上传细节 |
+| `bdl.prod.deploy.include` / `exclude` | `[]` | 上传 glob（留空 = tiptop 默认） |
+| `bdl.prod.deploy.strictHostKey` | `true` | 严格校验 SSH host key |
+| `bdl.prod.deploy.compile4gl` / `compilePer` | 空 | 远程编译命令模板（留空 = `fglcomp`/`fglform`） |
 
 > 密码不在设置里。链接同步用 `BDL_ORA_PASSWORD` 或
 > `.project/secrets.json`；部署用 SSH key / agent。

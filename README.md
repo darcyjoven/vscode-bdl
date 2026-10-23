@@ -82,24 +82,31 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 
 ## 设置项
 
-设置界面按用途分节（类似 CSS 语言插件的多层次设置）：
+设置界面按用途分成**五组**（类似 CSS 语言插件的多层次设置），
+默认是**轻量档**：零配置、不连库、不后台跑任务、不往项目里写文件。
 
-| 节 | 内容 | 总开关 |
-|---|---|---|
-| Genero BDL: 基础 | 诊断级别、格式化、项目解析、资源限制 | — |
-| Genero BDL: 链接资料 | 跨模块函数索引、资料采集 | `bdl.link.enable` |
-| Genero BDL: 部署 | 上传与远程编译 | `bdl.deploy.enable` |
-| Genero BDL: 生产环境 | Oracle 连接（**密码不在这里**） | — |
+| 组 | 内容 | 默认 | 总开关 |
+|---|---|---|---|
+| 基础 | 诊断级别、格式化、项目解析、资源限制 | 开 | — |
+| 生产环境 | Oracle 连接、部署服务器（**密码不在这里**） | 空 | — |
+| 链接资料 | 跨模块函数索引、资料采集 | **关** | `bdl.link.enable` |
+| 部署 | 上传与远程编译（配置由插件合成为 `.project/deploy.json`） | **关** | `bdl.deploy.enable` |
+| 数据库字段 | `.sch` 表结构 / `.project/.schema` 字段资料 | **关** | `bdl.schema.enable` |
 
 > ⚠️ 生产环境这一节的设置**只写 Workspace 设置**，并且**不要让 `settings.json`
 > 进 git 管理**；密码用环境变量 `BDL_ORA_PASSWORD` 或 `<项目>/.project/secrets.json`
 > （`chmod 600`）。
 
-关闭 `bdl.link.enable`：不加载 `.project/` 资料、不启用 `function-not-found` /
-`link-data-*` 诊断、不启动自动采集，侧边栏「链接资料」视图隐藏。
-关闭 `bdl.deploy.enable`：命令面板隐藏部署命令，执行也不会调用 `tiptop deploy`。
+`bdl.link.enable` **默认关闭**：不加载 `.project/` 资料、不启用
+`function-not-found` / `link-data-*` 诊断、侧边栏「链接资料」视图隐藏、
+命令面板里的链接命令隐藏。要用了才打开，并用
+`Genero BDL: 链接资料：从 CSV 导入`（或配好「生产环境」后全量更新）生成资料。
+`bdl.deploy.enable` **默认关闭**：命令面板隐藏部署命令，执行也不会调用
+`tiptop deploy`；打开后在「生产环境 → 部署」填主机/账号/远程根即可，插件会合成
+`.project/deploy.json`（不用手写 JSON）。
+`bdl.schema.enable` **默认关闭**：需要 `RECORD LIKE t.*` 的成员校验时打开。
 
-按“要不要改”分成三档，详细说明、示例与全部 41 个键见
+按“要不要改”分成三档，详细说明、示例与全部 49 个键见
 [使用手册第 8 节](docs/USER-GUIDE.md#8-配置说明)。
 
 **默认即可（基本不用改）**
@@ -111,19 +118,21 @@ macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
 | `bdl.format.indentStyle` | `auto` | 缩进风格 |
 | `bdl.format.indentSize` | `0` | 缩进宽度，0 跟随原文件 |
 | `bdl.limits.*` | 见手册 | 大文件、行数、诊断条数、解析超时保护 |
-| `bdl.index.enable` / `bdl.schema.enable` / `bdl.builtins.enable` | `true` | 项目解析默认开启 |
+| `bdl.index.enable` / `bdl.builtins.enable` | `true` | 符号索引与内置表默认开启 |
+| `bdl.schema.enable` | `false` | `.sch` 表结构索引：要用 `LIKE t.*` 成员校验时开 |
 
 **不配置就用不了**
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.link.enable` | `true` | 链接资料总开关；不需要跨模块检查时可关 |
-| `bdl.link.*` | 链接资料目录 `.project` | 跨模块函数索引；先生成 `.project/links.jsonl` |
-| `bdl.schema.paths` | `[]` | 只有需要展开 `LIKE table.*` 时才配 |
+| `bdl.link.enable` | `false` | 链接资料总开关；**轻量档默认关**，需要跨模块检查时打开 |
+| `bdl.link.*` | 资料目录 `.project` | 跨模块函数索引；先生成 `.project/links.jsonl` |
+| `bdl.schema.paths` | `[]` | `.sch` 的附加搜索路径；要展开 `LIKE table.*` 时才配 |
 | `bdl.perRoots` | `[]` | `.per` 不在同级 `per/` 时加解析根 |
 | `bdl.globals.searchPaths` | `[]` | GLOBALS 路径解析不到时加候选根 |
-| `bdl.deploy.enable` | `true` | 部署总开关；关闭后隐藏并停用部署命令 |
-| `bdl.deploy.target` | 空 | 配合 `.bdl-lsp/deploy.json` 使用 |
+| `bdl.deploy.enable` | `false` | 部署总开关；**轻量档默认关**，要部署时打开 |
+| `bdl.deploy.target` | 空 | 目标名（插件生成的 `.project/deploy.json` 里的 `targets` 键） |
+| `bdl.prod.oracle.*` / `bdl.prod.deploy.*` | 空 | 生产连接信息（**只写 Workspace；别把 `settings.json` 提交**） |
 
 **按项目调整**
 
@@ -207,8 +216,8 @@ tiptop link status
 
 两种用法（选一种即可，都会写 `<项目>/.project/`）：
 
-1. **在 VSCode 里**：配置好「Genero BDL: 生产环境」后，用命令面板的
-   `Genero BDL: 链接资料：…` 系列命令（见上面「命令」表）。局部更新会先
+1. **在 VSCode 里**：配置好「生产环境」后，用命令面板的
+   `链接资料：…` 系列命令（见上面「命令」表）。局部更新会先
    `-dry-run` 预演并告诉你"将更新几个作业"，确认后才写盘；
 2. **在终端里**：直接跑 `tiptop`（适合脚本/CI）：
 
@@ -259,15 +268,15 @@ Zed 没有等价的自定义视图，用 `tiptop link status` 看同样的数据
 | `Genero BDL: 重启语言服务器` | 重新查找并启动 LSP |
 | `Genero BDL: 显示语言服务器信息` | 展示当前路径、来源、全部设置 |
 | `Genero BDL: 显示输出` | 打开输出通道 |
-| `Genero BDL: 部署到远程服务器并编译` | 按 `.bdl-lsp/deploy.json` 上传并编译 |
-| `Genero BDL: 部署当前文件并编译` | 只部署当前 `.4gl/.global/.per`（先保存未保存内容） |
-| `Genero BDL: 部署预演（不上传）` | dry-run，列出将要上传/编译的文件 |
+| `部署到远程服务器并编译` | 按 `.project/deploy.json` 上传并编译 |
+| `部署当前文件并编译` | 只部署当前 `.4gl/.global/.per`（先保存未保存内容） |
+| `部署预演（不上传）` | dry-run，列出将要上传/编译的文件 |
 | `Genero BDL: 列出部署目标` | 打印配置里的目标 |
-| `Genero BDL: 链接资料：从 CSV 导入` | 选 CSV → 复制到 `.project/gal_file.csv` → 全量导入或只更新当前文件 |
-| `Genero BDL: 链接资料：更新当前文件` | 只重算当前 `.4gl/.global/.per` 涉及的作业（先预演并确认） |
-| `Genero BDL: 链接资料：按模组更新` | 多选模组（`lib`/`sub`/`qry` 或项目里探测到的），只重算这些作业 |
-| `Genero BDL: 链接资料：全量更新` | 从数据库/CSV 全量采集（耗时长，会先确认） |
-| `Genero BDL: 链接资料：查看状态` | `tiptop link status` 输出到通道 |
+| `链接资料：从 CSV 导入` | 选 CSV → 复制到 `.project/gal_file.csv` → 全量导入或只更新当前文件 |
+| `链接资料：更新当前文件` | 只重算当前 `.4gl/.global/.per` 涉及的作业（先预演并确认） |
+| `链接资料：按模组更新` | 多选模组（`lib`/`sub`/`qry` 或项目里探测到的），只重算这些作业 |
+| `链接资料：全量更新` | 从数据库/CSV 全量采集（耗时长，会先确认） |
+| `链接资料：查看状态` | `tiptop link status` 输出到通道 |
 | `Genero BDL: 重新同步` | 链接视图里「反查引用程序」旁边的按钮，等同"更新当前文件" |
 
 ## 本地开发
