@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.5.5",
+  "version": "0.5.6",
   "publisher": "darcyjoven",
   "license": "MIT",
   "engines": {
@@ -433,12 +433,6 @@
             ],
             "scope": "window",
             "markdownDescription": "对所有程序可见的模组（扁平规则：这些模组里的函数任何程序都能调，包括它们自己）。\n\n把公共库放在别的模组时改这里。"
-          },
-          "bdl.link.maxAgeDays": {
-            "type": "number",
-            "default": 7,
-            "scope": "window",
-            "markdownDescription": "链接资料超过多少天算过期。过期只在资料文件上给一条 hint，提示重新导入；不阻断任何功能。设为 0 关闭提示。"
           }
         },
         "description": "链接资料（程序与 4GL 文件的链接关系）。资料由 tiptop 生成：`tiptop link import -csv <导出.csv>` 或 `tiptop link sync`；语言服务器只读取它。"

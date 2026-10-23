@@ -173,8 +173,9 @@
 | 记录成员不存在 | `record-member-unknown` | **off** | `RECORD` 声明或 schema |
 | 函数找不到定义 | `function-not-found` | warning | **链接资料** |
 | 链接资料格式错误 | `link-data-invalid` | warning | 链接资料 |
-| 链接资料过期 | `link-data-stale` | hint | 链接资料 |
-| 文件过大已跳过 | `file-too-large` | information | 无 |
+| 格式资料还在旧目录 | `link-data-legacy-dir` | hint | 链接资料 |
+| 文件过大已跳过 | `file-too-large` | **warning** | 无 |
+| 解析超时已跳过 | `parse-timeout` | **warning** | 无 |
 
 几个容易误解的点：
 
@@ -182,7 +183,9 @@
 - **函数检查需要链接资料**。没有 `.project/links.jsonl` 时整项不启用，避免误报；
 - **字段检查只在表单唯一解析成功时报告**；解析不到表单不会硬猜；
 - **记录成员默认关闭**。`RECORD LIKE table.*` 需要 schema 索引才能展开；
-- `file-too-large` 是提示，不是错误；大文件会跳过语法检查。
+- `file-too-large` / `parse-timeout` 是**警告**（0.3.7 起从 information 上调）：
+  这个文件确实没被检查，点编辑器标题栏的"强制解析"或调大 `bdl.limits.*` 即可；
+- 资料**旧**不会有任何提示（P1-6 去掉了 7 天过期告警）。
 
 ### 4.2 调整级别
 
@@ -194,8 +197,7 @@
   "bdl.diagnostics": {
     "syntax-error": "error",
     "variable-source-unresolved": "warning",
-    "record-member-unknown": "off",
-    "link-data-stale": "off"
+    "record-member-unknown": "off"
   }
 }
 ```
@@ -371,15 +373,15 @@ tiptop link status -root .
   "bdl.link.enable": true,
   "bdl.link.dataDir": ".project",
   "bdl.link.moduleRoots": ["src"],
-  "bdl.link.globalModules": ["sub", "lib", "qry"],
-  "bdl.link.maxAgeDays": 7
+  "bdl.link.globalModules": ["sub", "lib", "qry"]
 }
 ```
 
 - `dataDir`：资料目录，默认 `.project`；
 - `moduleRoots`：模组根，影响跨模组查找；
-- `globalModules`：全局模组名；
-- `maxAgeDays`：过期提示阈值，超过后报 `link-data-stale`（hint）。
+- `globalModules`：全局模组名。
+
+> 没有"过期"相关的键：资料旧不旧由你决定，插件不会自动提示（P1-6）。
 
 ### 6.4 采集与同步（在 tiptop，不在扩展里）
 
@@ -409,7 +411,7 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 | 函数仍然报找不到 | 是否生成过 `.project/links.jsonl`；`tiptop link status` 是否正常 |
 | 链接视图为空 | 当前文件是否在 `moduleRoots` 内；是否点了刷新 |
 | 反查跳错文件 | 确认生成资料后重新 `tiptop link import`；旧索引可能过期 |
-| 资料过期提示 | 重新 `tiptop link sync`，或临时关掉 `link-data-stale` |
+| 资料很久没更新 | 设计如此：资料**旧**不告警（P1-6）；想更新用 `Genero BDL: 链接资料：更新当前文件`/`全量更新` |
 
 ---
 
@@ -513,8 +515,8 @@ VSCode 设置适合个人临时调整。
 
 **第一类：默认即可，基本不用动**
 
-- 诊断级别：`bdl.diagnostics` 默认 warning；只有 `record-member-unknown`
-  默认 off、`link-data-stale` 默认 hint、`file-too-large` 默认 information；
+- 诊断级别：`bdl.diagnostics` 默认 warning；例外：`record-member-unknown` 默认 off、
+  `link-data-legacy-dir` 默认 hint、`file-too-large`/`parse-timeout` 默认 warning；
 - 格式化：`format.keywords=unchanged`、`indentStyle=auto`、`indentSize=0`；
 - 资源限制：大文件、行数、诊断条数、解析超时都有安全默认值；
 - 项目解析：`index.enable=true`、`builtins.enable=true`、
@@ -587,7 +589,6 @@ VSCode 设置适合个人临时调整。
 | `bdl.link.dataDir` | `.project` | 资料目录 |
 | `bdl.link.moduleRoots` | `[]` | 模组根 |
 | `bdl.link.globalModules` | `["sub","lib","qry"]` | 全局模组名 |
-| `bdl.link.maxAgeDays` | `7` | 过期提示阈值（天） |
 
 > 采集/同步的键（旧 `bdl.link.sync.*`）**不存在了**：采集由 tiptop 的命令行
 > 完成，见 §6.4。
@@ -628,7 +629,7 @@ VSCode 设置适合个人临时调整。
   "globals": { "searchPaths": ["config"] },
   "perRoots": ["forms"],
   "ignore": { "files": ["build/**"] },
-  "link": { "moduleRoots": ["src"], "maxAgeDays": 14 }
+  "link": { "moduleRoots": ["src"] }
 }
 ```
 

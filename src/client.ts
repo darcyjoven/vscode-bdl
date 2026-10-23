@@ -169,7 +169,6 @@ function collectSettings(): Record<string, unknown> {
       dataDir: cfg.get<string>("link.dataDir") ?? ".project",
       moduleRoots: cfg.get<string[]>("link.moduleRoots") ?? [],
       globalModules: cfg.get<string[]>("link.globalModules") ?? ["sub", "lib", "qry"],
-      maxAgeDays: cfg.get<number>("link.maxAgeDays") ?? 7,
     },
     // 工作区索引 / schema 索引（P6）：显式转交，避免只靠后续
     // didChangeConfiguration 下发（首次启动时初始化选项里没有）。

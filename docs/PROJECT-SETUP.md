@@ -309,7 +309,7 @@ ls -lh .project/
 tiptop link status -root "$WORKSPACE"
 ```
 
-`tiptop link status` 应显示链数、文件数、过期时间。**这一步没有输出"链 0"就说明没成功**。
+`tiptop link status` 应显示链数、文件数与生成时间。**这一步没有输出"链 0"就说明没成功**。
 
 > **`tiptop` 是什么**：链接资料的采集与部署由 tiptop 负责，它是从
 > 语言服务器 `bdl-lsp` 分离出来的独立工具。语言服务器只读取 `.project/` 资料，
@@ -364,8 +364,7 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
     "dataDir": ".project",
     // 模组根：留空则自动探测（tiptop / topcust 优先），一般不用配
     "moduleRoots": [],
-    "globalModules": ["sub", "lib", "qry"],
-    "maxAgeDays": 7
+    "globalModules": ["sub", "lib", "qry"]
   },
 
   // 忽略清单：生成代码与历史文件
@@ -598,7 +597,8 @@ head -1 .project/gal_file.csv
 - 确认 `bdl.link.enable` 是 `true`（设置界面 "链接资料" 一组；**默认是关的**，
   轻量档不会自动去加载资料）；
 - 确认 `bdl.link.dataDir` 与实际目录一致（默认 `.project`）；
-- 资料过期会报 `link-data-stale`（hint 级），重新导入即可。
+- 资料**旧**不会告警（P1-6 去掉了"7 天过期"提示）：同步只由命令触发，
+  想更新就执行 `Genero BDL: 链接资料：更新当前文件` 或 `…全量更新`。
 
 ### 9.5 GLOBALS 变量跳转不到
 
