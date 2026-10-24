@@ -1,334 +1,371 @@
-# BDL for VSCode
+# Genero BDL (4GL) for VSCode
 
-Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的 VSCode 扩展。
+Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法高亮、定义/引用跳转、符号大纲、悬停、补全、格式化、语法诊断**，
+需要时再叠加**跨模块函数可见性**、**数据库字段说明**与**远程部署**。
 
-> 状态：**v0.4.0 可用**（高亮、跳转、引用、大纲、悬停、诊断、补全、格式化、部署、配置；平台包内置语言服务器）。
-> 远程仓库：`git@github.com:darcyjoven/vscode-bdl.git`（本地目录仍叫 `vscode-extension/`）。
-> 完整操作手册：[docs/USER-GUIDE.md](docs/USER-GUIDE.md)（含截图/录屏占位与配置总表）。
-> 从生产端拉源码建工作区：[docs/PROJECT-SETUP.md](docs/PROJECT-SETUP.md)（打包 / Git / 链接资料 / 部署测试）。
-> 本仓库只保留 VSCode 交付物；计划、测试脚本、过程记录统一在 `bdl-lsp` 仓库。
-> 验证平台：**Linux + Windows + macOS**；macOS 分 `darwin-x64` / `darwin-arm64` 两个包。
-> Genero 以 **2.50** 为基线；5.0 暂不排期。
+扩展市场里搜 **`Genero BDL (4GL)`**（扩展 id `4gl-full`，发布者 `darcyjoven`）即可安装。
+平台安装包**内置语言服务器**，装完就能用，不需要另外装 `bdl-lsp`。
 
-## 已实现能力
+---
 
-| 能力 | 说明 |
-|---|---|
-| 语法高亮 | TextMate 语法，覆盖 grammar 里全部 361（BDL）/ 76（`.per`）个关键字，含多词短语、注释、字符串、数字、预处理指令、函数名、字段访问 |
-| 定义跳转 | `CALL foo` → `FUNCTION foo`；`rec.field` → 记录字段；局部/参数/全局按作用域解析 |
-| 引用查找 | 词边界匹配，自动排除注释、字符串、预处理行 |
-| 文档大纲 | MAIN / FUNCTION / REPORT / DEFINE / CONSTANT / TYPE / RECORD（含字段）/ SCREEN RECORD |
-| 工作区符号 | 跨已打开文档搜索全局符号 |
-| 悬停 | 显示种类、类型、签名、字段数；内置名显示 Genero 签名与出处 |
-| 代码补全 | 同文件/跨文件符号、表单字段、关键字、内置符号（`fgl_*`/`ARG_VAL`/`ui`…） |
-| 语法诊断 | 解析错误与缺失内容，级别可配，大文件与超时保护 |
-| 配置热更新 | 改设置立即生效，无需重载窗口 |
-| 语言配置 | 注释、括号、自动闭合、缩进规则 |
+## 0. 三种用法：按需要选一档，从简单到复杂
 
-## 安装
-
-**平台安装包内置 `bdl-lsp`，装完即可使用，不需要另外安装语言服务器。**
-
-支持的目标平台：
-
-| 平台 | 包标识 | 说明 |
-|---|---|---|
-| Windows x64 | `win32-x64` | `bdl-lsp.exe` 随包内置 |
-| Linux x64 | `linux-x64` | `bdl-lsp` 随包内置（glibc） |
-| macOS Intel | `darwin-x64` | `bdl-lsp` 随包内置 |
-| macOS Apple Silicon | `darwin-arm64` | `bdl-lsp` 随包内置 |
-
-来源二选一：
-
-- 扩展市场搜索 `Genero BDL (4GL)`（扩展 ID `darcyjoven.4gl-full`），
-  市场会按当前系统/芯片分发对应平台包；
-- 从 [GitHub Actions](../../actions) 的 `bundle-vsix` 工作流产出的
-  `vsix-<target>` artifact 下载，解压后安装：
-
-```bash
-code --install-extension 4gl-full-0.4.0-linux-x64.vsix
-```
-
-平台包的名字带目标标识，例如 `4gl-full-0.4.0-win32-x64.vsix`。
-不要用错架构：`darwin-arm64` 包无法在 Intel Mac 上运行。
-
-## 语言服务器来源
-
-打包安装时优先使用扩展内置的 `bin/`，查找顺序：
-
-1. 设置 `bdl.server.path`（可填可执行文件**或所在目录**，支持 `~/`）
-2. 环境变量 `BDL_LSP_PATH`（同上）
-3. 扩展内置 `bin/bdl-lsp`（平台安装包自带）
-4. 工作区 `.bdl-lsp/bin/bdl-lsp`
-5. 系统 `PATH`
-
-五级都找不到时不会静默失败：会弹出可操作的提示，列出已尝试的位置和解决办法，
-并提供「打开设置」按钮。覆盖内置二进制有两种场景：
-
-- 临时用本地构建调试：设置 `bdl.server.path` 或 `BDL_LSP_PATH`；
-- 公司内部分发自己的二进制：把文件放到工作区 `.bdl-lsp/bin/`。
-
-从源码运行扩展（未打包）时没有内置二进制，先在 `bdl-lsp` 构建：
-
-```bash
-cd ../bdl-lsp
-source scripts/dev-env.sh
-make build          # 产出 artifacts/bin/bdl-lsp
-```
-
-平台 VSIX 由 CI 矩阵构建（`.github/workflows/bundle-vsix.yml`），
-Windows / Linux / macOS 分别在原生 runner 上编译对应的 `bdl-lsp`；
-macOS 分 `x64` 与 `arm64`。详见 [发布与打包](docs/RELEASE.md)。
-
-## 设置项
-
-设置界面按用途分成**五组**（类似 CSS 语言插件的多层次设置），
-默认是**轻量档**：零配置、不连库、不后台跑任务、不往项目里写文件。
-
-| 组 | 内容 | 默认 | 总开关 |
+| | ③ **轻量（默认，装完即用）** | ② **本地文件解析** | ① **全功能（账号密码）** |
 |---|---|---|---|
-| 基础 | 诊断级别、格式化、项目解析、资源限制 | 开 | — |
-| 生产环境 | Oracle 连接、部署服务器（**密码不在这里**） | 空 | — |
-| 链接资料 | 跨模块函数索引、资料采集 | **关** | `bdl.link.enable` |
-| 部署 | 上传与远程编译（配置由插件合成为 `.project/deploy.json`） | **关** | `bdl.deploy.enable` |
-| 数据库字段 | `.project/.schema` 字段资料（表/列/中文说明） | **关** | `bdl.schema.enable` |
+| 适合谁 | 只想看代码、改代码 | 公司不让连库 / 拿得到导出文件 | 能申请只读库账号 |
+| 需要准备什么 | **什么都不用配** | 一份 DS.GAL_FILE 导出 CSV，外加一份表字段 CSV | 数据库主机/服务名/只读账号 + 密码 |
+| 得到什么 | 高亮、跳转、引用、大纲、悬停、补全、格式化、语法诊断、表单字段校验 | 再加：跨模块函数可见性、链接资料视图与反查引用、字段中文说明、记录成员校验 | 再加：**从数据库一键同步**（链接资料 + 表字段）、**远程部署** |
+| 敏感信息 | 不碰 | 不碰（只有导出文件） | 账号写在 **Workspace 设置**，**密码不进设置** |
+| 会不会往项目里写文件 | **不会** | 会（写 `<项目>/.project/`） | 会（写 `<项目>/.project/`） |
+| 会不会连网/连库 | 不会 | 不会 | 只在你点命令时连一次 |
 
-> ⚠️ 生产环境这一节的设置**只写 Workspace 设置**，并且**不要让 `settings.json`
-> 进 git 管理**；密码用环境变量 `BDL_ORA_PASSWORD` 或 `<项目>/.project/secrets.json`
-> （`chmod 600`）。
+> 📷 **配图位 G1**：`docs/images/guide/01-three-modes.png`
+> 拍什么：一张总览图——左侧"轻量档"（只有编辑器界面），中间"本地文件档"（导出 CSV 拖进项目），
+> 右侧"全功能档"（设置里填了主机/账号、点了"从数据库同步"）。也可以直接截本节的表格。
 
-`bdl.link.enable` **默认关闭**：不加载 `.project/` 资料、不启用
-`function-not-found` / `link-data-*` 诊断、侧边栏「链接资料」视图隐藏、
-命令面板里的链接命令隐藏。要用了才打开，并用
-`Genero BDL: 链接资料：从 CSV 导入`（或配好「生产环境」后全量更新）生成资料。
-`bdl.deploy.enable` **默认关闭**：命令面板隐藏部署命令，执行也不会调用
-`tiptop deploy`；打开后在「生产环境 → 部署」填主机/账号/远程根即可，插件会合成
-`.project/deploy.json`（不用手写 JSON）。
-`bdl.schema.enable` **默认关闭**：需要 `RECORD LIKE t.*` 的成员校验时打开。
+**三档是叠加关系，不是三选一选到底**：任何一档都可以随时升级，只改设置、不改代码、不用重装。
 
-按“要不要改”分成三档，详细说明、示例与全部 47 个键见
-[使用手册第 8 节](docs/USER-GUIDE.md#8-配置说明)。
+---
 
-**默认即可（基本不用改）**
+## 1. 模式 ③ 轻量：装完即用（默认，零配置）
 
-| 键 | 默认 | 作用 |
+### 1.1 安装
+
+1. VSCode 扩展面板搜 `Genero BDL (4GL)` → 安装；
+2. 打开你的项目文件夹（`.4gl` / `.per` 所在目录）；
+3. 打开任意一个 `.4gl`，右下角状态栏出现 **Genero BDL** 就绪。
+
+> 📷 **配图位 G2**：`docs/images/guide/02-install.png`
+> 拍什么：扩展面板里已安装的 `Genero BDL (4GL)`（显示版本号与"已安装"），不要露出个人账号信息。
+
+### 1.2 这一档直接可用
+
+| 能力 | 怎么用 |
+|---|---|
+| 语法高亮 | 打开 `.4gl` / `.per` 就有；关键字、函数名、字段访问、注释、字符串都有区分 |
+| 大纲 / 面包屑 | 左侧"大纲"或 `Ctrl+Shift+O`：MAIN / FUNCTION / REPORT / DEFINE / RECORD / SCREEN RECORD |
+| 定义跳转 | `Ctrl+点击` 或 `F12`：`CALL foo` → `FUNCTION foo`；`rec.field` → 记录字段 |
+| 引用查找 | `Shift+F12`：列出所有引用（自动排除注释与字符串） |
+| 悬停 | 显示种类、类型、签名、字段数；内置函数还会给 Genero 签名与出处 |
+| 补全 | `Ctrl+Space`：同/跨文件符号、表单字段、关键字、内置符号 |
+| 格式化 | `Shift+Alt+F`：关键字大小写与缩进归一（`.per` 不做格式化） |
+| 语法诊断 | Problems 面板给出解析错误与缺失内容（缺 `END IF`、少逗号等） |
+| 表单字段校验 | `INPUT … FROM f01` 里的字段在 `.per` 里不存在时报 `field-not-in-form`，带 Quick Fix |
+| GLOBALS 跨文件 | 项目里有 `.global` 就自动生效：全局变量的跳转与来源标注 |
+| 快速修复 | 字段拼错 → 一键改成表单里的正确字段；重命名会同时改调用处 |
+
+> 🎬 **录屏位 G3**：`docs/images/guide/03-jump-hover.gif`
+> 拍什么：在一个函数名上 `F12` 跳到定义，再悬停一个变量看来源（10 秒内，两三个动作）。
+>
+> 📷 **配图位 G4**：`docs/images/guide/04-outline.png`
+> 拍什么：大纲面板展开一个 `.4gl`（能看到 MAIN / FUNCTION / DEFINE 层级）。
+
+### 1.3 这一档**不会**做的事（有意为之）
+
+- **不连数据库、不连网**；没有任何后台任务、没有定时器；
+- **不往你的项目里写文件**（连日志都写在 VSCode 的全局日志目录）；
+- **不弹"请先配置 XXX"**：没配好之前，相关命令和视图**直接隐藏**，而不是点了再报错。
+
+这就是默认行为。所以你装上之后看到"没有链接资料视图""没有那些命令"是正常的——
+按第 2 或第 3 节打开对应开关，它们才会出现。
+
+### 1.4 30 秒自检
+
+- 打开一个 `.4gl`，`Ctrl+Shift+P` 执行 **`Genero BDL: 显示语言服务器信息`**，
+  能看到版本、二进制来源、当前设置 → 说明语言服务器在跑；
+- `Ctrl+Shift+O` 能列出函数 → 解析正常；
+- 故意把 `END IF` 删掉 → Problems 里出现语法错误 → 诊断正常。
+
+---
+
+## 2. 模式 ② 本地文件解析：自己下载导出文件
+
+**目标**：不用任何数据库账号，只靠"别人给你两份 CSV"，就得到跨模块函数可见性、链接资料视图、字段中文说明。
+
+### 2.1 需要的两份文件
+
+| 文件 | 从哪来 | 用来做什么 |
 |---|---|---|
-| `bdl.diagnostics` | `{}` | 按诊断码覆盖级别；唯一诊断入口 |
-| `bdl.format.keywords` | `unchanged` | 关键字大小写 |
-| `bdl.format.indentStyle` | `auto` | 缩进风格 |
-| `bdl.format.indentSize` | `0` | 缩进宽度，0 跟随原文件 |
-| `bdl.limits.*` | 见手册 | 大文件、行数、诊断条数、解析超时保护 |
-| `bdl.index.enable` / `bdl.builtins.enable` | `true` | 符号索引与内置表默认开启 |
-| `bdl.schema.enable` | `false` | `.sch` 表结构索引：要用 `LIKE t.*` 成员校验时开 |
+| **程序链接资料**（DS.GAL_FILE 导出，列 `GAL01..GAL04`） | DBA/生产环境执行一条 SQL 导出，或用脚本 [`fetch-gal-file.sh`](https://github.com/darcyjoven/tiptop/blob/main/scripts/fetch-gal-file.sh) 在生产机上跑 | 跨模块**函数可见性**：`function-not-found` 不再乱报；侧边栏"链接资料"树与**反查引用程序** |
+| **表字段资料**（表名/列名/中文说明/类型/长度…） | DBA 导出 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`（见 `tiptop` 仓库文档） | 悬停 `LIKE t.col` 显示**中文说明**；`RECORD LIKE t.*` 的成员校验；`rec.` 补全带说明 |
 
-**不配置就用不了**
+> 📷 **配图位 G5**：`docs/images/guide/05-export-csv.png`
+> 拍什么：生产端导出得到两个 CSV 的样子（文件列表即可；不要露真实库名/主机名/账号）。
 
-| 键 | 默认 | 作用 |
-|---|---|---|
-| `bdl.link.enable` | `false` | 链接资料总开关；**轻量档默认关**，需要跨模块检查时打开 |
-| `bdl.link.*` | 资料目录 `.project` | 跨模块函数索引；先生成 `.project/links.jsonl` |
+### 2.2 在 VSCode 里导入（推荐，不用开终端）
 
-| `bdl.perRoots` | `[]` | `.per` 不在同级 `per/` 时加解析根 |
-| `bdl.globals.searchPaths` | `[]` | GLOBALS 路径解析不到时加候选根 |
-| `bdl.deploy.enable` | `false` | 部署总开关；**轻量档默认关**，要部署时打开 |
-| `bdl.deploy.target` | 空 | 目标名（插件生成的 `.project/deploy.json` 里的 `targets` 键） |
-| `bdl.prod.oracle.*` / `bdl.prod.deploy.*` | 空 | 生产连接信息（**只写 Workspace；别把 `settings.json` 提交**） |
+1. 命令面板 → **`Genero BDL: 链接资料：从 CSV 导入`** → 选 `GAL_FILE` 的 CSV；
+   扩展会把它复制成 `<项目>/.project/gal_file.csv`，然后问你：
+   - **全量导入**（第一次用，几秒到几十秒，看项目大小）；
+   - **只更新当前文件**（以后改了某几个文件再用，秒级；会先告诉你会影响几个作业）。
+2. 命令面板 → **`Genero BDL: 数据库字段：从 CSV 导入`** → 选表字段 CSV → 同样先**预演**（列出新增/变更/未变/保留几张表）再确认导入。
+3. 打开侧边栏的 **「链接资料」** 与 **「数据库字段」**，能看到树。
 
-**按项目调整**
+> 两个导入都会先 `-dry-run` 预演、把统计摆出来让你确认，才会写盘；写盘时可以点进度通知上的**取消**。
 
-| 键 | 默认 | 作用 |
-|---|---|---|
-| `bdl.ignore.files` / `fields` / `forms` | `[]` | 忽略生成代码、历史代码 |
-| `bdl.link.moduleRoots` / `globalModules` / `sync.*` | 见手册 | 多模组与自动采集 |
-| `bdl.server.path` / `logLevel` / `trace.server` | 空 / `info` / `off` | 安装与排障 |
+> 📷 **配图位 G6**：`docs/images/guide/06-import-csv.png`
+> 拍什么：执行"链接资料：从 CSV 导入"后的确认对话框（显示"受影响作业 N 个"或统计），加一条进度通知。
+>
+> 📷 **配图位 G7**：`docs/images/guide/07-schema-view.png`
+> 拍什么：侧边栏「数据库字段」视图——顶部"共 N 张表"、展开一张表看到 `列名 · 类型(长度) · 中文说明`，
+> 最好附一个悬停 `DEFINE f LIKE t.col` 显示中文说明的截图。
 
-旧诊断键（`bdl.syntaxDiagnostics`、`bdl.missingDiagnostics`、
-`bdl.fieldDiagnostics`、`bdl.recordMemberDiagnostics`、
-`bdl.globals.fileNotFoundDiagnostics`、`bdl.globals.unresolvedSourceDiagnostics`）
-已删除；升级后请把值迁到 `bdl.diagnostics` 对应诊断码。
+### 2.3 也可以用终端（适合脚本/CI）
 
-改 `server.path` / `server.logLevel` / `generoVersion` 后需要重启语言服务器，扩展会主动询问。
+```bash
+# 这两条命令来自 tiptop（与 bdl-lsp 分离的独立工具；平台安装包里也内置了它）
+tiptop link import   -csv gal_file.csv   -root <项目根>
+tiptop schema import -csv gal_schema.csv -root <项目根>
+tiptop link status   -root <项目根>        # 看链数/文件数/生成时间
+tiptop schema status -root <项目根>        # 看表数/列数/导入时间
+```
 
-### 内置符号表（P7-C）
+本地编译的二进制在 `bdl-lsp/artifacts/bin/`、`tiptop/artifacts/bin/`；
+插件里也可以用 `bdl.tools.path` 指到你自己的 `tiptop`。
 
-Genero 自带的变量/函数/类名（`SQLCA`、`INT_FLAG`、`STATUS`、`ARG_VAL`、
-`fgl_*`、`ui.*` 等）在静态分析里找不到定义，本功能提供一张符号表豁免它们，
-并让它们出现在补全与悬停里。
+### 2.4 打开开关（这一步别忘）
 
-表**可以随时更新，不需要重新安装扩展**：
+导入完资料后，在设置里打开两个总开关，视图与命令才会出现：
 
 ```jsonc
-// .bdl-lsp/builtins.json —— 放在项目根，自动加载（可提交进仓库）
 {
-  "schemaVersion": 1,
-  "generoVersion": "2.50",
-  "disable": ["SUM"],                       // 本项目里 SUM 是用户函数
-  "symbols": [
-    { "name": "MY_PROJECT_BUILTIN", "kind": "variable", "doc": "公司级内置变量" }
-  ]
+  "bdl.link.enable": true,      // 链接资料：跨模块可见性 + 链接视图 + 反查
+  "bdl.schema.enable": true     // 数据库字段：悬停中文说明 + 成员校验
 }
 ```
 
-- 同名按**字段**合并（只改 `doc` 不必重写整条），`kind` 以新条目为准；
-- `disable` 优先级最高，在所有文件加载完之后统一应用；
-- 改完保存即可生效（约 2 秒内自动重载，不用重启窗口）；
-- 想额外加载别的文件/目录，用 `bdl.builtins.paths`。
+> 资料落在 `<项目>/.project/`（`links.jsonl`、`tables.json`、`tables/<表>.json`）。
+> 它是一份**快照**：不想要了直接删掉；想更新就再导出一次、再执行一次导入。
+> **不会有"资料已过期"的提示**——什么时候更新完全由你决定。
 
-### 程序链接资料（P7-D）
+### 2.5 模式 ② 新增的能力
 
-`CALL` 一个函数到底存不存在，取决于这个程序**链接了哪些 4gl 文件**——
-只靠单文件分析无法回答。本功能用一份链接资料补齐：
+- **`function-not-found`**：调用一个函数，若在本文件/GLOBALS/链接文件/全局模组（`sub`/`lib`/`qry`）里都找不到才报；
+  没有链接资料时这项**完全不产生诊断**（宁可漏报，不可误报）。
+- **链接资料视图**：当前程序属于哪条链、链内文件（点击跳转）、全局模组；程序被谁引用（**反查引用程序**，结果多时分页）。
+- **数据库字段**：悬停 `LIKE t.col` → `t.col · VARCHAR2(40) · 料件编号`；`RECORD LIKE t.*` → 列出该表字段（超 20 行折叠）；`rec.` 补全带类型与中文说明。
+- **记录成员校验**（可选）：把 `bdl.diagnostics.record-member-unknown` 设为 `warning`，就能查出 `rec.bad_member` 这类拼错的成员。
+
+---
+
+## 3. 模式 ① 全功能：配置账号密码，从数据库同步 + 部署
+
+**目标**：一次配置，之后在 VSCode 里点一下就把资料更新到最新；顺便把"上传 + 远程编译"也一起做了。
+
+### 3.1 配置数据库（生产环境）
+
+设置里搜 **`Genero BDL: 生产环境`**，填四项：
+
+| 设置 | 例子 | 说明 |
+|---|---|---|
+| `bdl.prod.oracle.host` | `db.example.com` | 主机 |
+| `bdl.prod.oracle.port` | `1521` | 端口（默认） |
+| `bdl.prod.oracle.service` | `PROD` | 服务名 |
+| `bdl.prod.oracle.user` | `readonly` | **只读账号** |
+
+> ⚠️ **这些值只写在 Workspace 设置里**，并且**不要让 `settings.json` 进 git 管理**——
+> 主机名与账号也算敏感信息。部署配置 `.project/deploy.json` 同理。
+
+**密码不放在设置里**，二选一：
 
 ```bash
-# 1) 从数据库导出 DS.GAL_FILE（SQL 见项目文档），然后在终端导入：
-tiptop link import -csv gal_file.csv -root .
-#    输出：链 5398 / orphan 451 / 缺失文件 800 …，写入 <项目根>/.project/
-# 2) 随时查看状态：
-tiptop link status
+# 方式 1：环境变量（推荐，CI/多机通用）
+export BDL_ORA_PASSWORD='<密码>'      # Windows: setx BDL_ORA_PASSWORD "..."
+
+# 方式 2：项目里的 secrets.json（unix 必须 chmod 600）
+#   <项目>/.project/secrets.json
+#   {"readonly": "<密码>", "*": "<默认密码>"}
+chmod 600 <项目>/.project/secrets.json
 ```
 
-导入完成后**不需要重启窗口**：打开文件时发现资料变了会自动重载（约 2 秒）。
+> 📷 **配图位 G8**：`docs/images/guide/08-oracle-settings.png`
+> 拍什么：设置页 `Genero BDL: 生产环境` 四项已填（**主机名/账号打码**），
+> 并显示那句"只写 Workspace、不要让 settings.json 进 git"的说明文字。
 
-可见性规则（用户定稿）：
+### 3.2 一键同步（链接资料 + 表字段）
+
+| 命令 | 做什么 |
+|---|---|
+| `Genero BDL: 链接资料：全量更新` | 直连 Oracle 查 DS.GAL_FILE，重算全部链接链（先预演再确认） |
+| `Genero BDL: 链接资料：更新当前文件` | 只重算**当前文件**涉及的作业（秒级；会先告诉你会影响几个作业） |
+| `Genero BDL: 链接资料：按模组更新` | 只更新 `lib`/`sub`/`qry` 等你选的模组 |
+| `Genero BDL: 数据库字段：从数据库同步` | 查 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`，同步表字段资料 |
+| `Genero BDL: 链接资料：查看状态` | 链数/文件数/生成时间/来源 |
+
+**进度**：每次同步都会弹出进度通知，能看清"卡在哪一步"、并且可以取消：
 
 ```text
-可调用的函数 = 本文件 ∪ GLOBALS 引入 ∪ 链接文件 ∪ 全局模组(sub/lib/qry)
+采集：连接 db.example.com:1521/PROD（owner=APP）…
+采集：已收到 12000 行
+采集完成：58096 行
+解析表 ima_file（12/2648）
+写入完成：2648 个表文件
 ```
 
-- **只放大函数可见性，不放大变量**：两个链接在一起的子文件各自 `DEFINE`
-  同名变量、没有共享 GLOBALS，仍然报"变量来源无法确定"；
-- 链接里有、磁盘上没有的文件**完全忽略**（也不报"文件缺失"）；
-- 资料缺失/索引未就绪时，`function-not-found` **一条都不报**——宁可漏报不可误报。
+链接资料与数据库字段用**同一套**进度文案（采集 / 扫描源码 / 成链 / 写入完成）。
 
-`function-not-found` **0.1.5 起默认打开**：语料里根本没有的库函数
-（`cl_err3`、`WSHelper_*`）已经由"外部函数过滤"自动认出来——被 ≥3 个文件或
-≥5 次调用、且整份语料里找不到定义的函数名会写进 `links.meta.json`，视为存在。
-全量语料实测只剩 0.09 条/文件。想彻底关掉：
+> 📷 **配图位 G9**：`docs/images/guide/09-sync-progress.png`
+> 拍什么：一次"从数据库同步"的进度通知（显示"解析表 xxx（i/N）"）+ 输出通道里的统计。
+>
+> 📷 **配图位 G10**：`docs/images/guide/10-schema-multi-select.png`
+> 拍什么：侧边栏勾选两张表（复选框）+ 标题栏"已勾选 2 张"+ 执行"同步已选中的表"的确认框。
+
+数据库字段视图还有几种更新粒度，按需选：
+
+| 想更新 | 用哪个 |
+|---|---|
+| 一张表 | 表上**右键 → 同步选中的表** |
+| 几张表 | **勾选复选框** → `数据库字段：同步已选中的表` |
+| 一批（按正则筛出来的） | 先用 `数据库字段：正则过滤表名`（如 `^IMA_`），再 `数据库字段：同步当前筛选结果` |
+| 全部 | `数据库字段：从数据库同步`（顺带清理本地多出来的表） |
+
+### 3.3 部署：上传源码 + 远程编译
+
+1. 打开总开关 `bdl.deploy.enable`；
+2. 在 **`Genero BDL: 生产环境`** 里填部署目标：`bdl.prod.deploy.host` / `port`(默认 22) / `user` / `remoteRoot`（远程工作根，如 `/home/apps/tiptop`），
+   可选：`localRoot`、`transport`(rsync/scp)、`fallback`、`delete`、`include`/`exclude`、`strictHostKey`、`compile4gl`/`compilePer`；
+3. **不用手写 JSON**：每次部署前插件会把上述设置合成为 `<项目>/.project/deploy.json`（文件里带 `createdBy` 标记），
+   再交给 `tiptop deploy`；如果你之前手写过一个 `deploy.json`，第一次覆盖前会备份成 `deploy.json.bak`；
+4. 然后用命令：`部署预演（不上传）` → 看计划 → `部署当前文件并编译` / `部署到远程服务器并编译`。
+   远端编译结果会以诊断形式回到 Problems 面板。
+
+> 📷 **配图位 G11**：`docs/images/guide/11-deploy.png`
+> 拍什么：部署预演的输出（列出要上传/编译的文件）+ 部署完成后的输出摘要。
+
+### 3.4 安全清单（务必看一眼）
+
+- [ ] 数据库账号是**只读**账号；
+- [ ] 密码只在环境变量或 `<项目>/.project/secrets.json`（`chmod 600`），**从不写进设置**；
+- [ ] 生产环境相关的设置只写 **Workspace**，`settings.json` 不进 git；
+- [ ] 部署配置 `.project/deploy.json` 由插件生成，同样**不要提交**；
+- [ ] 团队共享的话，提交导出的 CSV 资料（模式 ②）比提交账号安全得多。
+
+---
+
+## 4. 怎么选？三句话
+
+- **只是看/改代码** → 模式 ③（默认，什么都不用做）。
+- **公司不让连库，或者只想离线** → 模式 ②（让 DBA 导两份 CSV，导入即可）。
+- **有只读账号、想让资料一直新、还要部署** → 模式 ①。
+
+---
+
+## 5. 常见问题
+
+| 现象 | 原因 / 怎么办 |
+|---|---|
+| 侧边栏没有「链接资料」/「数据库字段」视图，命令也搜不到 | 这两个功能**默认关闭**（轻量档）。打开 `bdl.link.enable` / `bdl.schema.enable` 后视图与命令才出现 |
+| 函数调用报"找不到定义"（`function-not-found`） | 需要链接资料：模式 ② 导入 CSV，或模式 ① 从数据库同步。没有资料时这项**不报** |
+| 诊断太多/太吵 | 这是**你的选择**：`bdl.diagnostics` 按码调级（`off`/`error`/`warning`/`information`/`hint`），也可以 `bdl.ignore.files` 忽略生成代码目录 |
+| 打开大文件没有大纲、没有诊断 | Problems 里有 `file-too-large` / `parse-timeout` 警告 → 点**编辑器标题栏的"强制解析"**，或调大 `bdl.limits.maxFileBytes` / `maxFileLines` / `parseTimeoutMs`。强制解析**到文件关闭为止有效** |
+| 表单字段明明有，却报 `field-not-in-form` | 表单不在 `<模组>/per/` 下时配 `bdl.perRoots`；确认打开的是最新 `.per`（改完 `.per` 会自动刷新引用方） |
+| `RECORD LIKE t.*` 的成员校验不生效 | 需要字段资料 + 把 `bdl.diagnostics.record-member-unknown` 打开（默认 `off`），见模式 ② |
+| 资料旧了要重启吗 | 不用：资料按 mtime 热加载（2 秒节流）。而且**不会有"过期"提示**——想更新就再执行一次同步 |
+| 连接数据库报"缺少密码" | 设 `BDL_ORA_PASSWORD`，或写 `<项目>/.project/secrets.json`（`chmod 600`） |
+| Windows 上提示 secrets.json 权限问题 | Windows 没有 unix 权限位，扩展在那边**跳过**权限校验（安全性由文件 ACL 决定） |
+| 语言服务器起不来 | 命令 `显示语言服务器信息` 看二进制来源。顺序：包内置 `bin/` → `bdl.server.path` → `PATH` → 工作区 `.bdl-lsp/bin/`。用 **dev 包/源码**运行时没有内置二进制，需要自己编译或指定路径 |
+| 公司网络不能上网 | 插件本身**不联网**；只有你手动点"从数据库同步/全量更新"时才连你配的那台数据库 |
+| 想彻底回到零配置 | 把 `bdl.link.enable` / `bdl.deploy.enable` / `bdl.schema.enable` 关掉，删掉 `<项目>/.project/` 即可 |
+
+---
+
+## 6. 设置速查（共 5 组 47 个键，全部说明见[手册第 8 节](docs/USER-GUIDE.md)）
+
+| 组 | 里面的东西 | 默认 |
+|---|---|---|
+| **基础** | 诊断级别 `bdl.diagnostics`、格式化 `bdl.format.*`、项目解析 `bdl.generoVersion`/`bdl.perRoots`/`bdl.globals.searchPaths`、资源限制 `bdl.limits.*`、忽略 `bdl.ignore.*`、`bdl.builtins.*`、`bdl.index.enable` | 诊断 warning；其余安全默认 |
+| **生产环境** | `bdl.prod.oracle.*`（数据库连接）、`bdl.prod.deploy.*`（部署目标） | 空（不连、不提示） |
+| **链接资料** | `bdl.link.enable`（**默认关**）、`bdl.link.dataDir`（`.project`）、`bdl.link.moduleRoots`、`bdl.link.globalModules` | 关闭 |
+| **部署** | `bdl.deploy.enable`（**默认关**）、`bdl.deploy.target` | 关闭 |
+| **数据库字段** | `bdl.schema.enable`（**默认关**）、`bdl.schema.dataDir`（`.project/.schema`） | 关闭 |
+
+最常用的几个：
 
 ```jsonc
-{ "bdl.diagnostics": { "function-not-found": "off" } }
+{
+  // 一键切换三档
+  "bdl.link.enable": false,
+  "bdl.schema.enable": false,
+  "bdl.deploy.enable": false,
+
+  // 诊断按码调级（唯一入口）
+  "bdl.diagnostics": { "record-member-unknown": "warning", "file-too-large": "warning" },
+
+  // 大文件/慢机器
+  "bdl.limits.maxFileBytes": 2097152,
+  "bdl.limits.maxFileLines": 20000,
+  "bdl.limits.parseTimeoutMs": 2000
+}
 ```
 
-## 采集链接资料（tiptop 在跑，扩展只调它）
+---
 
-链接资料的**采集/导入**自 `bdl-lsp 0.3.2` 起由 **tiptop** 负责，
-扩展里**没有** `bdl.link.sync.*` 设置项了（旧的自动同步已随分离移除）。
+## 7. 命令速查
 
-两种用法（选一种即可，都会写 `<项目>/.project/`）：
+| 命令 | 用在哪一档 | 说明 |
+|---|---|---|
+| `重启语言服务器` / `显示语言服务器信息` / `显示输出` | 全部 | 排障三件套 |
+| `强制解析当前文件` | 全部 | 大文件被跳过时，标题栏出现按钮 |
+| `链接资料：从 CSV 导入` | ② ① | 选 CSV → 复制到 `.project/gal_file.csv` → 预演确认后导入 |
+| `链接资料：全量更新` / `按模组更新` / `更新当前文件` | ①（已配库）；② 有 CSV 时也可 | 只重算受影响的部分，其余链保留 |
+| `链接资料：查看状态` | ①② | 链数/文件数/生成时间 |
+| `重新同步` | ①② | 链接视图里"反查引用程序"旁的按钮，等同"更新当前文件" |
+| `反查引用程序` / `显示更多反查结果` / `刷新` | ①② | 链接资料视图 |
+| `迁移链接资料目录` | ①② | 旧项目资料还在 `.link/` 时一键搬到 `.project/` |
+| `数据库字段：从 CSV 导入` | ② | 表字段 CSV → `.project/.schema` |
+| `数据库字段：从数据库同步` | ① | 直连库全量同步 |
+| `数据库字段：同步选中的表` / `同步已选中的表` / `同步当前筛选结果` / `全选当前列表` / `清除勾选` | ①② | 一张 / 多张 / 筛选结果批量 |
+| `数据库字段：正则过滤表名` / `清除过滤` / `刷新` | ①② | 视图顶部查询框 |
+| `数据库字段：复制列定义` / `打开表资料文件` | ①② | 得到 `LIKE 表.列` / 打开该表 JSON |
+| `部署预演（不上传）` / `部署当前文件并编译` / `部署到远程服务器并编译` / `列出部署目标` | ①（打开 `bdl.deploy.enable`） | 由 `tiptop` 执行 |
 
-1. **在 VSCode 里**：配置好「生产环境」后，用命令面板的
-   `链接资料：…` 系列命令（见上面「命令」表）。局部更新会先
-   `-dry-run` 预演并告诉你"将更新几个作业"，确认后才写盘；
-2. **在终端里**：直接跑 `tiptop`（适合脚本/CI）：
+---
 
-```bash
-# 从已导出的 CSV 导入
-tiptop link import -csv gal_file.csv -root .
+## 8. 配图清单（拍好后替换本文档里的 📷 占位块）
 
-# 直连 Oracle（纯 Go 驱动，**不需要装 Oracle 客户端**）
-export BDL_ORA_PASSWORD=...        # 或者写 <项目>/.project/secrets.json（必须 chmod 600）
-tiptop link sync -root . -source golang \
-  -host dbhost -port 1521 -service PROD -user readonly
+图片放 `docs/images/guide/`，命名见下表；拍好后把占位块替换成 `![说明](docs/images/guide/文件名)`。
 
-# 从命令 stdout / 本地文件采集
-tiptop link sync -root . -source command -command 'your-export-command'
-tiptop link sync -root . -source file -file .project/gal_file.csv
-```
+| 编号 | 文件 | 拍什么 | 用在哪 |
+|---|---|---|---|
+| G1 | `01-three-modes.png` | 三档总览（可用本节表格改图） | §0 |
+| G2 | `02-install.png` | 扩展面板安装 `Genero BDL (4GL)` | §1.1 |
+| G3 | `03-jump-hover.gif` | 跳转定义 + 悬停看来源 | §1.2 |
+| G4 | `04-outline.png` | 大纲面板 | §1.2 |
+| G5 | `05-export-csv.png` | 生产端导出的两份 CSV | §2.1 |
+| G6 | `06-import-csv.png` | "从 CSV 导入"的预演确认框 | §2.2 |
+| G7 | `07-schema-view.png` | 「数据库字段」视图 + 字段中文说明 | §2.2 |
+| G8 | `08-oracle-settings.png` | 「生产环境」四项设置（打码） | §3.1 |
+| G9 | `09-sync-progress.png` | 同步进度通知（解析表 i/N） | §3.2 |
+| G10 | `10-schema-multi-select.png` | 勾选多张表 + 批量同步 | §3.2 |
+| G11 | `11-deploy.png` | 部署预演与结果 | §3.3 |
 
-密码**不要**写进 settings.json（会被提交）。导入完成后扩展按 mtime 自动重载资料
-并重算诊断，不需要重启窗口。首次导入会解析全部 `.4gl`（7600 文件实测约 24 秒，
-Windows 通常更久）；采集时 stderr 每 400 个文件打印一行进度。
+> 素材规范（宽高、打码要求）见 [`docs/images/guide/README.md`](docs/images/guide/README.md)；
+> 详细手册的截图清单在 [`docs/images/vscode/README.md`](docs/images/vscode/README.md)。
 
-## 链接资料视图（P7-E）
+---
 
-Explorer 侧栏多一个「链接资料」视图，显示当前文件属于哪条链接链：
+## 9. 更多文档
 
-```text
-链接资料
-├── axmt620                程序（含 MAIN 的那个文件）
-│   ├── ALM/s_point        链内文件，点一下就跳过去
-│   └── APM/sapmp500
-├── [ 反查引用程序 ]        子文件才有；点开才去查
-├── LIB  (983 个文件)      全局可见模组（sub/lib/qry）
-└── SUB  (…)
-```
-
-- 点文件节点直接打开对应的 `4gl/<代码>.4gl`；
-- 打开**子文件**（没有 MAIN）时，视图只有「反查引用程序」一项，
-  点击后显示"被 N 个程序链接"，超过 50 个可「显示更多」——实测 `aws_xml`
-  被 324 组引用，一次铺开会卡；
-- 没有 `.project/links.jsonl` 时只显示一句引导文案，不报错。
-
-Zed 没有等价的自定义视图，用 `tiptop link status` 看同样的数据。
-
-## 命令
-
-| 命令 | 说明 |
+| 文档 | 内容 |
 |---|---|
-| `Genero BDL: 重启语言服务器` | 重新查找并启动 LSP |
-| `Genero BDL: 显示语言服务器信息` | 展示当前路径、来源、全部设置 |
-| `Genero BDL: 显示输出` | 打开输出通道 |
-| `部署到远程服务器并编译` | 按 `.project/deploy.json` 上传并编译 |
-| `部署当前文件并编译` | 只部署当前 `.4gl/.global/.per`（先保存未保存内容） |
-| `部署预演（不上传）` | dry-run，列出将要上传/编译的文件 |
-| `Genero BDL: 列出部署目标` | 打印配置里的目标 |
-| `链接资料：从 CSV 导入` | 选 CSV → 复制到 `.project/gal_file.csv` → 全量导入或只更新当前文件 |
-| `链接资料：更新当前文件` | 只重算当前 `.4gl/.global/.per` 涉及的作业（先预演并确认） |
-| `链接资料：按模组更新` | 多选模组（`lib`/`sub`/`qry` 或项目里探测到的），只重算这些作业 |
-| `链接资料：全量更新` | 从数据库/CSV 全量采集（耗时长，会先确认） |
-| `链接资料：查看状态` | `tiptop link status` 输出到通道 |
-| `Genero BDL: 重新同步` | 链接视图里「反查引用程序」旁边的按钮，等同"更新当前文件" |
-| `Genero BDL: 数据库字段：从数据库同步` | 直连 Oracle 全量采集（`-prune` 清理本地多出的表） |
-| `Genero BDL: 数据库字段：同步已选中的表` | 勾选（复选框）一张或多张后批量同步 |
-| `Genero BDL: 数据库字段：同步当前筛选结果` | 正则过滤后的整批表一次同步 |
-| `Genero BDL: 数据库字段：全选当前列表` / `清除勾选` | 勾选辅助 |
-| `Genero BDL: 数据库字段：从 CSV 导入` | 选 Oracle 导出的表字段 CSV → 复制到 `.project/gal_schema.csv` → `-dry-run` 预演 → 确认后导入 |
-| `Genero BDL: 数据库字段：正则过滤表名` | 视图顶部查询框（支持正则），非法正则退回显示全部 |
-| `Genero BDL: 数据库字段：刷新` | 重新拉表清单 |
+| [完整操作手册](docs/USER-GUIDE.md) | 每个功能的细节、诊断码表、全部设置、排错 |
+| [生产环境建工作区](docs/PROJECT-SETUP.md) | 从生产端打包源码、Git 管理、部署测试、secrets 权限 |
+| [诊断码清单（bdl-lsp 仓库）](https://github.com/darcyjoven/bdl-lsp/blob/main/docs/DIAGNOSTICS.md) | 14 个诊断码与默认级别 |
+| [tiptop（采集与部署工具）](https://github.com/darcyjoven/tiptop) | `link import/sync/status`、`schema import/sync/status`、`deploy` |
 
-> 所有同步/导入都会弹出**进度通知**（"采集：…/解析表 ima_file（12/2648）/写入完成…"），
-> 可取消；链接资料的同步用同一套进度显示。
-| `Genero BDL: 数据库字段：同步选中的表` | 表上右键：只从项目里的 CSV 更新这张表 |
-| `Genero BDL: 数据库字段：复制列定义` | 列上右键/点击：复制 `LIKE 表.列` |
-| `Genero BDL: 数据库字段：打开表资料文件` | 表上右键：打开 `.project/.schema/tables/<表>.json` |
-
-## 本地开发
+## 10. 本地开发
 
 ```bash
-source ../bdl-lsp/scripts/dev-env.sh
-
-npm install          # NODE_ENV=production 会跳过 devDeps，需 `NODE_ENV= npm install --include=dev`
-npm run typecheck
-npm run build
-npm run package      # 平台包：内置当前平台的 bdl-lsp
-npm run package:dev  # 开发包：不含二进制，只用于 CI 冒烟
-
-npm run grammars         # 从 grammar 源码重新生成 TextMate 语法
-npm run grammars:check   # 校验语法为最新
-npm run test:e2e         # 真实 VSCode 扩展宿主里的 33 个用例
+npm install
+npm run typecheck        # 类型检查
+npm run build            # 打 bundle（esbuild）
+npm run package          # 打 VSIX（平台包内置 bdl-lsp / tiptop，需要先构建它们）
+npm run test:e2e         # 无头 VSCode 端到端测试（45 个用例）
 ```
 
-完整 e2e（含构建 LSP、类型检查、打包）：
-
-```bash
-cd ../bdl-lsp
-make e2e-vscode
-```
-
-### 无头环境下跑 e2e 的注意事项
-
-本机沙箱无 root、无 X server、`/dev/shm` 不可写，`test/runTest.js` 已逐条处理：
-
-| 约束 | 处理 |
-|---|---|
-| 无 X server | `--ozone-platform=headless` |
-| `/dev/shm` 不可写 | `--disable-dev-shm-usage` |
-| TMPDIR / XDG_RUNTIME_DIR 必须可写 | 固定在 `bdl-lsp/artifacts/e2e/`，runtime 目录 `chmod 700` |
-| 测试入口必须位于扩展目录内 | `test/suite/index.js`（放 `/tmp` 会拿不到 `vscode` API） |
-| VSCode 退出码不反映测试结果 | 以 JSON 报告文件判定成败 |
-| 缺省日志级别下窗口提前退出 | 启动参数必须带 `--verbose` |
-| 残留进程抢占单实例锁 | 启动前 `pkill -f <vscode 目录>` |
+- 仓库只保留 VSCode 交付物；**计划、待办、测试脚本、过程记录都在 `bdl-lsp` 仓库**；
+- 语言服务器与 CLI 在 `bdl-lsp`，采集/部署工具在 `tiptop`，语法在 `tree-sitter-bdl` / `tree-sitter-per`。
 
 ## 许可
 
-MIT，见 [LICENSE](LICENSE)。
+MIT（见仓库 `LICENSE`）。
