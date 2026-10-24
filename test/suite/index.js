@@ -102,7 +102,12 @@ async function run() {
         "bdl.links.references",
         // P0-3：文件因上限/超时没被解析时的"强制解析当前文件"
         "bdl.forceParseCurrentFile",
-        // P2-1：数据库字段视图与命令
+        // P2-1：数据库字段视图与命令（含勾选多表批量同步）
+        "bdl.schema.syncAll",
+        "bdl.schema.syncSelected",
+        "bdl.schema.syncFiltered",
+        "bdl.schema.selectAll",
+        "bdl.schema.clearSelection",
         "bdl.schema.refresh",
         "bdl.schema.filter",
         "bdl.schema.import",
@@ -1254,38 +1259,7 @@ async function run() {
       const api = await ext.activate();
       assert.ok(api.querySchemaTables, "应导出 querySchemaTables");
 
-      const schemaDir = path.join(root, ".project", ".schema");
-      fs.mkdirSync(path.join(schemaDir, "tables"), { recursive: true });
-      fs.writeFileSync(
-        path.join(schemaDir, "tables.json"),
-        JSON.stringify({
-          schema: 1,
-          importedAt: "2026-10-23T21:00:00+08:00",
-          source: "gal_schema.csv",
-          rowsTotal: 4,
-          tables: {
-            APA_FILE: { name: "apa_file", desc: "", columns: 2, file: "APA_FILE.json" },
-            IMA_FILE: { name: "ima_file", desc: "物料主档", columns: 2, file: "IMA_FILE.json" },
-          },
-        }),
-      );
-      fs.writeFileSync(
-        path.join(schemaDir, "tables", "APA_FILE.json"),
-        JSON.stringify({
-          table: "APA_FILE",
-          columns: [
-            { name: "apa01", desc: "物料编号", type: "VARCHAR2", length: 10 },
-            { name: "apa02", desc: "数量", type: "NUMBER", precision: 5 },
-          ],
-        }),
-      );
-      fs.writeFileSync(
-        path.join(schemaDir, "tables", "IMA_FILE.json"),
-        JSON.stringify({
-          table: "IMA_FILE",
-          columns: [{ name: "ima01", desc: "物料编号", type: "CHAR", length: 10 }],
-        }),
-      );
+      writeSchemaFixture(root);
 
       const cfg = vscode.workspace.getConfiguration("bdl");
       await cfg.update("schema.enable", true, vscode.ConfigurationTarget.Global);
@@ -1332,7 +1306,121 @@ async function run() {
         assert.ok(!off.present, "关掉后不应再持有资料");
       } finally {
         await cfg.update("schema.enable", undefined, vscode.ConfigurationTarget.Global);
-        fs.rmSync(path.join(root, ".project"), { recursive: true, force: true });
+        removeSchemaFixture(root);
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    });
+
+    // 37c. P2-1 补：勾选一个或多个表批量同步（树视图原生不能多选，用复选框）
+    await test("数据库字段：勾选多张表批量同步（P2-1 补）", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const api = await ext.activate();
+      assert.ok(api.schemaProvider, "应导出 schemaProvider");
+      writeSchemaFixture(root);
+
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      await cfg.update("schema.enable", true, vscode.ConfigurationTarget.Global);
+      try {
+        await new Promise((r) => setTimeout(r, 600));
+        const provider = api.schemaProvider;
+        await provider.load();
+        const listed = provider.listedTables().map((t) => t.toLowerCase());
+        assert.deepStrictEqual(listed.sort(), ["apa_file", "ima_file"], `列出两张表：${listed}`);
+
+        // 初始未勾选：表节点的 checkboxState 必须是 Unchecked（UI 上能看到复选框）
+        let nodes = await provider.getChildren(undefined);
+        let tableNode = nodes.find((n) => n.kind === "table" && n.name === "apa_file");
+        assert.ok(tableNode, "应有 apa_file 节点");
+        assert.strictEqual(
+          provider.getTreeItem(tableNode).checkboxState,
+          vscode.TreeItemCheckboxState.Unchecked,
+          "未勾选时复选框应为 Unchecked",
+        );
+
+        // 全选当前列表 → 两张都勾上；节点渲染成 Checked
+        await vscode.commands.executeCommand("bdl.schema.selectAll");
+        assert.deepStrictEqual(
+          provider.selectedTables(),
+          ["apa_file", "ima_file"],
+          `全选后应勾选两张：${provider.selectedTables()}`,
+        );
+        nodes = await provider.getChildren(undefined);
+        tableNode = nodes.find((n) => n.kind === "table" && n.name === "apa_file");
+        assert.strictEqual(
+          provider.getTreeItem(tableNode).checkboxState,
+          vscode.TreeItemCheckboxState.Checked,
+          "勾选后复选框应为 Checked",
+        );
+
+        // 只勾一张时，批量同步命令应把这一张传给 -tables。
+        // 注意：**不能 await** 会弹提示框的命令（没配库时会弹"打开设置"，
+        // e2e 里无人点，await 会让扩展宿主一直挂着——这条踩过）。
+        provider.selection.clear();
+        provider.selection.add("apa_file");
+        provider.refresh();
+        fireAndForget("bdl.schema.syncSelected");
+        await new Promise((r) => setTimeout(r, 400));
+
+        // 清除勾选
+        await vscode.commands.executeCommand("bdl.schema.clearSelection");
+        assert.strictEqual(provider.selectedTables().length, 0, "清除后不应有勾选");
+
+        // 预演统计解析（同步/导入共用同一份报告形状）
+        const summary = api.parseSchemaSummary(
+          "== schema 同步 ==\n来源            golang@db:1521/PROD owner=APP\n" +
+            "CSV 行数        58096\n表              2648（新增 2648 / 变更 0 / 未变 0 / 保留 0）\n" +
+            "列              58096\n",
+        );
+        assert.deepStrictEqual(
+          summary,
+          {
+            rows: 58096,
+            tables: 2648,
+            added: 2648,
+            changed: 0,
+            same: 0,
+            kept: 0,
+            pruned: undefined,
+          },
+          `统计解析不对：${JSON.stringify(summary)}`,
+        );
+        const pruned = api.parseSchemaSummary("表              10（新增 1 / 变更 2 / 未变 3 / 保留 3 / 删除 1）");
+        assert.strictEqual(pruned.pruned, 1, "应解析出删除数");
+
+        // 进度行解析（CLI 与插件之间的协议；link 与 schema 共用）
+        assert.deepStrictEqual(
+          api.parseProgressLine("进度\t解析\tima_file\t12\t2648"),
+          { phase: "解析", detail: "ima_file", done: 12, total: 2648 },
+          "应解析出带计数的进度行",
+        );
+        assert.deepStrictEqual(
+          api.parseProgressLine("进度\t采集\t连接 db:1521/PROD…"),
+          { phase: "采集", detail: "连接 db:1521/PROD…" },
+          "应解析出无计数的进度行",
+        );
+        assert.strictEqual(api.parseProgressLine("扫描源码 12/100"), undefined);
+        assert.strictEqual(
+          api.humanizeProgress({ phase: "解析", detail: "ima_file", done: 12, total: 2648 }),
+          "解析表 ima_file（12/2648）",
+          "进度文案要能看出卡在哪一步",
+        );
+        assert.strictEqual(
+          api.humanizeProgress({ phase: "扫描源码", done: 400, total: 7600 }),
+          "扫描源码 400/7600",
+        );
+
+        // 「同步当前筛选结果」：按当前列表批量（命令不抛错）
+        fireAndForget("bdl.schema.syncFiltered");
+        await new Promise((r) => setTimeout(r, 300));
+
+        // 没配数据库时执行「从数据库同步」：只提示，不抛错（同样不能 await）
+        fireAndForget("bdl.schema.syncAll");
+        await new Promise((r) => setTimeout(r, 400));
+      } finally {
+        await cfg.update("schema.enable", undefined, vscode.ConfigurationTarget.Global);
+        removeSchemaFixture(root);
         await new Promise((r) => setTimeout(r, 300));
       }
     });
@@ -1360,6 +1448,60 @@ async function run() {
   } finally {
     report();
   }
+}
+
+/**
+ * 执行可能弹提示框的命令，但**不 await**。
+ *
+ * e2e 是无人值守的：`showWarningMessage` / `showInputBox` 这类会一直等着用户点，
+ * `await executeCommand(...)` 会把扩展宿主挂死。这里只求"能跑起来、不抛错"。
+ */
+function fireAndForget(command, ...args) {
+  vscode.commands.executeCommand(command, ...args).then(
+    () => {},
+    () => {},
+  );
+}
+
+/** 写一份最小字段资料夹具（两条表）。多个用例共用，避免复制粘贴。 */
+function writeSchemaFixture(root) {
+  const schemaDir = path.join(root, ".project", ".schema");
+  fs.mkdirSync(path.join(schemaDir, "tables"), { recursive: true });
+  fs.writeFileSync(
+    path.join(schemaDir, "tables.json"),
+    JSON.stringify({
+      schema: 1,
+      importedAt: "2026-10-23T21:00:00+08:00",
+      source: "gal_schema.csv",
+      rowsTotal: 4,
+      tables: {
+        APA_FILE: { name: "apa_file", desc: "", columns: 2, file: "APA_FILE.json" },
+        IMA_FILE: { name: "ima_file", desc: "物料主档", columns: 2, file: "IMA_FILE.json" },
+      },
+    }),
+  );
+  fs.writeFileSync(
+    path.join(schemaDir, "tables", "APA_FILE.json"),
+    JSON.stringify({
+      table: "APA_FILE",
+      columns: [
+        { name: "apa01", desc: "物料编号", type: "VARCHAR2", length: 10 },
+        { name: "apa02", desc: "数量", type: "NUMBER", precision: 5 },
+      ],
+    }),
+  );
+  fs.writeFileSync(
+    path.join(schemaDir, "tables", "IMA_FILE.json"),
+    JSON.stringify({
+      table: "IMA_FILE",
+      columns: [{ name: "ima01", desc: "物料编号", type: "CHAR", length: 10 }],
+    }),
+  );
+}
+
+/** 清掉字段资料夹具（避免影响其它用例，尤其是"轻量档不写项目"那条）。 */
+function removeSchemaFixture(root) {
+  fs.rmSync(path.join(root, ".project"), { recursive: true, force: true });
 }
 
 /** 汇总结果，失败则抛出。 */

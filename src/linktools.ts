@@ -32,6 +32,136 @@ export function disposeLinkTools(): void {
   channel = undefined;
 }
 
+/** 一条进度行（tiptop 的 `进度\t阶段\t详情[\ti\tn]` 协议）。 */
+export interface ProgressLine {
+  phase: string;
+  detail?: string;
+  done?: number;
+  total?: number;
+}
+
+/**
+ * 解析 tiptop 的进度行；不是进度行时返回 undefined。
+ *
+ * 协议见 tiptop/internal/progress：stderr 上以「进度」开头、制表符分隔。
+ */
+export function parseProgressLine(line: string): ProgressLine | undefined {
+  const parts = line.replace(/\r$/, "").split("\t");
+  if (parts.length < 2 || parts[0] !== "进度") {
+    return undefined;
+  }
+  const out: ProgressLine = { phase: parts[1] };
+  const rest = parts.slice(2);
+  if (rest.length >= 2 && /^\d+$/.test(rest[rest.length - 1]) && /^\d+$/.test(rest[rest.length - 2])) {
+    out.total = Number(rest.pop());
+    out.done = Number(rest.pop());
+  }
+  const detail = rest.join("\t").trim();
+  if (detail) {
+    out.detail = detail;
+  }
+  return out;
+}
+
+/** 把进度行转成人话（通知栏里显示的那一行）。 */
+export function humanizeProgress(p: ProgressLine): string {
+  const d = p.detail ?? "";
+  const counter = p.done !== undefined && p.total ? `（${p.done}/${p.total}）` : "";
+  switch (p.phase) {
+    case "采集":
+      return d ? `采集：${d}` : "采集…";
+    case "采集完成":
+      return `采集完成：${d}`;
+    case "扫描源码":
+      return d.startsWith("0/") ? `扫描源码：${d}` : `扫描源码 ${p.done}/${p.total}`;
+    case "成链":
+      return `成链 ${p.done}/${p.total}`;
+    case "解析":
+      return `解析表 ${d}${counter}`;
+    case "清理":
+      return `清理表 ${d}${counter}`;
+    case "写入":
+      return d ? `写入：${d}` : "写入…";
+    case "写入完成":
+      return `写入完成：${d}`;
+    default:
+      return d ? `${p.phase}：${d}` : p.phase;
+  }
+}
+
+/** 带进度回调的 tiptop 运行结果。 */
+export interface ProgressRunResult extends RunResult {
+  cancelled: boolean;
+}
+
+/**
+ * 运行 tiptop 并**在通知栏显示进度**（P2-1 补：link 与 schema 一致）。
+ *
+ * 进度来源是 tiptop 的「进度」行（见 parseProgressLine）；其余输出照旧进通道。
+ * 可取消：用户点取消时杀掉子进程，返回 cancelled=true（调用方提示"已取消"）。
+ */
+export async function runTiptopWithProgress(
+  root: string,
+  args: string[],
+  title: string,
+): Promise<ProgressRunResult> {
+  const bin = toolsBinary();
+  if (!bin) {
+    return { code: null, stdout: "", stderr: "", cancelled: false };
+  }
+  const out = output();
+  out.appendLine(`\n> tiptop ${args.join(" ")}`);
+  return vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title,
+      cancellable: true,
+    },
+    (progress, token) =>
+      new Promise<ProgressRunResult>((resolve) => {
+        const child = spawn(bin, args, { cwd: root, windowsHide: true });
+        let stdout = "";
+        let stderr = "";
+        let pending = "";
+        const handleChunk = (chunk: Buffer): void => {
+          const text = chunk.toString("utf8");
+          out.append(text);
+          pending += text;
+          const lines = pending.split("\n");
+          pending = lines.pop() ?? "";
+          for (const line of lines) {
+            const p = parseProgressLine(line);
+            if (p) {
+              progress.report({ message: humanizeProgress(p) });
+            }
+          }
+        };
+        child.stdout.on("data", (chunk: Buffer) => {
+          stdout += chunk.toString("utf8");
+          handleChunk(chunk);
+        });
+        child.stderr.on("data", (chunk: Buffer) => {
+          stderr += chunk.toString("utf8");
+          handleChunk(chunk);
+        });
+        let cancelled = false;
+        token.onCancellationRequested(() => {
+          cancelled = true;
+          out.appendLine("已取消。");
+          child.kill();
+        });
+        child.on("error", (err) => {
+          out.appendLine(`启动失败：${String(err)}`);
+          resolve({ code: null, stdout, stderr, cancelled });
+        });
+        child.on("close", (code) => {
+          out.appendLine(`（退出码 ${code ?? "?"}）`);
+          resolve({ code, stdout, stderr, cancelled });
+        });
+      }),
+  );
+}
+
 /** 一次 tiptop 运行的结果。 */
 export interface RunResult {
   code: number | null;
@@ -141,14 +271,14 @@ async function exists(p: string): Promise<boolean> {
 }
 
 /** Oracle 连接配置（`bdl.prod.oracle.*`；密码不在这里）。 */
-interface OracleCfg {
+export interface OracleCfg {
   host: string;
   port: number;
   service: string;
   user: string;
 }
 
-function oracleCfg(): OracleCfg | undefined {
+export function oracleCfg(): OracleCfg | undefined {
   const c = cfg();
   const host = (c.get<string>("prod.oracle.host") ?? "").trim();
   const service = (c.get<string>("prod.oracle.service") ?? "").trim();
@@ -165,7 +295,7 @@ function oracleCfg(): OracleCfg | undefined {
 }
 
 /** 没配数据库时的统一提示：给"打开设置"与"改用 CSV 导入"两条出路。 */
-async function promptNoOracle(root: string): Promise<void> {
+export async function promptNoOracle(root: string): Promise<void> {
   const secrets = path.join(root, dataDirName(), "secrets.json");
   const pick = await vscode.window.showWarningMessage(
     `还没有配置数据库连接：在「Genero BDL: 生产环境」里填主机 / 服务名 / 只读账号，` +
@@ -284,7 +414,11 @@ async function syncWithConfirm(
       ]
     : ["link", "import", "-csv", csv, "-root", root, ...filterArgs];
 
-  const dry = await runTiptop(root, [...base, "-dry-run"]);
+  const dry = await runTiptopWithProgress(root, [...base, "-dry-run"], `${label}：预演`);
+  if (dry.cancelled) {
+    vscode.window.setStatusBarMessage(`${label}已取消`, 3000);
+    return;
+  }
   if (dry.code !== 0) {
     output().show(true);
     void vscode.window.showErrorMessage(
@@ -310,7 +444,11 @@ async function syncWithConfirm(
   if (pick !== "更新") {
     return;
   }
-  const res = await runTiptop(root, base);
+  const res = await runTiptopWithProgress(root, base, label);
+  if (res.cancelled) {
+    vscode.window.setStatusBarMessage(`${label}已取消`, 3000);
+    return;
+  }
   if (res.code !== 0) {
     output().show(true);
     void vscode.window.showErrorMessage(
@@ -361,7 +499,11 @@ async function importCsv(): Promise<void> {
     pick === "只更新当前文件" && spec
       ? ["link", "import", "-csv", dest, "-root", root, "-files", spec]
       : ["link", "import", "-csv", dest, "-root", root];
-  const res = await runTiptop(root, args);
+  const res = await runTiptopWithProgress(root, args, "链接资料导入");
+  if (res.cancelled) {
+    vscode.window.setStatusBarMessage("链接资料导入已取消", 3000);
+    return;
+  }
   if (res.code !== 0) {
     output().show(true);
     void vscode.window.showErrorMessage(

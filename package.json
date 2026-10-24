@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "publisher": "darcyjoven",
   "license": "MIT",
   "engines": {
@@ -45,7 +45,12 @@
     "onCommand:bdl.schema.clearFilter",
     "onCommand:bdl.schema.syncTable",
     "onCommand:bdl.schema.copyColumn",
-    "onCommand:bdl.schema.openTable"
+    "onCommand:bdl.schema.openTable",
+    "onCommand:bdl.schema.syncAll",
+    "onCommand:bdl.schema.syncSelected",
+    "onCommand:bdl.schema.selectAll",
+    "onCommand:bdl.schema.clearSelection",
+    "onCommand:bdl.schema.syncFiltered"
   ],
   "contributes": {
     "languages": [
@@ -615,6 +620,36 @@
         "command": "bdl.schema.openTable",
         "title": "数据库字段：打开表资料文件",
         "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.schema.syncAll",
+        "title": "数据库字段：从数据库同步",
+        "category": "Genero BDL",
+        "icon": "$(database)"
+      },
+      {
+        "command": "bdl.schema.syncSelected",
+        "title": "数据库字段：同步已选中的表",
+        "category": "Genero BDL",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "bdl.schema.selectAll",
+        "title": "数据库字段：全选当前列表",
+        "category": "Genero BDL",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "bdl.schema.clearSelection",
+        "title": "数据库字段：清除勾选",
+        "category": "Genero BDL",
+        "icon": "$(close-all)"
+      },
+      {
+        "command": "bdl.schema.syncFiltered",
+        "title": "数据库字段：同步当前筛选结果",
+        "category": "Genero BDL",
+        "icon": "$(list-filter)"
       }
     ],
     "views": {
@@ -661,6 +696,26 @@
           "command": "bdl.schema.import",
           "when": "view == bdlSchema && config.bdl.schema.enable",
           "group": "navigation@3"
+        },
+        {
+          "command": "bdl.schema.syncSelected",
+          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "group": "navigation@4"
+        },
+        {
+          "command": "bdl.schema.selectAll",
+          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "group": "navigation@5"
+        },
+        {
+          "command": "bdl.schema.clearSelection",
+          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "group": "navigation@6"
+        },
+        {
+          "command": "bdl.schema.syncFiltered",
+          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -773,6 +828,26 @@
         },
         {
           "command": "bdl.schema.openTable",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.syncAll",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.syncSelected",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.selectAll",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.clearSelection",
+          "when": "config.bdl.schema.enable"
+        },
+        {
+          "command": "bdl.schema.syncFiltered",
           "when": "config.bdl.schema.enable"
         }
       ],
