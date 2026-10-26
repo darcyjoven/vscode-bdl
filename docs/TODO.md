@@ -126,19 +126,36 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 
 **要做的**
 
-**状态（2026-10-26）**：**T2/T3 已完成**（`tiptop exec` / `tiptop upload`：只处理单文件、ssh 在生产根执行、rsync 主 scp 备、`-dry-run`/`-json`；`go test ./...` 全绿 + dry-run 实跑验证），**待真机连生产服务器验证**；其余任务待做。
+**状态（2026-10-26，已实现并全绿）**：**T1–T9 全部完成**。
+
+- 设置重构为 **3 组 55 键**（基本设置 22 / 账号、生产环境、配置 16 / 上传编译链接 17）；新增 `bdl.prod.oracle.service`、`bdl.link.mode`/`bdl.schema.mode`（off/file/db）、`bdl.prod.deploy.transport`（off/rsync/scp）、`bdl.build.enable` + 6 组 `enable`/`command`；删除整包部署、`deploy.target`、列出目标、`include`/`exclude`/`delete`/`compile4gl|Per`；旧键（`link.enable`/`schema.enable`/旧 6 个 build 键）仍兼容读取。
+- **bdl-lsp 也认 `mode`**（`SchemaSettings.Mode`/`LinkSettings.Mode`，mode 优先于旧 enable；`Manager.merge` 支持非空覆盖 `off`），并加了单测。
+- 插件：命令 37 → **35**（删除 2 条），上传只剩「上传当前文件 / 预演上传」（单文件）；编译/链接/预览改走 `tiptop exec`（生产端 ssh，不自动上传）；**只有 4GL 链接弹 `${name}`**；视图按钮图标化 + 编译图标 `$(play)`；`dbctx` 新增 `bdl.link.enabled`/`modeDb`/`schema.enabled`/`schema.modeDb`/`upload.enabled`/`build.enabled` 门控。
+- 验证：bdl-lsp 全量测试、tiptop 全量测试、`npm run typecheck`、**e2e 49/49** 全绿；`tiptop upload/exec -dry-run` 实跑验证。
+- **剩余**：真机连生产服务器验证上传/编译/链接/预览（本地无法连）——建议按下面清单在 Windows 上过一遍。
+
+| # | 真机验证清单 | 预期 |
+|---|---|---|
+| V1 | 填好生产服务器 + 生产根 + transport=rsync，点「预演上传」 | 输出里给出 本地路径 → `user@host:/生产根/相对路径`，不连接 |
+| V2 | 点「上传当前文件」 | 文件出现在生产根同路径；失败时通知带 stderr 首行 + 「打开日志」 |
+| V3 | 点「4GL：编译」 | 在服务器对应目录执行 `cd ${path} && r.c2 ${name}`，输出进「Genero BDL 编译」 |
+| V4 | 4GL「链接」按钮（无 MAIN 的文件） | 按钮禁用/本地直接报错，不发 ssh |
+| V5 | Form「预览画面」 | 远程执行 `cd ${path} && r.gf ${name} 2 p`（会调起本地 GUI） |
+
+> 已知限制：旧键兼容只能对"老 settings.json 里已有的值"生效——VSCode 不允许写入
+> 未注册的键，所以 e2e 里无法覆盖该路径（有单测覆盖服务器侧 mode 优先级）。
 
 | # | 事项 | 验收 |
 |---|---|---|
-| T1 | 设置重构：`package.json` 改成 3 组；新增/删除键；`bdl.link.mode`/`bdl.schema.mode` 三态；build 6 键拆成 `enable`+`command`；保留旧键兼容读取（`enable`、旧 6 键） | 设置面板 3 组；旧 `settings.json` 不失效；键数/文档一致 |
+| ✅ T1 | 设置重构：`package.json` 改成 3 组；新增/删除键；`bdl.link.mode`/`bdl.schema.mode` 三态；build 6 键拆成 `enable`+`command`；保留旧键兼容读取（`enable`、旧 6 键） | 设置面板 3 组；旧 `settings.json` 不失效；键数/文档一致 |
 | ✅ T2 | tiptop 新增远程执行：`tiptop exec`——读 deploy 配置 → `ssh` 在**生产根目录**执行命令（模板里的 `cd ${path}` 由此生效）→ stdout/stderr 流式回传 + 退出码；`-dry-run`/`-json`。**不自动上传**（用户自己决定先上传） | 本地无法测真机，需 Windows/生产服务器复测；单测覆盖配置解析、路径映射、缺配置报错 |
 | ✅ T3 | 单文件上传：`tiptop upload -file <相对路径>`（当前文件 → `remoteRoot/<相对路径>`），rsync 主/scp 备（scp 前先 `mkdir -p`）；无整包、无 include/exclude/delete | 单文件落到正确远端路径；不传其它文件 |
-| T4 | 插件：删除 `bdl.deploy`（整包）、`bdl.deploy.target`、`bdl.deployListTargets`；改名/保留「上传当前文件」「预演上传」；6 条编译/链接/预览命令改调 `tiptop exec`（**不再本地 spawn**，占位符仍在插件侧展开，输出仍进「Genero BDL 编译」） | 命令面板与工具栏只剩单文件上传 + 6 条远程命令；输出完整 |
-| T5 | 兼容与迁移说明：旧 `link.enable`/`schema.enable`/`deploy.target`/`include/exclude/delete`/`compile4gl|Per` 的处理（映射或忽略 + README 提示） | 升级后旧配置行为可预期 |
-| T6 | 测试：tiptop exec/upload 单测（dry-run、路径映射、缺配置）；插件 e2e（命令注册、3 组设置、门控、上传预演） | 全绿 |
-| T7 | 文档：README（三档/设置/命令/FAQ）、三份 `FEATURES.md`、本文件、`OPEN-ITEMS.md` | 无死链、口径一致 |
-| T8 | 图标化：`bdl.schema.filter` / `bdl.schema.refresh` / `bdl.schema.import` / `bdl.links.resync` / `bdl.link.updateFromDb` 加 `icon`；`bdl.build.4gl.compile`、`bdl.build.per.compile` 改 `$(play)`（具体 codicon 见 OPEN-ITEMS S-k） | 视图标题栏只显示图标；编译按钮是运行形状 |
-| T9 | `${name}` 弹框规则改为**只有 4GL 链接弹**（D11）：`build.ts` 里 4gl.compile / per.preview / per.compile / per.form 的 `promptName` 置 false | 点编译/预览不再弹框；点 4GL 链接仍弹 |
+| ✅ T4 | 插件：删除 `bdl.deploy`（整包）、`bdl.deploy.target`、`bdl.deployListTargets`；改名/保留「上传当前文件」「预演上传」；6 条编译/链接/预览命令改调 `tiptop exec`（**不再本地 spawn**，占位符仍在插件侧展开，输出仍进「Genero BDL 编译」） | 命令面板与工具栏只剩单文件上传 + 6 条远程命令；输出完整 |
+| ✅ T5 | 兼容与迁移说明：旧 `link.enable`/`schema.enable`/`deploy.target`/`include/exclude/delete`/`compile4gl|Per` 的处理（映射或忽略 + README 提示） | 升级后旧配置行为可预期 |
+| ✅ T6 | 测试：tiptop exec/upload 单测（dry-run、路径映射、缺配置）；插件 e2e（命令注册、3 组设置、门控、上传预演） | 全绿 |
+| ✅ T7 | 文档：README（三档/设置/命令/FAQ）、三份 `FEATURES.md`、本文件、`OPEN-ITEMS.md` | 无死链、口径一致 |
+| ✅ T8 | 图标化：`bdl.schema.filter` / `bdl.schema.refresh` / `bdl.schema.import` / `bdl.links.resync` / `bdl.link.updateFromDb` 加 `icon`；`bdl.build.4gl.compile`、`bdl.build.per.compile` 改 `$(play)`（具体 codicon 见 OPEN-ITEMS S-k） | 视图标题栏只显示图标；编译按钮是运行形状 |
+| ✅ T9 | `${name}` 弹框规则改为**只有 4GL 链接弹**（D11）：`build.ts` 里 4gl.compile / per.preview / per.compile / per.form 的 `promptName` 置 false | 点编译/预览不再弹框；点 4GL 链接仍弹 |
 
 **说明**：D5 与现有 W5 实现（本机执行）冲突，T2/T4 完成后 W5 的"本地执行"描述要一并改掉；「预演编译」仍是远程执行同一条命令（不写盘效果由脚本自身保证）。
 

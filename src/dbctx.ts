@@ -18,6 +18,17 @@ import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as vscode from "vscode";
 
+import {
+  buildEnabled,
+  linkEnabled,
+  linkMode,
+  schemaEnabled,
+  schemaMode,
+  transport,
+  uploadEnabled,
+  type DataMode,
+} from "./settings";
+
 /** 链接资料候选目录（新 → 旧）。 */
 const LINK_DIRS = [".project/link", ".project", ".link"];
 /** 字段资料候选目录（新 → 旧）。 */
@@ -35,6 +46,10 @@ export interface DbReadiness {
   linkDir: string;
   /** 字段资料实际所在目录（相对工作区根；没有为空串）。 */
   schemaDir: string;
+  /** 链接资料模式（off/file/db）。 */
+  linkMode: DataMode;
+  /** 字段资料模式（off/file/db）。 */
+  schemaMode: DataMode;
 }
 
 async function exists(p: string): Promise<boolean> {
@@ -84,6 +99,8 @@ export async function readDbReadiness(): Promise<DbReadiness> {
     schemaHasData: false,
     linkDir: "",
     schemaDir: "",
+    linkMode: linkMode(),
+    schemaMode: schemaMode(),
   };
   if (!root) {
     return out;
@@ -95,24 +112,23 @@ export async function readDbReadiness(): Promise<DbReadiness> {
   return out;
 }
 
-/** 把就绪状态写进 context key，供 package.json 的 `when` 使用。 */
+/** 批量 setContext（少写点重复调用）。 */
+async function setContext(key: string, value: unknown): Promise<void> {
+  await vscode.commands.executeCommand("setContext", key, value);
+}
+
+/** 把就绪状态写进 context key，供 package.json 的 `when` / `enablement` 使用。 */
 export async function refreshDataContexts(): Promise<DbReadiness> {
   const r = await readDbReadiness();
-  await vscode.commands.executeCommand(
-    "setContext",
-    "bdl.db.configured",
-    r.configured,
-  );
-  await vscode.commands.executeCommand(
-    "setContext",
-    "bdl.link.hasData",
-    r.linkHasData,
-  );
-  await vscode.commands.executeCommand(
-    "setContext",
-    "bdl.schema.hasData",
-    r.schemaHasData,
-  );
+  await setContext("bdl.db.configured", r.configured);
+  await setContext("bdl.link.enabled", linkEnabled());
+  await setContext("bdl.schema.enabled", schemaEnabled());
+  await setContext("bdl.link.modeDb", r.linkMode === "db");
+  await setContext("bdl.schema.modeDb", r.schemaMode === "db");
+  await setContext("bdl.link.hasData", r.linkHasData);
+  await setContext("bdl.schema.hasData", r.schemaHasData);
+  await setContext("bdl.upload.enabled", uploadEnabled() && transport() !== "off");
+  await setContext("bdl.build.enabled", buildEnabled());
   return r;
 }
 
@@ -134,10 +150,11 @@ export function registerDataContextWatcher(
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (
         e.affectsConfiguration("bdl.prod.oracle") ||
-        e.affectsConfiguration("bdl.link.enable") ||
-        e.affectsConfiguration("bdl.link.dataDir") ||
-        e.affectsConfiguration("bdl.schema.enable") ||
-        e.affectsConfiguration("bdl.schema.dataDir")
+        e.affectsConfiguration("bdl.prod.deploy") ||
+        e.affectsConfiguration("bdl.link") ||
+        e.affectsConfiguration("bdl.schema") ||
+        e.affectsConfiguration("bdl.deploy") ||
+        e.affectsConfiguration("bdl.build")
       ) {
         refresh();
       }

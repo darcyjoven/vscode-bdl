@@ -1,18 +1,18 @@
-// W5：本地编译 / 链接 / 预览（Windows 实机反馈第 5 项）。
+// W5 + TODO §0d：编译 / 链接 / 预览命令。
 //
-// 设计要点：
-//   - 三种方式各一个可自定义的命令模板（用户可以在设置里改）；
-//   - 占位符：`${path}`（当前文件的两层目录，如 `axc/4gl`）、
-//     `${fullpath}`（三层目录，如 `tiptop/axc/4gl`）、`${name}`（去扩展名）、
-//     `${fullname}`（含扩展名）；目录分隔符**恒为 `/`**，与平台无关；
-//   - 运行目录 = 工作区根；stdout/stderr **原样**进「Genero BDL 编译」输出通道；
-//   - 4GL「链接」前本地校验 MAIN：没有 MAIN 程序块直接报错、不执行脚本；
-//   - `${name}`：链接与编译每次弹输入框确认（预填写文件名去扩展名，可改）；
-//     预演编译不弹，用默认值；
-//   - 只在 `.4gl` / `.per` 文件上可用；入口是命令面板与编辑器右上角按钮。
-import { spawn } from "node:child_process";
+// 关键变化（2026-10-26 确认）：命令**不在本机执行**——开发机没有 Genero 环境，
+// 统一交给 `tiptop exec` 在生产服务器上跑（工作目录 = 生产根目录），
+// stdout/stderr 原样进「Genero BDL 编译」输出通道。
+//
+// 占位符：`${path}`（两层目录）、`${fullpath}`（三层）、`${name}`（去扩展名）、
+// `${fullname}`（含扩展名）；分隔符恒为 `/`。命令模板可在设置里改。
+//
+// `${name}` 弹框（D11）：**只有 4GL「链接」弹**，其它命令直接用文件名去扩展名。
 import * as path from "node:path";
 import * as vscode from "vscode";
+
+import { reportRunFailure, runTiptopWithProgress } from "./linktools";
+import { buildCommandValue, buildEnabled } from "./settings";
 
 /** 四个占位符的取值。 */
 export interface BuildPlaceholders {
@@ -30,93 +30,42 @@ export interface BuildPlaceholders {
 interface BuildSpec {
   /** 命令 id（package.json 里注册的同名命令）。 */
   id: string;
-  /** 设置键（`bdl.build.<lang>.<mode>`）。 */
-  key: string;
-  /** 适用的语言：`bdl` = `.4gl`，`per` = `.per`。 */
+  /** 适用语言：`bdl` = `.4gl`，`per` = `.per`。 */
   lang: "bdl" | "per";
+  /** 方式：preview/compile/link（4gl）或 preview/compile/form（per）。 */
+  mode: "preview" | "compile" | "link" | "form";
   /** 用户可见的动作名。 */
   title: string;
-  /** 是否弹 `${name}` 输入框（预演编译不弹）。 */
+  /** 是否弹 `${name}` 输入框（只有 4GL 链接）。 */
   promptName: boolean;
   /** 是否要求文件含 MAIN 程序块（只有 4GL 链接）。 */
   needMain: boolean;
 }
 
 const SPECS: readonly BuildSpec[] = [
-  {
-    id: "bdl.build.4gl.preview",
-    key: "bdl.build.4gl.preview",
-    lang: "bdl",
-    title: "4GL：预演编译",
-    promptName: false,
-    needMain: false,
-  },
-  {
-    id: "bdl.build.4gl.compile",
-    key: "bdl.build.4gl.compile",
-    lang: "bdl",
-    title: "4GL：编译",
-    promptName: true,
-    needMain: false,
-  },
-  {
-    id: "bdl.build.4gl.link",
-    key: "bdl.build.4gl.link",
-    lang: "bdl",
-    title: "4GL：链接",
-    promptName: true,
-    needMain: true,
-  },
-  {
-    id: "bdl.build.per.preview",
-    key: "bdl.build.per.preview",
-    lang: "per",
-    title: "Form：预演编译",
-    promptName: false,
-    needMain: false,
-  },
-  {
-    id: "bdl.build.per.compile",
-    key: "bdl.build.per.compile",
-    lang: "per",
-    title: "Form：编译",
-    promptName: true,
-    needMain: false,
-  },
-  {
-    id: "bdl.build.per.form",
-    key: "bdl.build.per.form",
-    lang: "per",
-    title: "Form：预览画面",
-    promptName: true,
-    needMain: false,
-  },
+  { id: "bdl.build.4gl.preview", lang: "bdl", mode: "preview", title: "4GL：预演编译", promptName: false, needMain: false },
+  { id: "bdl.build.4gl.compile", lang: "bdl", mode: "compile", title: "4GL：编译", promptName: false, needMain: false },
+  { id: "bdl.build.4gl.link", lang: "bdl", mode: "link", title: "4GL：链接", promptName: true, needMain: true },
+  { id: "bdl.build.per.preview", lang: "per", mode: "preview", title: "Form：预演编译", promptName: false, needMain: false },
+  { id: "bdl.build.per.compile", lang: "per", mode: "compile", title: "Form：编译", promptName: false, needMain: false },
+  { id: "bdl.build.per.form", lang: "per", mode: "form", title: "Form：预览画面", promptName: false, needMain: false },
 ];
 
-/** 默认命令模板（键是**去掉 `bdl.` 前缀**的段内键，用户可在设置里覆盖）。 */
+/** 默认命令模板（键为 `<lang>.<mode>`；用户可在设置里覆盖）。 */
 export const BUILD_DEFAULTS: Readonly<Record<string, string>> = {
-  "build.4gl.preview": "cd ${path} && r.c2 ${name}",
-  "build.4gl.compile": "cd ${path} && r.c2 ${name}",
-  "build.4gl.link": "r.l2 ${name}",
-  "build.per.preview":
+  "4gl.preview": "cd ${path} && r.c2 ${name}",
+  "4gl.compile": "cd ${path} && r.c2 ${name}",
+  "4gl.link": "r.l2 ${name}",
+  "per.preview":
     "cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f",
-  "build.per.compile":
+  "per.compile":
     "cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && " +
     "gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/",
-  "build.per.form": "cd ${path} && r.gf ${name}",
+  "per.form": "cd ${path} && r.gf ${name} 2 p",
 };
-
-/** 把完整设置键（`bdl.build.…`）转成段内键（`build.…`）。 */
-function sectionKey(key: string): string {
-  return key.startsWith("bdl.") ? key.slice("bdl.".length) : key;
-}
 
 let channel: vscode.OutputChannel | undefined;
 let contextKeyTimer: NodeJS.Timeout | undefined;
-
-function cfg(): vscode.WorkspaceConfiguration {
-  return vscode.workspace.getConfiguration("bdl");
-}
 
 /** 输出通道（编译输出与语言服务器/采集分开，便于排查）。 */
 function output(): vscode.OutputChannel {
@@ -137,16 +86,15 @@ export function disposeBuild(): void {
 }
 
 /**
- * 取模板：设置为空时回退默认值。
- *
- * `key` 可以是完整设置键（`bdl.build.4gl.preview`）或段内键
- * （`build.4gl.preview`）。注意 `cfg()` 已经是 `bdl` 段，不能再带 `bdl.` 前缀，
- * 否则会读成 `bdl.bdl.build…` 而永远落回默认值。
+ * 取命令模板：设置里的 `.command` 优先，其次兼容旧键 `<lang>.<mode>`，
+ * 最后回退内置默认值。
  */
-export function buildCommandFor(key: string): string {
-  const rel = sectionKey(key);
-  const v = (cfg().get<string>(rel) ?? "").trim();
-  return v !== "" ? v : (BUILD_DEFAULTS[rel] ?? "");
+export function buildCommandFor(lang: string, mode: string): string {
+  const fromSettings = (buildCommandValue(lang, mode) ?? "").trim();
+  if (fromSettings !== "") {
+    return fromSettings;
+  }
+  return BUILD_DEFAULTS[`${lang}.${mode}`] ?? "";
 }
 
 /** 字面量替换（不用 String.replaceAll，避免 lib 版本差异）。 */
@@ -155,16 +103,26 @@ function replaceAllLiteral(s: string, find: string, repl: string): string {
 }
 
 /** 展开模板里的四个占位符（导出给 e2e）。 */
-export function expandBuildTemplate(
-  tpl: string,
-  p: BuildPlaceholders,
-): string {
+export function expandBuildTemplate(tpl: string, p: BuildPlaceholders): string {
   let out = tpl;
   out = replaceAllLiteral(out, "${fullpath}", p.fullpath);
   out = replaceAllLiteral(out, "${path}", p.path);
   out = replaceAllLiteral(out, "${fullname}", p.fullname);
   out = replaceAllLiteral(out, "${name}", p.name);
   return out;
+}
+
+/** 文件相对工作区根的路径（正斜杠）。 */
+export function relativePathFor(doc: vscode.TextDocument): string {
+  const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (!root) {
+    return path.basename(doc.uri.fsPath);
+  }
+  const rel = path.relative(root, doc.uri.fsPath);
+  if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
+    return path.basename(doc.uri.fsPath);
+  }
+  return rel.split(path.sep).join("/");
 }
 
 /** 当前文件相对工作区根的目录（正斜杠；不在工作区内时用原目录）。 */
@@ -244,55 +202,28 @@ function flattenSymbols(list: vscode.DocumentSymbol[]): vscode.DocumentSymbol[] 
   return out;
 }
 
-/** 运行一条 shell 命令，stdout/stderr 原样写入输出通道。 */
-async function runShell(
+/**
+ * 组装交给 tiptop 的参数（导出给 e2e 断言）。
+ *
+ * `tiptop exec` 在生产服务器上执行命令，工作目录 = 生产根目录；`-file` 只用于
+ * 打印上下文（命令里的 `${path}`/`${name}` 已在插件侧展开）。
+ */
+export function buildTiptopArgs(
   root: string,
+  rel: string,
   command: string,
-  title: string,
-): Promise<number | null> {
-  return vscode.window.withProgress(
-    {
-      location: vscode.ProgressLocation.Notification,
-      title,
-      cancellable: true,
-    },
-    (progress, token) =>
-      new Promise<number | null>((resolve) => {
-        void progress;
-        const out = output();
-        // shell:true 在 Windows 用 cmd.exe（/d /s /c），类 Unix 用 /bin/sh -c，
-        // 所以模板里的 `cd … && …` 两种平台都能用（W-c 的建议口径）。
-        const child = spawn(command, {
-          cwd: root,
-          shell: true,
-          windowsHide: true,
-        });
-        let cancelled = false;
-        token.onCancellationRequested(() => {
-          cancelled = true;
-          out.appendLine("已取消：正在结束进程…");
-          child.kill();
-        });
-        child.stdout.on("data", (d: Buffer) => out.append(d.toString("utf8")));
-        child.stderr.on("data", (d: Buffer) => out.append(d.toString("utf8")));
-        child.on("error", (err) => {
-          out.appendLine(`启动失败：${String(err)}`);
-          resolve(cancelled ? null : -1);
-        });
-        child.on("close", (code) => {
-          resolve(cancelled ? null : code);
-        });
-      }),
-  );
+): string[] {
+  return ["exec", "-workspace", root, "-file", rel, "-command", command];
 }
 
-/**
- * 执行一种编译方式。
- *
- * `uri` 可选：命令由编辑器按钮/命令面板触发时省略，取当前编辑器；
- * 传了就用指定文件（e2e 与其它扩展集成时用，避免依赖"当前激活编辑器"）。
- */
+/** 执行一种编译方式。 */
 async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
+  if (!buildEnabled()) {
+    void vscode.window.showWarningMessage(
+      "编译/链接/预览功能未启用：请在设置「上传编译链接」里打开总开关",
+    );
+    return;
+  }
   const doc = uri
     ? await vscode.workspace.openTextDocument(uri)
     : vscode.window.activeTextEditor?.document;
@@ -311,7 +242,7 @@ async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
     void vscode.window.showWarningMessage("请先打开一个工作区");
     return;
   }
-  // 脚本读的是磁盘上的文件：先保存脏文档，避免编译到旧内容。
+  // 生产端读的是已上传的文件；本机先保存，避免改完没存就编译。
   if (doc.isDirty) {
     await doc.save();
   }
@@ -337,52 +268,49 @@ async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
     const base = path.basename(doc.uri.fsPath);
     output().appendLine("");
     output().appendLine(`✗ ${base}：没有 MAIN 程序块，已拒绝链接`);
-    void vscode.window.showErrorMessage(
-      `没有 MAIN 函数，不允许链接：${base}`,
-    );
+    void vscode.window.showErrorMessage(`没有 MAIN 函数，不允许链接：${base}`);
     return;
   }
 
-  const tpl = buildCommandFor(spec.key);
+  const tpl = buildCommandFor(spec.lang, spec.mode);
   const params = buildPlaceholders(doc, name);
   const command = expandBuildTemplate(tpl, params);
+  const rel = relativePathFor(doc);
+
   const out = output();
   out.appendLine("");
-  out.appendLine(`> ${spec.title}：${path.basename(doc.uri.fsPath)}`);
-  out.appendLine(`  工作区：${root}`);
-  out.appendLine(`  占位符：path=${params.path} fullpath=${params.fullpath} name=${params.name} fullname=${params.fullname}`);
+  out.appendLine(`> ${spec.title}：${rel}（在生产服务器上执行）`);
+  out.appendLine(
+    `  占位符：path=${params.path} fullpath=${params.fullpath} name=${params.name} fullname=${params.fullname}`,
+  );
   out.appendLine(`  模板：${tpl}`);
   out.appendLine(`  命令：${command}`);
   out.show(true);
 
-  const started = Date.now();
-  const code = await runShell(root, command, spec.title);
-  const ms = Date.now() - started;
-  if (code === null) {
-    out.appendLine(`（已取消，${ms} ms）`);
+  // §0d：交给 tiptop 在**生产服务器**上执行（工作目录 = 生产根目录）。
+  const res = await runTiptopWithProgress(
+    root,
+    buildTiptopArgs(root, rel, command),
+    spec.title,
+    out,
+  );
+  if (res.cancelled) {
     vscode.window.setStatusBarMessage(`${spec.title}已取消`, 3000);
     return;
   }
-  out.appendLine(`（退出码 ${code}，${ms} ms）`);
-  if (code === 0) {
-    void vscode.window.showInformationMessage(`${spec.title}完成`);
-  } else {
-    out.show(true);
-    void vscode.window.showErrorMessage(
-      `${spec.title}失败（退出码 ${code}）：详见「Genero BDL 编译」输出`,
-    );
+  if (res.code !== 0) {
+    await reportRunFailure(spec.title, res, out);
+    return;
   }
+  void vscode.window.showInformationMessage(`${spec.title}完成`);
 }
 
 /** 立刻更新 `bdl.build.hasMain` 门控（决定 4GL「链接」按钮是否可用）。 */
 function updateHasMainContext(): void {
   const doc = vscode.window.activeTextEditor?.document;
-  const hasMain = doc?.languageId === "bdl" ? hasMainProgram(doc.getText()) : true;
-  void vscode.commands.executeCommand(
-    "setContext",
-    "bdl.build.hasMain",
-    hasMain,
-  );
+  const hasMain =
+    doc?.languageId === "bdl" ? hasMainProgram(doc.getText()) : true;
+  void vscode.commands.executeCommand("setContext", "bdl.build.hasMain", hasMain);
 }
 
 /** 防抖版（打字时不必每个键都判一次）。 */

@@ -7,6 +7,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 
 import { currentClient } from "./client";
+import { linkEnabled as linkEnabledByMode } from "./settings";
 
 /** 反查结果一页的条数（aws_xml 被 324 个程序引用，一次铺开会卡）。 */
 const REF_PAGE = 50;
@@ -34,15 +35,14 @@ type Node =
   | { kind: "moreRefs"; total: number; loaded: number };
 
 /**
- * 链接资料功能总开关（`bdl.link.enable`）。
+ * 链接资料功能开关（`bdl.link.mode`，兼容旧 `bdl.link.enable`）。
  *
  * P1-4：**默认关闭**（轻量档：零配置、不连库、不后台跑任务、不往项目写文件）。
  * 显式给默认值是为了不依赖 package.json（两者必须一致：false）。
  */
 export function linkEnabled(): boolean {
-  return vscode.workspace
-    .getConfiguration("bdl")
-    .get<boolean>("link.enable", false);
+  // §0d：模式三态（off/file/db），旧 bdl.link.enable 由 settings 兼容读取。
+  return linkEnabledByMode();
 }
 
 /** 缓存最近一次请求的树，避免每次展开都跨进程要一次。 */
@@ -188,7 +188,7 @@ export class LinkTreeProvider implements vscode.TreeDataProvider<Node> {
         {
           kind: "info",
           label: "链接资料功能已关闭",
-          tooltip: "设置 bdl.link.enable = false 后不加载资料、不启用相关诊断。\n打开后执行「Genero BDL: 重启语言服务器」生效。",
+          tooltip: "设置「链接资料 → 模式」为「不启用」后不加载资料、不启用相关诊断。\n改模式后执行「Genero BDL: 重启语言服务器」生效。",
         },
       ];
     }
@@ -240,7 +240,7 @@ export class LinkTreeProvider implements vscode.TreeDataProvider<Node> {
     if (this.loaded) {
       return;
     }
-    // link.enable=false：服务器侧不加载资料，这里也别发请求。
+    // 链接资料模式为 off：服务器侧不加载资料，这里也别发请求。
     if (!linkEnabled()) {
       this.tree = undefined;
       this.loaded = true;

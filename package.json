@@ -100,8 +100,7 @@
     ],
     "configuration": [
       {
-        "title": "基础",
-        "order": 0,
+        "title": "基本设置",
         "properties": {
           "bdl.server.path": {
             "type": "string",
@@ -295,207 +294,127 @@
         }
       },
       {
-        "title": "生产环境",
+        "title": "账号、生产环境、配置",
         "properties": {
           "bdl.prod.oracle.host": {
             "type": "string",
             "default": "",
             "scope": "window",
-            "markdownDescription": "Oracle 主机（`source=golang` 采集链接资料时用）。\n\n**只写在 Workspace 设置里**，并且**不要让 `settings.json` 进 git 管理**。\n\n密码**不在这里**：用环境变量 `BDL_ORA_PASSWORD`，或项目里的 `.project/secrets.json`（chmod 600）。\n\n填好后即可在命令面板用「Genero BDL: 链接资料：…」系列命令从 VSCode 里采集。"
+            "markdownDescription": "Oracle 主机（示例 `oracle`）。只在链接/字段资料模式选了「连接数据库」时使用。"
           },
           "bdl.prod.oracle.port": {
             "type": "number",
             "default": 1521,
             "scope": "window",
-            "markdownDescription": "Oracle 端口，默认 1521。"
+            "markdownDescription": "Oracle 端口，默认 `1521`。"
           },
           "bdl.prod.oracle.service": {
             "type": "string",
             "default": "",
             "scope": "window",
-            "markdownDescription": "Oracle service name（如 `PROD`）。"
+            "markdownDescription": "Oracle 服务名（示例 `PROD`）。**连接必需**。"
           },
           "bdl.prod.oracle.user": {
             "type": "string",
             "default": "",
             "scope": "window",
-            "markdownDescription": "只读账号（只查 `DS.GAL_FILE`）。"
+            "markdownDescription": "Oracle 账号（示例 `user`）。请用**应用 schema 账号**：字段资料的默认 SQL 走 `USER_TAB_COLUMNS` + TiTop 字典 `DS.ZTA_FILE`/`DS.GAQ_FILE`，需要账号自己拥有这些表并能读字典表。密码**不在这里**，放 `<项目>/.project/secrets.json`（0600）或环境变量 `BDL_ORA_PASSWORD`。"
           },
           "bdl.prod.deploy.host": {
             "type": "string",
             "default": "",
             "scope": "window",
-            "markdownDescription": "部署目标主机（SSH）。\n\n**只写在 Workspace 设置里**，并且**不要让 `settings.json`（工作区的或 `~/.vscode/settings.json`）进 git 管理**。\n\n密码/密钥**不放在设置里**：Oracle 密码用环境变量 `BDL_ORA_PASSWORD` 或 `<项目>/.project/secrets.json`（chmod 600）；SSH 用密钥文件或 ssh-agent。"
+            "markdownDescription": "生产服务器主机（示例 `erp`）。SSH **密钥登录，不支持密码**。"
           },
           "bdl.prod.deploy.port": {
             "type": "number",
             "default": 22,
             "scope": "window",
-            "markdownDescription": "SSH 端口，默认 22。（只写 Workspace 设置；别把 `settings.json` 提交到 git）"
+            "markdownDescription": "SSH 端口，默认 `22`。"
           },
           "bdl.prod.deploy.user": {
             "type": "string",
             "default": "",
             "scope": "window",
-            "markdownDescription": "SSH 用户名（建议用密钥登录）。（只写 Workspace 设置；别把 `settings.json` 提交到 git）"
-          },
-          "bdl.prod.deploy.remoteRoot": {
-            "type": "string",
-            "default": "",
-            "scope": "window",
-            "markdownDescription": "远程工作根目录（POSIX 绝对路径，如 `/home/apps/tiptop`）。（只写 Workspace 设置；别把 `settings.json` 提交到 git）"
-          },
-          "bdl.prod.deploy.localRoot": {
-            "type": "string",
-            "default": ".",
-            "scope": "window",
-            "markdownDescription": "本地根目录（相对工作区根），默认 `.`。"
-          },
-          "bdl.prod.deploy.transport": {
-            "type": "string",
-            "enum": [
-              "rsync",
-              "scp"
-            ],
-            "default": "rsync",
-            "scope": "window",
-            "markdownDescription": "首选传输方式：`rsync`（默认）或 `scp`。"
-          },
-          "bdl.prod.deploy.fallback": {
-            "type": "string",
-            "enum": [
-              "scp",
-              "none"
-            ],
-            "default": "scp",
-            "scope": "window",
-            "markdownDescription": "首选方式失败后的回退：`scp`（默认）或 `none`（不回退）。"
-          },
-          "bdl.prod.deploy.delete": {
-            "type": "boolean",
-            "default": false,
-            "scope": "window",
-            "markdownDescription": "rsync 是否加 `--delete`。**默认关闭**：远程目录常混有编译产物，误删代价高。"
-          },
-          "bdl.prod.deploy.include": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": [],
-            "scope": "window",
-            "markdownDescription": "上传包含的 glob（相对本地根）。留空 = tiptop 默认（`4gl`/`per`）。"
-          },
-          "bdl.prod.deploy.exclude": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": [],
-            "scope": "window",
-            "markdownDescription": "上传排除的 glob（优先于 include）。留空 = tiptop 默认。"
+            "markdownDescription": "SSH 账号（示例 `tiptop`）。请配置 SSH 密钥，不要用密码明文登录。"
           },
           "bdl.prod.deploy.strictHostKey": {
             "type": "boolean",
             "default": true,
             "scope": "window",
-            "markdownDescription": "严格校验 SSH host key（默认开）。只有在受控内网且你清楚风险时才关。"
+            "markdownDescription": "严格校验 host key（默认打开）。换主机后首次连接会失败，可改用 `accept-new` 语义（关掉本项），不会静默接受任何主机。"
           },
-          "bdl.prod.deploy.compile4gl": {
+          "bdl.link.mode": {
             "type": "string",
-            "default": "",
+            "default": "off",
             "scope": "window",
-            "markdownDescription": "远程编译 `.4gl` 的命令模板。留空 = tiptop 默认（`fglcomp`）。可用 `${file}`/`${dir}` 占位。"
-          },
-          "bdl.prod.deploy.compilePer": {
-            "type": "string",
-            "default": "",
-            "scope": "window",
-            "markdownDescription": "远程编译 `.per` 的命令模板。留空 = tiptop 默认（`fglform`）。"
-          }
-        }
-      },
-      {
-        "title": "链接资料",
-        "order": 1,
-        "properties": {
-          "bdl.link.enable": {
-            "type": "boolean",
-            "default": false,
-            "scope": "window",
-            "markdownDescription": "跨模块函数可见性、侧边栏「链接资料」视图、反查引用程序。\n\n**默认关闭**（轻量档：零配置、不连库、不后台跑任务、不往项目里写文件）。需要时打开，并二选一准备资料：\n1. 直连 Oracle 采集：填「生产环境」的连接信息，再用命令 `Genero BDL: 链接资料：全量更新`；\n2. 用 DS.GAL_FILE 导出：命令 `Genero BDL: 链接资料：从 CSV 导入`。\n\n资料落在 `<项目>/.project/`（迁移前的 `.link/` 仍兼容读取）。"
+            "enum": [
+              "off",
+              "file",
+              "db"
+            ],
+            "enumDescriptions": [
+              "不启用（视图、诊断、命令全关）",
+              "只用 CSV 导入",
+              "允许连接数据库同步/更新（也可 CSV 导入）"
+            ],
+            "markdownDescription": "链接资料功能：`off` 不启用；`file` 只用 CSV 导入；`db` 允许连数据库同步/更新。"
           },
           "bdl.link.dataDir": {
             "type": "string",
             "default": ".project/link",
             "scope": "window",
-            "markdownDescription": "链接资料目录（相对工作区根），默认 `.project/link`：里面是 `links.jsonl`、`links.meta.json`、`gal_file.csv`，由 `tiptop link import`/`sync` 生成。旧布局 `.project` 根 / `.link/` 仍兼容读取，可用命令「迁移项目资料目录」搬家。`secrets.json` 始终在 `.project` 根。"
+            "markdownDescription": "链接资料目录（相对工作区根）。旧布局 `.project` 根 / `.link/` 仍兼容读取。"
           },
           "bdl.link.moduleRoots": {
             "type": "array",
+            "default": [],
+            "scope": "window",
             "items": {
               "type": "string"
             },
-            "default": [],
-            "scope": "window",
-            "markdownDescription": "模组根目录（相对工作区根，如 `tiptop`、`topcust`）。\n\n留空自动探测：凡是「子目录里还有一层含 `4gl/` 的目录」的顶层目录都算模组根，`tiptop` 优先。"
+            "markdownDescription": "模组根（相对工作区根）。留空自动探测；项目结构特殊时再配。"
           },
           "bdl.link.globalModules": {
             "type": "array",
-            "items": {
-              "type": "string"
-            },
             "default": [
               "sub",
               "lib",
               "qry"
             ],
             "scope": "window",
-            "markdownDescription": "对所有程序可见的模组（扁平规则：这些模组里的函数任何程序都能调，包括它们自己）。\n\n把公共库放在别的模组时改这里。"
-          }
-        },
-        "description": "链接资料（程序与 4GL 文件的链接关系）。资料由 tiptop 生成：`tiptop link import -csv <导出.csv>` 或 `tiptop link sync`；语言服务器只读取它。"
-      },
-      {
-        "title": "部署",
-        "order": 2,
-        "properties": {
-          "bdl.deploy.enable": {
-            "type": "boolean",
-            "default": false,
-            "scope": "window",
-            "markdownDescription": "上传源码到远程服务器并远程编译。\n\n**默认关闭**。打开后命令面板才出现部署命令。部署配置不用手写 JSON：插件会把「生产环境 → 部署」里的设置合成为 `<项目>/.project/deploy.json` 再交给 tiptop。"
+            "items": {
+              "type": "string"
+            },
+            "markdownDescription": "对所有程序可见的全局模组（扁平规则）。"
           },
-          "bdl.deploy.target": {
+          "bdl.schema.mode": {
             "type": "string",
-            "default": "",
+            "default": "off",
             "scope": "window",
-            "markdownDescription": "部署目标名（插件生成的 `.project/deploy.json` 里的 `targets` 键）。留空则用 `defaultTarget`。"
-          }
-        },
-        "description": "部署（上传源码到远程服务器并远程编译）。由 tiptop 执行，命令为 `tiptop deploy`。配置见工作区 `.bdl-lsp/deploy.json`。"
-      },
-      {
-        "title": "数据库字段",
-        "properties": {
-          "bdl.schema.enable": {
-            "type": "boolean",
-            "default": false,
-            "scope": "window",
-            "description": "读取项目里的数据库字段资料（`.project/.schema`，由 tiptop schema import 生成）",
-            "markdownDescription": "读取项目里的**数据库字段资料**（`.project/.schema`），用于三件事：\n\n1. `DEFINE r RECORD LIKE t.*` 的成员校验（配合 `record-member-unknown`）；\n2. 悬停 `LIKE t.col` / `LIKE t.*` 时显示字段类型与中文说明；\n3. `r.` 补全带上列的类型与说明。\n\n**默认关闭**（轻量档）。资料由 `tiptop schema import -csv <Oracle导出.csv>` 生成，或命令面板 `Genero BDL: 数据库字段：` 系列命令。"
+            "enum": [
+              "off",
+              "file",
+              "db"
+            ],
+            "enumDescriptions": [
+              "不启用（视图、诊断、命令全关）",
+              "只用 CSV 导入",
+              "允许连接数据库同步（也可 CSV 导入）"
+            ],
+            "markdownDescription": "数据库字段功能：`off` 不启用；`file` 只用 CSV 导入；`db` 允许连数据库同步。"
           },
           "bdl.schema.dataDir": {
             "type": "string",
             "default": ".project/schema",
             "scope": "window",
-            "markdownDescription": "字段资料目录（相对工作区根，默认 `.project/schema`）：`tables.json` 是总索引，`tables/<表>.json` 是每张表的列。由 `tiptop schema import` 生成。旧布局 `.project/.schema` 仍兼容读取。"
+            "markdownDescription": "字段资料目录（相对工作区根）。旧布局 `.project/.schema` 仍兼容读取。"
           },
           "bdl.schema.batchSize": {
             "type": "number",
             "default": 200,
             "scope": "window",
-            "markdownDescription": "「从数据库同步」每批查几张表（默认 200）。慢链路上单批仍超时时可调小；`0` = 不分批（单条大查询）。"
+            "markdownDescription": "「从数据库同步」每批查几张表（默认 200；`0` = 不分批）。慢链路可调小。"
           },
           "bdl.schema.timeoutSec": {
             "type": "number",
@@ -506,43 +425,119 @@
         }
       },
       {
-        "title": "本地编译",
+        "title": "上传编译链接",
         "properties": {
-          "bdl.build.4gl.preview": {
+          "bdl.deploy.enable": {
+            "type": "boolean",
+            "default": false,
+            "scope": "window",
+            "markdownDescription": "上传 / 编译链接预览功能总开关（默认关）。关闭后相关命令隐藏。"
+          },
+          "bdl.prod.deploy.transport": {
+            "type": "string",
+            "default": "off",
+            "scope": "window",
+            "enum": [
+              "off",
+              "rsync",
+              "scp"
+            ],
+            "enumDescriptions": [
+              "不上传（隐藏上传命令）",
+              "rsync 上传，失败回退 scp",
+              "只用 scp"
+            ],
+            "markdownDescription": "上传方式（**只上传当前文件**，不做批量同步）：「工作区根 → 生产根」同路径映射。"
+          },
+          "bdl.prod.deploy.localRoot": {
+            "type": "string",
+            "default": ".",
+            "scope": "window",
+            "markdownDescription": "项目根目录（相对工作区根），默认 `.`。"
+          },
+          "bdl.prod.deploy.remoteRoot": {
+            "type": "string",
+            "default": "",
+            "scope": "window",
+            "markdownDescription": "生产根目录（POSIX 绝对路径，示例 `/u1/toppord`）。上传落点与编译/链接/预览的工作目录都在它下面。"
+          },
+          "bdl.build.enable": {
+            "type": "boolean",
+            "default": false,
+            "scope": "window",
+            "markdownDescription": "编译 / 链接 / 预览总开关（默认关）。命令在**生产服务器**上执行。"
+          },
+          "bdl.build.4gl.preview.enable": {
+            "type": "boolean",
+            "default": true,
+            "scope": "window",
+            "markdownDescription": "4gl 预演编译：是否在工具栏/命令面板显示。"
+          },
+          "bdl.build.4gl.preview.command": {
             "type": "string",
             "default": "cd ${path} && r.c2 ${name}",
             "scope": "window",
-            "markdownDescription": "4GL「预演编译」命令模板（默认不动产物）。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+            "markdownDescription": "4gl 预演编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           },
-          "bdl.build.4gl.compile": {
+          "bdl.build.4gl.compile.enable": {
+            "type": "boolean",
+            "default": true,
+            "scope": "window",
+            "markdownDescription": "4gl 编译：是否在工具栏/命令面板显示。"
+          },
+          "bdl.build.4gl.compile.command": {
             "type": "string",
             "default": "cd ${path} && r.c2 ${name}",
             "scope": "window",
-            "markdownDescription": "4GL「编译」命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+            "markdownDescription": "4gl 编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           },
-          "bdl.build.4gl.link": {
+          "bdl.build.4gl.link.enable": {
+            "type": "boolean",
+            "default": true,
+            "scope": "window",
+            "markdownDescription": "4gl 链接：是否在工具栏/命令面板显示。"
+          },
+          "bdl.build.4gl.link.command": {
             "type": "string",
             "default": "r.l2 ${name}",
             "scope": "window",
-            "markdownDescription": "4GL「链接」命令模板。文件不含 MAIN 程序块时本地直接报错、不执行。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+            "markdownDescription": "4gl 链接命令模板。4GL 链接：文件不含 `MAIN` 程序块时本地直接报错、不执行；每次点会弹 `${name}` 确认。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           },
-          "bdl.build.per.preview": {
+          "bdl.build.per.preview.enable": {
+            "type": "boolean",
+            "default": true,
+            "scope": "window",
+            "markdownDescription": "per 预演编译：是否在工具栏/命令面板显示。"
+          },
+          "bdl.build.per.preview.command": {
             "type": "string",
             "default": "cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f",
             "scope": "window",
-            "markdownDescription": "Form「预演编译」命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+            "markdownDescription": "per 预演编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           },
-          "bdl.build.per.compile": {
+          "bdl.build.per.compile.enable": {
+            "type": "boolean",
+            "default": true,
+            "scope": "window",
+            "markdownDescription": "per 编译：是否在工具栏/命令面板显示。"
+          },
+          "bdl.build.per.compile.command": {
             "type": "string",
             "default": "cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/",
             "scope": "window",
-            "markdownDescription": "Form「编译」命令模板（生成 .42f/.4fd 并归位）。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+            "markdownDescription": "per 编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           },
-          "bdl.build.per.form": {
-            "type": "string",
-            "default": "cd ${path} && r.gf ${name}",
+          "bdl.build.per.form.enable": {
+            "type": "boolean",
+            "default": true,
             "scope": "window",
-            "markdownDescription": "Form「预览画面」命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+            "markdownDescription": "per 预览画面：是否在工具栏/命令面板显示。"
+          },
+          "bdl.build.per.form.command": {
+            "type": "string",
+            "default": "cd ${path} && r.gf ${name} 2 p",
+            "scope": "window",
+            "markdownDescription": "per 预览画面命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           }
         }
       }
@@ -569,24 +564,16 @@
         "category": "Genero BDL"
       },
       {
-        "command": "bdl.deploy",
-        "title": "部署到远程服务器并编译",
-        "category": "Genero BDL"
-      },
-      {
         "command": "bdl.deployCurrentFile",
-        "title": "部署当前文件并编译",
-        "category": "Genero BDL"
+        "title": "上传当前文件",
+        "category": "Genero BDL",
+        "icon": "$(cloud-upload)"
       },
       {
         "command": "bdl.deployDryRun",
-        "title": "部署预演（不上传）",
-        "category": "Genero BDL"
-      },
-      {
-        "command": "bdl.deployListTargets",
-        "title": "列出部署目标",
-        "category": "Genero BDL"
+        "title": "预演上传",
+        "category": "Genero BDL",
+        "icon": "$(cloud-upload)"
       },
       {
         "command": "bdl.links.refresh",
@@ -644,12 +631,14 @@
       {
         "command": "bdl.links.resync",
         "title": "重新同步",
-        "category": "Genero BDL"
+        "category": "Genero BDL",
+        "icon": "$(sync)"
       },
       {
         "command": "bdl.link.updateFromDb",
         "title": "从数据库更新",
-        "category": "Genero BDL"
+        "category": "Genero BDL",
+        "icon": "$(cloud-download)"
       },
       {
         "command": "bdl.build.4gl.preview",
@@ -661,7 +650,7 @@
         "command": "bdl.build.4gl.compile",
         "title": "4GL：编译",
         "category": "Genero BDL",
-        "icon": "$(gear)"
+        "icon": "$(play)"
       },
       {
         "command": "bdl.build.4gl.link",
@@ -679,7 +668,7 @@
         "command": "bdl.build.per.compile",
         "title": "Form：编译",
         "category": "Genero BDL",
-        "icon": "$(gear)"
+        "icon": "$(play)"
       },
       {
         "command": "bdl.build.per.form",
@@ -690,17 +679,20 @@
       {
         "command": "bdl.schema.import",
         "title": "数据库字段：从 CSV 导入",
-        "category": "Genero BDL"
+        "category": "Genero BDL",
+        "icon": "$(file-add)"
       },
       {
         "command": "bdl.schema.refresh",
         "title": "数据库字段：刷新",
-        "category": "Genero BDL"
+        "category": "Genero BDL",
+        "icon": "$(refresh)"
       },
       {
         "command": "bdl.schema.filter",
         "title": "数据库字段：正则过滤表名",
-        "category": "Genero BDL"
+        "category": "Genero BDL",
+        "icon": "$(filter)"
       },
       {
         "command": "bdl.schema.clearFilter",
@@ -732,25 +724,25 @@
         "command": "bdl.schema.syncSelected",
         "title": "数据库字段：同步已选中的表",
         "category": "Genero BDL",
-        "icon": "$(cloud-download)"
+        "icon": "$(cloud-upload)"
       },
       {
         "command": "bdl.schema.selectAll",
         "title": "数据库字段：全选当前列表",
         "category": "Genero BDL",
-        "icon": "$(check-all)"
+        "icon": "$(checklist)"
       },
       {
         "command": "bdl.schema.clearSelection",
         "title": "数据库字段：清除勾选",
         "category": "Genero BDL",
-        "icon": "$(close-all)"
+        "icon": "$(close)"
       },
       {
         "command": "bdl.schema.syncFiltered",
         "title": "数据库字段：同步当前筛选结果",
         "category": "Genero BDL",
-        "icon": "$(list-filter)"
+        "icon": "$(cloud-upload)"
       }
     ],
     "views": {
@@ -758,14 +750,14 @@
         {
           "id": "bdlLinks",
           "name": "链接资料",
-          "when": "workspaceFolderCount > 0 && config.bdl.link.enable",
+          "when": "workspaceFolderCount > 0 && bdl.link.enabled",
           "icon": "$(link)",
           "contextualTitle": "Genero BDL 链接资料"
         },
         {
           "id": "bdlSchema",
           "name": "数据库字段",
-          "when": "workspaceFolderCount > 0 && config.bdl.schema.enable",
+          "when": "workspaceFolderCount > 0 && bdl.schema.enabled",
           "icon": "$(database)",
           "contextualTitle": "Genero BDL 数据库字段"
         }
@@ -775,52 +767,52 @@
       "view/title": [
         {
           "command": "bdl.links.refresh",
-          "when": "view == bdlLinks",
+          "when": "view == bdlLinks && bdl.link.enabled",
           "group": "navigation@1"
         },
         {
           "command": "bdl.links.resync",
-          "when": "view == bdlLinks && config.bdl.link.enable",
+          "when": "view == bdlLinks && bdl.link.enabled",
           "group": "navigation@2"
         },
         {
           "command": "bdl.link.updateFromDb",
-          "when": "view == bdlLinks && config.bdl.link.enable && bdl.db.configured && bdl.link.hasData",
+          "when": "view == bdlLinks && bdl.link.modeDb && bdl.db.configured && bdl.link.hasData",
           "group": "navigation@3"
         },
         {
           "command": "bdl.schema.filter",
-          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "when": "view == bdlSchema && bdl.schema.enabled",
           "group": "navigation@1"
         },
         {
           "command": "bdl.schema.refresh",
-          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "when": "view == bdlSchema && bdl.schema.enabled",
           "group": "navigation@2"
         },
         {
           "command": "bdl.schema.import",
-          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "when": "view == bdlSchema && bdl.schema.enabled",
           "group": "navigation@3"
         },
         {
           "command": "bdl.schema.syncSelected",
-          "when": "view == bdlSchema && config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData",
+          "when": "view == bdlSchema && bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@4"
         },
         {
           "command": "bdl.schema.selectAll",
-          "when": "view == bdlSchema && config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData",
+          "when": "view == bdlSchema && bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@5"
         },
         {
           "command": "bdl.schema.clearSelection",
-          "when": "view == bdlSchema && config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData",
+          "when": "view == bdlSchema && bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@6"
         },
         {
           "command": "bdl.schema.syncFiltered",
-          "when": "view == bdlSchema && config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData",
+          "when": "view == bdlSchema && bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@4"
         }
       ],
@@ -837,7 +829,7 @@
         },
         {
           "command": "bdl.schema.syncTable",
-          "when": "view == bdlSchema && viewItem == bdlSchemaTable && bdl.db.configured && bdl.schema.hasData",
+          "when": "view == bdlSchema && viewItem == bdlSchemaTable && bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData",
           "group": "1_sync"
         },
         {
@@ -853,28 +845,20 @@
       ],
       "commandPalette": [
         {
-          "command": "bdl.deploy",
-          "when": "config.bdl.deploy.enable"
-        },
-        {
           "command": "bdl.deployCurrentFile",
-          "when": "config.bdl.deploy.enable"
+          "when": "bdl.upload.enabled"
         },
         {
           "command": "bdl.deployDryRun",
-          "when": "config.bdl.deploy.enable"
-        },
-        {
-          "command": "bdl.deployListTargets",
-          "when": "config.bdl.deploy.enable"
+          "when": "bdl.upload.enabled"
         },
         {
           "command": "bdl.links.refresh",
-          "when": "config.bdl.link.enable"
+          "when": "bdl.link.enabled"
         },
         {
           "command": "bdl.links.references",
-          "when": "config.bdl.link.enable"
+          "when": "bdl.link.enabled"
         },
         {
           "command": "bdl.links.moreRefs",
@@ -886,103 +870,104 @@
         },
         {
           "command": "bdl.link.importCsv",
-          "when": "config.bdl.link.enable"
+          "when": "bdl.link.enabled"
         },
         {
           "command": "bdl.link.syncCurrent",
-          "when": "config.bdl.link.enable"
+          "when": "bdl.link.modeDb"
         },
         {
           "command": "bdl.link.syncModules",
-          "when": "config.bdl.link.enable"
+          "when": "bdl.link.modeDb"
         },
         {
           "command": "bdl.link.syncAll",
-          "when": "config.bdl.link.enable"
+          "when": "bdl.link.modeDb"
         },
         {
           "command": "bdl.link.status",
-          "when": "config.bdl.link.enable"
+          "when": "bdl.link.enabled"
         },
         {
           "command": "bdl.links.resync",
-          "when": "config.bdl.link.enable"
+          "when": "bdl.link.enabled"
         },
         {
           "command": "bdl.link.updateFromDb",
-          "when": "config.bdl.link.enable && bdl.db.configured && bdl.link.hasData"
+          "when": "bdl.link.modeDb && bdl.db.configured && bdl.link.hasData"
         },
         {
           "command": "bdl.build.4gl.preview",
-          "when": "editorLangId == bdl"
+          "when": "editorLangId == 4gl && bdl.build.enabled && config.bdl.build.4gl.preview.enable"
         },
         {
           "command": "bdl.build.4gl.compile",
-          "when": "editorLangId == bdl"
+          "when": "editorLangId == 4gl && bdl.build.enabled && config.bdl.build.4gl.compile.enable"
         },
         {
           "command": "bdl.build.4gl.link",
-          "when": "editorLangId == bdl", "enablement": "bdl.build.hasMain"
+          "when": "editorLangId == 4gl && bdl.build.enabled && config.bdl.build.4gl.link.enable",
+          "enablement": "bdl.build.hasMain"
         },
         {
           "command": "bdl.build.per.preview",
-          "when": "editorLangId == per"
+          "when": "editorLangId == per && bdl.build.enabled && config.bdl.build.per.preview.enable"
         },
         {
           "command": "bdl.build.per.compile",
-          "when": "editorLangId == per"
+          "when": "editorLangId == per && bdl.build.enabled && config.bdl.build.per.compile.enable"
         },
         {
           "command": "bdl.build.per.form",
-          "when": "editorLangId == per"
+          "when": "editorLangId == per && bdl.build.enabled && config.bdl.build.per.form.enable"
         },
         {
           "command": "bdl.schema.import",
-          "when": "config.bdl.schema.enable"
+          "when": "bdl.schema.enabled"
         },
         {
           "command": "bdl.schema.refresh",
-          "when": "config.bdl.schema.enable"
+          "when": "bdl.schema.enabled"
         },
         {
           "command": "bdl.schema.filter",
-          "when": "config.bdl.schema.enable"
+          "when": "bdl.schema.enabled"
         },
         {
           "command": "bdl.schema.clearFilter",
-          "when": "config.bdl.schema.enable"
+          "when": "bdl.schema.enabled"
         },
         {
           "command": "bdl.schema.syncTable",
-          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
+          "when": "bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData"
         },
         {
           "command": "bdl.schema.copyColumn",
-          "when": "config.bdl.schema.enable"
+          "when": "bdl.schema.enabled"
         },
         {
           "command": "bdl.schema.openTable",
-          "when": "config.bdl.schema.enable"
+          "when": "bdl.schema.enabled"
         },
         {
           "command": "bdl.schema.syncAll",
-          "when": "config.bdl.schema.enable && bdl.db.configured"
+          "when": "bdl.schema.modeDb && bdl.db.configured"
         },
         {
           "command": "bdl.schema.syncSelected",
-          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
+          "when": "bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData"
         },
         {
           "command": "bdl.schema.selectAll",
-          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
+          "when": "bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData"
         },
         {
           "command": "bdl.schema.clearSelection",
-          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
+          "when": "bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData"
         },
         {
           "command": "bdl.schema.syncFiltered",
-          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
+          "when": "bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData"
         }
       ],
       "editor/title": [
@@ -993,37 +978,38 @@
         },
         {
           "command": "bdl.build.4gl.preview",
-          "when": "resourceLangId == bdl && resourceExtname == .4gl",
+          "when": "resourceLangId == bdl && resourceExtname == .4gl && bdl.build.enabled && config.bdl.build.4gl.preview.enable",
           "group": "navigation@4"
         },
         {
           "command": "bdl.build.4gl.compile",
-          "when": "resourceLangId == bdl && resourceExtname == .4gl",
+          "when": "resourceLangId == bdl && resourceExtname == .4gl && bdl.build.enabled && config.bdl.build.4gl.compile.enable",
           "group": "navigation@5"
         },
         {
           "command": "bdl.build.4gl.link",
-          "when": "resourceLangId == bdl && resourceExtname == .4gl",
+          "when": "resourceLangId == bdl && resourceExtname == .4gl && bdl.build.enabled && config.bdl.build.4gl.link.enable",
           "group": "navigation@6",
           "enablement": "bdl.build.hasMain"
         },
         {
           "command": "bdl.build.per.preview",
-          "when": "resourceLangId == per",
+          "when": "resourceLangId == per && bdl.build.enabled && config.bdl.build.per.preview.enable",
           "group": "navigation@4"
         },
         {
           "command": "bdl.build.per.compile",
-          "when": "resourceLangId == per",
+          "when": "resourceLangId == per && bdl.build.enabled && config.bdl.build.per.compile.enable",
           "group": "navigation@5"
         },
         {
           "command": "bdl.build.per.form",
-          "when": "resourceLangId == per",
+          "when": "resourceLangId == per && bdl.build.enabled && config.bdl.build.per.form.enable",
           "group": "navigation@6"
         }
       ]
-    }
+    },
+    "activationEvents": []
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

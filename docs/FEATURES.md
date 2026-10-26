@@ -53,7 +53,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | 档 | 打开方式 | 多出来的能力 |
 |---|---|---|
 | **③ 轻量（默认）** | 什么都不用做 | 高亮、跳转/引用、大纲、悬停、补全、格式化、诊断、字段校验 |
-| **② 本地文件解析** | 导入两份 CSV + 开 `bdl.link.enable` / `bdl.schema.enable` | 跨模块函数可见性、链接视图与反查、字段中文说明、记录成员校验 |
+| **② 本地文件解析** | 导入两份 CSV + 把 `bdl.link.mode` / `bdl.schema.mode` 设为 `file`（或 `db`） | 跨模块函数可见性、链接视图与反查、字段中文说明、记录成员校验 |
 | **① 全功能** | 配「生产环境」Oracle 连接（+ `bdl.deploy.enable`） | 从数据库一键同步链接/字段资料、远程部署 |
 
 ---
@@ -172,13 +172,13 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | F13 | `function-not-found` 启用条件 | LSP | 必须有链接资料且索引预热完成；资料缺失/链内文件不在磁盘/索引未就绪 → 一律不报（宁漏勿误） |
 | F14 | 资料自身诊断 | LSP | `link-data-invalid`（JSONL 坏了 → 停用并提示重导）；都落在资料文件上，不污染源码 |
 | F15 | 链接资料数据服务 | LSP | 自定义请求 `bdl/linkTree`、`bdl/linkReferences`（反查默认不查、分页 50） |
-| F16 | 链接资料配置 | LSP | `bdl.link.enable` / `dataDir` / `moduleRoots` / `globalModules` |
+| F16 | 链接资料配置 | LSP | `bdl.link.mode`（off/file/db；兼容旧 `enable`）/ `dataDir` / `moduleRoots` / `globalModules` |
 
 ### 6.3 界面与操作（VSC）
 
 | # | 功能 | 归属 | 说明 / 入口 |
 |---|---|---|---|
-| F17 | 链接资料视图 | VSC | 侧边栏「链接资料」TreeView：程序 → 链内文件三级，点击跳转；仅 `workspaceFolderCount>0 && bdl.link.enable` 时显示 |
+| F17 | 链接资料视图 | VSC | 侧边栏「链接资料」TreeView：程序 → 链内文件三级，点击跳转；仅 `bdl.link.mode != off`（视图上下文 `bdl.link.enabled`）时显示 |
 | F18 | 反查引用程序 / 从数据库更新 | VSC | 从当前符号反查调用方，Quick Open 选择跳转；结果多时「显示更多反查结果」；视图内「重新同步」按钮；标题栏「从数据库更新」（W3，仅 `bdl.db.configured && bdl.link.hasData` 时显示） |
 | F19 | 导入/同步命令 | VSC | `链接资料：从 CSV 导入 / 更新当前文件 / 按模组更新 / 全量更新 / 查看状态 / 刷新`；导入先把 CSV 复制到 `<项目>/.project/link/gal_file.csv` 再确认（**不再预演**，W2；全量前一次不重新扫描的确认） |
 | F20 | 进度与取消 | VSC | 解析 tiptop 进度协议，弹进度通知（含取消）；同步/导入共用同一套显示 |
@@ -211,7 +211,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | G11 | 记录成员校验 | LSP | `record-member-unknown`（默认 off）；`RECORD LIKE t.*` 用字段资料展开成员 |
 | G12 | 列补全 | LSP | `r.` 补全带每列类型与中文说明 |
 | G13 | 字段资料数据服务 | LSP | 自定义请求 `bdl/schemaTables`（服务端正则过滤 + `total/matched/returned`）、`bdl/schemaColumns`（展开才取） |
-| G14 | 字段资料配置 | LSP | `bdl.schema.enable` / `bdl.schema.dataDir`（默认 `.project/schema`）；旧的「扫各模组 `sch/*.sch`」与 `bdl.schema.paths` 已下线 |
+| G14 | 字段资料配置 | LSP | `bdl.schema.mode`（off/file/db；兼容旧 `enable`）/ `bdl.schema.dataDir`（默认 `.project/schema`） |
 
 ### 7.3 界面与操作（VSC）
 
@@ -242,7 +242,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 
 | # | 功能 | 归属 | 说明 / 入口 |
 |---|---|---|---|
-| H7 | 部署命令 | VSC | `部署到远程服务器并编译` / `部署当前文件并编译` / `部署预演（不上传）` / `列出部署目标`；`bdl.deploy.enable=false` 时命令面板隐藏且直接调用也不执行 |
+| H7 | 上传命令（§0d：只允许单文件） | VSC | `上传当前文件` / `预演上传`；`bdl.deploy.enable=false` 或 `transport=off` 时命令面板隐藏、直接调用也只提示不执行。**整包部署与列出目标已删除** |
 | H8 | 配置合成 | VSC | 从 `bdl.prod.deploy.*` 合成 `<项目>/.project/deploy/deploy.json`（带 `createdBy: "vscode-bdl <版本>"`）；手写文件被覆盖前先备份 `deploy.json.bak` |
 | H9 | 部署当前文件 | VSC | 先保存脏文档，只把当前 `.4gl`/`.global`/`.per` 交给 `tiptop deploy`；Zed 用 task `$ZED_FILE`（Zed 侧暂停） |
 | H10 | 编译诊断回传 | VSC | 部署结果解析为编辑器诊断；输出写入「Genero BDL」通道 |
@@ -257,7 +257,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I2 | 平台 VSIX 内置二进制 | VSC | 每个平台 VSIX 打包对应的 `bdl-lsp` + `tiptop`（`bin/`），装完即用、无需另装 |
 | I3 | 二进制路径覆盖 | VSC | `bdl.server.path` / `bdl.tools.path` 指定外部二进制（开发期或自定义构建） |
 | I4 | 轻量档默认 | VSC | 默认不连库、不写工作区、不起后台任务；三个总开关默认 false，命令用 `when` 门控 |
-| I5 | 命令（37 条） | VSC | 见 [§10.3](#103-vscode-命令37-条)；排障三件套 + 强制解析 + 链接资料 + 数据库字段 + **本地编译/链接/预览（W5）** + 部署 |
+| I5 | 命令（35 条） | VSC | 见 [§10.3](#103-vscode-命令35-条)；排障三件套 + 强制解析 + 链接资料 + 数据库字段 + **编译/链接/预览（生产端）** + 上传 |
 | I6 | 侧边栏视图（2 个） | VSC | 「链接资料」、「数据库字段」TreeView，按开关显隐 |
 | I7 | 进度通知 | VSC | 解析 tiptop stderr 进度协议，展示阶段与计数，支持取消 |
 | I8 | 输出与追踪 | VSC | 「Genero BDL」输出通道 + 「Genero BDL 追踪」LSP 消息通道（`bdl.trace.server`：off/messages/verbose） |
@@ -270,7 +270,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I15 | 预演策略（W2） | VSC | 只有**编译类**允许预演（`tiptop deploy -dry-run`、W5 的本地「预演编译」）；link/schema 的同步与导入一律直接执行（避免整份扫描跑两遍） |
 | I16 | 数据库按钮门控（W3/W4） | VSC | context key `bdl.db.configured`（Oracle host/service/user 配齐）、`bdl.link.hasData`（links.jsonl 存在）、`bdl.schema.hasData`（tables.json 存在）；「链接资料」的 `从数据库更新` 需前两者，「数据库字段」的局部/批量同步需 configure+hasData |
 | I18 | 失败可见性与运行日志（W7） | VSC | tiptop 输出按功能写通道（schema → 「数据库字段」，link → 「链接资料」）；失败通知带 stderr 首行 + 「打开日志」；每次运行完整输出落盘到扩展 globalStorage 的 `last-run-<cmd>.log` |
-| I17 | 本地编译/链接/预览（W5） | VSC | 命令面板 + 编辑器右上角按钮：`.4gl` 预演编译/编译/链接，`.per` 预演编译/编译/预览画面；六种命令模板可自定义（`bdl.build.*`），占位符 `${path}`（两层目录）/`${fullpath}`（三层）/`${name}`/`${fullname}`，分隔符恒为 `/`；运行目录=工作区根，stdout/stderr 原样进「Genero BDL 编译」；无 `MAIN` 程序块时「链接」按钮不可用且命令本地报错；`${name}` 在链接/编译时弹框确认 |
+| I17 | 编译/链接/预览（生产端，§0d） | VSC | 命令面板 + 编辑器右上角按钮：`.4gl` 预演编译/编译/链接，`.per` 预演编译/编译/预览画面；命令交给 `tiptop exec` 在**生产服务器**（工作目录 = 生产根）通过 ssh 执行，stdout/stderr 原样进「Genero BDL 编译」；模板 `bdl.build.<lang>.<mode>.command` + 各自 `enable`，总开关 `bdl.build.enable`；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}`（分隔符恒 `/`）；**不自动上传**；无 `MAIN` 时「链接」不可用；**只有 4GL 链接**弹 `${name}` |
 
 ---
 
@@ -297,15 +297,15 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | `tiptop deploy` | `-target` `-config` `-workspace` `-dry-run` `-no-compile` `-no-upload` `-json` `-list` `-version` `[文件...]` |
 | `tiptop version` | 打印版本 |
 
-### 10.3 VSCode 命令（37 条）
+### 10.3 VSCode 命令（35 条）
 
 | 分组 | 命令 ID / 标题 |
 |---|---|
 | 排障 | `bdl.restartServer` 重启语言服务器 · `bdl.showServerInfo` 显示语言服务器信息 · `bdl.showOutput` 显示输出 · `bdl.forceParseCurrentFile` 强制解析当前文件 |
 | 链接资料 | `bdl.link.importCsv` 从 CSV 导入 · `bdl.link.syncCurrent` 更新当前文件 · `bdl.link.syncModules` 按模组更新 · `bdl.link.syncAll` 全量更新 · `bdl.link.status` 查看状态 · **`bdl.link.updateFromDb` 从数据库更新（视图标题栏；仅已配库 + 已有全量资料时出现）** · `bdl.links.refresh` 刷新 · `bdl.links.references` 反查引用程序 · `bdl.links.moreRefs` 显示更多反查结果 · `bdl.links.resync` 重新同步 · `bdl.migrateLinkDir` 迁移项目资料目录（隐藏） |
-| 本地编译（W5） | `bdl.build.4gl.preview` 4GL 预演编译 · `bdl.build.4gl.compile` 4GL 编译 · `bdl.build.4gl.link` 4GL 链接（无 MAIN 时禁用） · `bdl.build.per.preview` Form 预演编译 · `bdl.build.per.compile` Form 编译 · `bdl.build.per.form` Form 预览画面 |
+| 编译/链接/预览（生产端，§0d） | `bdl.build.4gl.preview` 4GL 预演编译 · `bdl.build.4gl.compile` 4GL 编译 · `bdl.build.4gl.link` 4GL 链接（无 MAIN 时禁用） · `bdl.build.per.preview` Form 预演编译 · `bdl.build.per.compile` Form 编译 · `bdl.build.per.form` Form 预览画面 |
 | 数据库字段 | `bdl.schema.import` 从 CSV 导入 · `bdl.schema.syncAll` 从数据库同步 · `bdl.schema.syncTable` 同步选中的表 · `bdl.schema.syncSelected` 同步已选中的表 · `bdl.schema.syncFiltered` 同步当前筛选结果 · `bdl.schema.selectAll` 全选当前列表 · `bdl.schema.clearSelection` 清除勾选 · `bdl.schema.filter` 正则过滤表名 · `bdl.schema.clearFilter` 清除过滤 · `bdl.schema.refresh` 刷新 · `bdl.schema.copyColumn` 复制列定义 · `bdl.schema.openTable` 打开表资料文件 |
-| 部署 | `bdl.deploy` 部署到远程服务器并编译 · `bdl.deployCurrentFile` 部署当前文件并编译 · `bdl.deployDryRun` 部署预演（不上传） · `bdl.deployListTargets` 列出部署目标 |
+| 上传 | `bdl.deployCurrentFile` 上传当前文件 · `bdl.deployDryRun` 预演上传（§0d：整包部署与列出目标已删除） |
 
 > 跳转/引用/补全/重命名/格式化/快速修复由 LSP 提供，入口是 VSCode 原生菜单或快捷键，不在本表。
 
@@ -313,7 +313,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 
 ## 11. 配置项
 
-### 11.1 VSC 设置（6 组 55 键）
+### 11.1 VSC 设置（3 组 55 键）
 
 | 组 | 键 | 默认 | 作用 |
 |---|---|---|---|
@@ -329,12 +329,12 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | 基础 | `bdl.builtins.enable` / `paths` / `disable` | `true` / `[]` / `[]` | 内置符号表开关、附加 JSON、屏蔽名单 |
 | 基础 | `bdl.ignore.files` / `fields` / `forms` | `[]` | 忽略 glob（`**`） |
 | 基础 | `bdl.limits.maxFileBytes` / `maxFileLines` / `maxIssues` / `parseTimeoutMs` | `2097152` / `20000` / `200` / `2000` | 资源与报告上限 |
-| 生产环境 | `bdl.prod.oracle.host` / `port` / `service` / `user` | `1521`，其余空 | 只读 Oracle 连接（密码走环境变量/secrets） |
-| 生产环境 | `bdl.prod.deploy.host` / `port` / `user` / `remoteRoot` / `localRoot` / `transport` / `fallback` / `delete` / `include` / `exclude` / `strictHostKey` / `compile4gl` / `compilePer` | `22` / `rsync` / `scp` / `true`，其余空 | 部署目标；合成为 `.project/deploy/deploy.json` |
-| 链接资料 | `bdl.link.enable` / `dataDir` / `moduleRoots` / `globalModules` | **`false`** / `.project/link` / `[]` / `["sub","lib","qry"]` | 链接资料读取与跨模块可见性 |
-| 部署 | `bdl.deploy.enable` / `target` | **`false`** / 空 | 部署命令总开关与默认目标 |
-| 数据库字段 | `bdl.schema.enable` / `dataDir` / `batchSize` / `timeoutSec` | **`false`** / `.project/schema` / `200` / `120` | 字段资料读取；后两者是 W7 分批同步参数（0=不分批） |
-| 本地编译 | `bdl.build.4gl.preview` / `.compile` / `.link` · `bdl.build.per.preview` / `.compile` / `.form` | 见 README §5.10（4GL/Form 各自默认脚本） | 本地编译/链接/预览命令模板；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}` |
+| 账号、生产环境、配置 | `bdl.prod.oracle.host` / `port` / **`service`（新增）** / `user` | `1521`，其余空 | Oracle 连接（**账号须为应用 schema 账号**；密码走环境变量/secrets） |
+| 账号、生产环境、配置 | `bdl.prod.deploy.host` / `port` / `user` / `strictHostKey` | `22` / `true`，其余空 | 生产服务器（SSH 密钥登录，不支持密码） |
+| 账号、生产环境、配置 | `bdl.link.mode` / `dataDir` / `moduleRoots` / `globalModules` | **`off`** / `.project/link` / `[]` / `["sub","lib","qry"]` | 链接资料三态（off/file/db）与跨模块可见性 |
+| 上传编译链接 | `bdl.deploy.enable` / `bdl.prod.deploy.transport` / `localRoot` / `remoteRoot` | **`false`** / **`off`** / `.` / 空 | 单文件上传：总开关 + 方式 + 目录映射 |
+| 账号、生产环境、配置 | `bdl.schema.mode` / `dataDir` / `batchSize` / `timeoutSec` | **`off`** / `.project/schema` / `200` / `120` | 字段资料三态；后两者是 W7 分批同步参数 |
+| 上传编译链接 | `bdl.build.<lang>.<mode>.enable` / `.command`（6 组）+ `bdl.build.enable` | 命令见 README §5.10；enable 默认 `true` | 编译/链接/预览命令模板（**生产服务器执行**，不自动上传）；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}` |
 
 > 密码**不放在设置里**：`BDL_ORA_PASSWORD` 环境变量，或 `<项目>/.project/secrets.json`（`chmod 600`）。
 > 「生产环境」只写 Workspace，`settings.json` 不要进 git。

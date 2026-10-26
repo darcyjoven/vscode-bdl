@@ -12,6 +12,7 @@ import * as vscode from "vscode";
 
 import { currentTools } from "./client";
 import { refreshDataContexts } from "./dbctx";
+import { linkMode } from "./settings";
 import { resolveTools } from "./server/binary";
 
 /** 扩展安装目录，用于定位内置的 tiptop（注册命令时写入）。 */
@@ -617,7 +618,26 @@ async function importCsv(): Promise<void> {
 }
 
 /** 更新当前打开文件相关的链接资料。 */
+/**
+ * §0d：连数据库的命令只在「链接资料模式 = 连接数据库」时可用。
+ *
+ * package.json 的 `when` 已经隐藏了按钮，这里再挡一次——命令面板/直接调用
+ * 也可能绕过来。返回 true 表示可以继续。
+ */
+function requireLinkDbMode(): boolean {
+  if (linkMode() === "db") {
+    return true;
+  }
+  void vscode.window.showWarningMessage(
+    "链接资料当前是「只用 CSV 导入」模式：要连数据库，请在设置里把「链接资料 → 模式」改成「连接数据库」",
+  );
+  return false;
+}
+
 async function syncCurrent(): Promise<void> {
+  if (!requireLinkDbMode()) {
+    return;
+  }
   const root = workspaceRoot();
   if (!root) {
     void vscode.window.showWarningMessage("请先打开一个工作区");
@@ -635,6 +655,9 @@ async function syncCurrent(): Promise<void> {
 
 /** 按模组更新（多选）。 */
 async function syncModules(): Promise<void> {
+  if (!requireLinkDbMode()) {
+    return;
+  }
   const root = workspaceRoot();
   if (!root) {
     void vscode.window.showWarningMessage("请先打开一个工作区");
@@ -658,6 +681,9 @@ async function syncModules(): Promise<void> {
 
 /** 全量更新（会重扫全语料判定 MAIN，提示耗时）。 */
 async function syncAll(): Promise<void> {
+  if (!requireLinkDbMode()) {
+    return;
+  }
   const root = workspaceRoot();
   if (!root) {
     void vscode.window.showWarningMessage("请先打开一个工作区");

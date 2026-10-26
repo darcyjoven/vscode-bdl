@@ -21,7 +21,7 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法
 7. [表单 .per、GLOBALS 与数据库字段资料](#7-表单-perglobals-与数据库字段资料)
 8. [链接资料](#8-链接资料)
 9. [部署](#9-部署)
-10. [配置说明（6 组 55 键）](#10-配置说明6-组-55-键)
+10. [配置说明（3 组 55 键）](#10-配置说明3-组-55-键)
 11. [常见问题](#11-常见问题)
 12. [附录 A：从生产端搭建工作区](#附录-a从生产端搭建工作区)
 13. [附录 B：配图与录屏清单](#附录-b配图与录屏清单)
@@ -117,7 +117,7 @@ code --list-extensions | grep -i 4gl
 |---|---|---|---|
 | 适合谁 | 只想看代码、改代码 | 公司不让连库 / 拿得到导出文件 | 能申请只读库账号 |
 | 需要准备什么 | **什么都不用配** | 一份 DS.GAL_FILE 导出 CSV，外加一份表字段 CSV | 数据库主机/服务名/只读账号 + 密码 |
-| 得到什么 | 高亮、跳转、引用、大纲、悬停、补全、格式化、语法诊断、表单字段校验 | 再加：跨模块函数可见性、链接资料视图与反查引用、字段中文说明、记录成员校验 | 再加：**从数据库一键同步**（链接资料 + 表字段）、**远程部署** |
+| 得到什么 | 高亮、跳转、引用、大纲、悬停、补全、格式化、语法诊断、表单字段校验 | 再加：跨模块函数可见性、链接资料视图与反查引用、字段中文说明、记录成员校验 | 再加：**从数据库一键同步**（链接资料 + 表字段）、**单文件上传 + 生产端编译/链接/预览** |
 | 敏感信息 | 不碰 | 不碰（只有导出文件） | 账号写在 **Workspace 设置**，**密码不进设置** |
 | 会不会往项目里写文件 | **不会** | 会（写 `<项目>/.project/{link,schema}/`） | 会（写 `<项目>/.project/{link,schema,deploy}/`） |
 | 会不会连网/连库 | 不会 | 不会 | 只在你点命令时连一次 |
@@ -205,7 +205,7 @@ code --list-extensions | grep -i 4gl
 | GLOBALS 跨文件 | 自动 | 项目里有 `.global` 就自动生效：全局变量的跳转与来源标注 | ③ |
 | 链接资料视图 | 侧边栏"链接资料" | 查看程序引用关系、反查引用程序（VSCode 专属） | ②① |
 | 数据库字段 | 侧边栏"数据库字段" | 悬停字段中文说明、`RECORD LIKE t.*` 成员校验 | ②① |
-| 本地编译/链接 | 编辑器右上角按钮 / 命令面板 | W5：`.4gl` 预演编译/编译/链接、`.per` 预演编译/编译/预览画面；命令模板可自定义 | ③ |
+| 编译/链接/预览 | 编辑器右上角按钮 / 命令面板 | §0d：`.4gl` 预演编译/编译/链接、`.per` 预演编译/编译/预览画面；命令在**生产服务器**上执行，模板可自定义（需先上传文件） | ③ |
 | 部署 | 命令面板 | 上传 + 远程编译；见 [§9](#9-部署) | ① |
 
 > 说明：扩展**不做类型检查、不做赋值兼容性检查，也不做跨文件重命名**。
@@ -280,9 +280,15 @@ code --list-extensions | grep -i 4gl
 > 🎬 **录屏位**：`docs/images/vscode/05-format.gif`
 > 建议内容：选中一段缩进混乱的 4GL，执行格式化，展示前后对比。
 
-### 5.10 本地编译 / 链接 / 预览（W5）
+### 5.10 编译 / 链接 / 预览（在生产服务器上执行）
 
-编辑器**右上角有 3 个按钮**（命令面板里同名命令也能用），直接在项目里跑你们自己的编译脚本：
+编辑器**右上角有 3 个按钮**（命令面板里同名命令也能用）。§0d 之后这些命令
+**不在本机执行**——开发机没有 Genero 环境，插件把命令交给 `tiptop exec`，
+通过 ssh 在**生产根目录**下运行你们自己的脚本：
+
+> **先上传再编译**：上传是**单独的动作**（`上传当前文件`），插件**不会自动上传**。
+> 流程是：改完文件 → 保存 → 点「上传当前文件」→ 再点「4GL：编译 / 链接 / 预览画面」。
+> 图标：预演编译 `$(beaker)`、编译 `$(play)`、链接 `$(link)`、Form 预览 `$(eye)`。
 
 | 文件 | 三种方式 | 默认命令 |
 |---|---|---|
@@ -290,7 +296,10 @@ code --list-extensions | grep -i 4gl
 | `.4gl` | 链接 | `r.l2 ${name}` |
 | `.per` | 预演编译 | `cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f` |
 | `.per` | 编译 | `cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/` |
-| `.per` | 预览画面 | `cd ${path} && r.gf ${name}` |
+| `.per` | 预览画面 | `cd ${path} && r.gf ${name} 2 p` |
+
+**`${name}` 弹框**：**只有 4GL「链接」会弹确认框**（预填文件名去扩展名，可改）；
+其余命令直接用文件名去扩展名，不再打断你。
 
 **占位符**（六种模板通用；目录分隔符恒为 `/`，与平台无关）：
 
@@ -304,7 +313,7 @@ code --list-extensions | grep -i 4gl
 规则：
 
 - 命令在**工作区根**执行；stdout / stderr **原样**进「Genero BDL 编译」输出通道（含命令回显、耗时与退出码）；
-- 六种模板都能在设置里改（[§10.5](#105-设置键总表6-组-55-键) 组 6「本地编译」）；
+- 六种模板都能在设置里改（[§10.5](#105-设置键总表3-组-55-键) 组 3「上传编译链接」）；
 - `.4gl`「链接」**每次**弹出 `${name}` 输入框（预填文件名去扩展名，可改）；「编译」同样会弹；「预演编译」不弹、直接用默认名；
 - **没有 `MAIN` 程序块**的 `.4gl`：右上角「链接」按钮是**不可用**（灰）状态；直接执行命令也会本地报错"没有 MAIN 函数，不允许链接"，不会跑脚本；
 - 运行前若文件有未保存修改会**先保存**（脚本读的是磁盘文件）；编译中可点进度通知上的**取消**结束进程；
@@ -458,7 +467,7 @@ tiptop schema status -root .          # 看表数/列数/导入时间
 ```
 
 资料落在 `.project/schema/`（`tables.json` 总索引 + `tables/<表>.json` 每表一列）。
-在设置里打开 **`bdl.schema.enable`**（默认关）之后：
+在设置里把 **`bdl.schema.mode`** 设为 `file`/`db`（默认 `off`）之后：
 
 - 侧边栏出现 **「数据库字段」** 视图：顶部查询框支持**正则**（`^APF`、`(apg|aph)0`），
   表**展开时才加载**列（几千张表也不卡）；右键表可以"同步选中的表 / 打开表资料文件"，
@@ -597,7 +606,7 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
 > 语言服务器 `bdl-lsp` 分离出来的独立工具。语言服务器只读取 `.project/` 资料，
 > 不负责生成它。平台扩展包同时内置两者。
 
-本地编译的二进制在 `bdl-lsp/artifacts/bin/`、`tiptop/artifacts/bin/`；
+上传/编译用的二进制在 `bdl-lsp/artifacts/bin/`、`tiptop/artifacts/bin/`；
 插件里也可以用 `bdl.tools.path` 指到你自己的 `tiptop`。
 
 ### 8.3 从 CSV 导入（推荐，不用开终端）
@@ -616,8 +625,8 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
 
 ```jsonc
 {
-  "bdl.link.enable": true,      // 链接资料：跨模块可见性 + 链接视图 + 反查
-  "bdl.schema.enable": true     // 数据库字段：悬停中文说明 + 成员校验
+  "bdl.link.mode": "db",        // 链接资料：跨模块可见性 + 链接视图 + 反查
+  "bdl.schema.mode": "db"       // 数据库字段：悬停中文说明 + 成员校验
 }
 ```
 
@@ -723,7 +732,7 @@ Windows 上提示 `secrets.json` 权限问题属正常：Windows 没有 unix 权
 
 ```jsonc
 {
-  "bdl.link.enable": true,
+  "bdl.link.mode": "db",
   "bdl.link.dataDir": ".project",
   "bdl.link.moduleRoots": ["src"],
   "bdl.link.globalModules": ["sub", "lib", "qry"]
@@ -787,13 +796,11 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 1. 打开总开关 `bdl.deploy.enable`（默认关）；
 2. 在 **`Genero BDL: 生产环境`** 里填部署目标：`bdl.prod.deploy.host` / `port`(默认 22) / `user` / `remoteRoot`
-   （远程工作根，如 `/home/apps/tiptop`），
-   可选：`localRoot`、`transport`(rsync/scp)、`fallback`、`delete`、`include`/`exclude`、
-   `strictHostKey`、`compile4gl`/`compilePer`；
-3. **不用手写 JSON**：每次部署前插件会把上述设置合成为 `<项目>/.project/deploy/deploy.json`（文件里带 `createdBy` 标记），
-   再交给 `tiptop deploy`；如果你之前手写过一个 `deploy.json`，第一次覆盖前会备份成 `deploy.json.bak`；
-4. 然后用命令：`部署预演（不上传）` → 看计划 → `部署当前文件并编译` / `部署到远程服务器并编译`。
-   远端编译结果会以诊断形式回到 Problems 面板。
+   （生产根，如 `/u1/toppord`），可选：`localRoot`、`transport`(off/rsync/scp)、`strictHostKey`；
+3. **不用手写 JSON**：每次上传前插件会把上述设置合成为 `<项目>/.project/deploy/deploy.json`（文件里带 `createdBy` 标记），
+   再交给 `tiptop upload` / `tiptop exec`；如果你之前手写过一个 `deploy.json`，第一次覆盖前会备份成 `deploy.json.bak`；
+4. 然后用命令：`预演上传` → 看计划 → `上传当前文件`；编译/链接/预览用 [§5.10](#510-编译--链接--预览在生产服务器上执行) 的按钮。
+   **只上传当前文件，不做批量同步。**
 
 手写仍然支持（`tiptop deploy -config <文件>`）；如果不是插件生成的文件，第一次被覆盖前会备份成 `deploy.json.bak`。
 
@@ -856,13 +863,10 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 | 命令 | 作用 |
 |---|---|
-| `Genero BDL: 部署到远程服务器并编译` | 按 include 上传整个工作区并编译 |
-| `Genero BDL: 部署当前文件并编译` | 只处理当前文件 |
-| `Genero BDL: 部署预演（不上传）` | 打印计划，不执行 |
-| `Genero BDL: 列出部署目标` | 查看 `targets` |
+| `Genero BDL: 上传当前文件` | 只上传当前打开的文件（工作区根 → 生产根同路径）；不做批量 |
+| `Genero BDL: 预演上传` | 打印上传计划，不连接服务器 |
 
-设置 `bdl.deploy.target` 可指定默认目标；留空用 `defaultTarget`。
-这些命令都由 `tiptop` 执行。
+配置由设置自动合成（单目标 `prod`）；这些命令都由 `tiptop upload` 执行。
 
 > 📷 **配图位 G11**：`docs/images/guide/11-deploy.png`
 > 拍什么：部署预演的输出（列出要上传/编译的文件）+ 部署完成后的输出摘要。
@@ -889,32 +893,30 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 ---
 
-## 10. 配置说明（6 组 55 键）
+## 10. 配置说明（3 组 55 键）
 
-### 10.1 设置界面分六组
+### 10.1 设置界面分三组
 
 设置界面按用途分成六组（和 CSS 语言插件一样的多层次设置）。
 **默认是轻量档**：零配置开箱即用，不连库、不后台跑任务、不往项目里写文件。
 
 | 组 | 内容 | 默认 | 什么时候看 |
 |---|---|---|---|
-| **基础** | 诊断级别、格式化、项目解析、资源限制、安装与排障 | 开 | 大多数人只需要这一组 |
-| **生产环境** | Oracle 连接、部署服务器（**密码不放这里**） | 空 | 要采集链接资料/部署时 |
-| **链接资料** | 跨模块函数索引、资料目录与模组 | **关** | 需要跨模块跳转/函数检查时 |
-| **部署** | 上传与远程编译（配置由插件合成） | **关** | 需要部署到服务器时 |
-| **数据库字段** | `.project/schema` 字段资料（表/列/说明/类型）、同步分批参数 | **关** | 要用 `LIKE t.*` 成员校验、或想看到字段中文说明时 |
-| **本地编译** | `.4gl` / `.per` 的预演编译、编译、链接、预览画面命令模板 | 开（本机脚本，无副作用配置） | 要用编辑器右上角的编译/链接按钮时（默认值已可用，只需按你们环境改脚本） |
+| **基本设置** | 诊断级别、格式化、项目解析、资源限制、安装与排障 | 开 | 大多数人只需要这一组 |
+| **账号、生产环境、配置** | Oracle 连接、生产服务器、链接资料模式、字段资料模式（**密码不放这里**） | 空 / **关** | 要采集资料、或要连库同步时 |
+| **上传编译链接** | 单文件上传方式与目录、编译/链接/预览命令（在生产服务器上执行） | **关** | 需要上传当前文件、或用编辑器右上角编译按钮时 |
 
-### 10.2 三个总开关
+### 10.2 模式与总开关
 
-- `bdl.link.enable`（**默认关**）——关闭后不加载 `.project/` 资料、不启用
-  `function-not-found` / `link-data-*` 诊断、侧边栏「链接资料」视图整个隐藏、
-  命令面板里的链接命令隐藏；
-- `bdl.deploy.enable`（**默认关**）——关闭后命令面板隐藏四条部署命令，
-  执行也不会调用 `tiptop deploy`；
-- `bdl.schema.enable`（**默认关**）——关闭后不读字段资料：悬停不追加说明、`LIKE t.*` 成员退回"不校验"。
+- `bdl.link.mode`（**默认 `off`**）——链接资料三态：`off` 不加载资料、不发
+  `function-not-found` / `link-data-*` 诊断、隐藏视图与命令；`file` 只用 CSV 导入；
+  `db` 允许连数据库同步/更新。旧 `bdl.link.enable` 仍兼容读取（`true` → `db`）。
+- `bdl.schema.mode`（**默认 `off`**）——字段资料三态，含义同上；旧 `bdl.schema.enable` 兼容。
+- `bdl.deploy.enable`（**默认关**）+ `bdl.prod.deploy.transport`（**默认 `off`**）——
+  「上传编译链接」组：两者都满足才出现「上传当前文件 / 预演上传」；
+  `bdl.build.enable` 控制六个编译/链接/预览命令（命令在**生产服务器**上执行）。
 
-需要第 3–5 组的能力时，**只在这个设置面板里打开开关**，不用手写 JSON、不用找命令行。
+需要这些能力时，**只在这个设置面板里改**，不用手写 JSON、不用找命令行。
 
 > **生产环境这组只写 Workspace 设置，并且不要让 `settings.json` 进 git 管理**；
 > 密码/密钥一律不放在设置里（见 [§8.5](#85-直连数据库采集生产环境设置与密码)）。
@@ -932,7 +934,7 @@ VSCode 设置适合个人临时调整。
 
 ### 10.4 按"要不要改"分类
 
-（这里按"要不要改"分成三类，是**文档的阅读顺序**；设置界面本身按用途分成六组，见 [§10.1](#101-设置界面分六组)。）
+（这里按"要不要改"分成三类，是**文档的阅读顺序**；设置界面本身按用途分成三组，见 [§10.1](#101-设置界面分三组)。）
 
 **第一类：默认即可，基本不用动**
 
@@ -957,7 +959,7 @@ VSCode 设置适合个人临时调整。
 - `limits.*`：超大型文件或诊断特别多的项目；
 - `server.path` / `tools.path` / `logLevel` / `trace.server`：安装与排障。
 
-### 10.5 设置键总表（6 组 55 键）
+### 10.5 设置键总表（3 组 55 键）
 
 #### 组 1：基础（22 键）
 
@@ -1003,76 +1005,75 @@ VSCode 设置适合个人临时调整。
 | `bdl.limits.maxIssues` | `200` | 单文件最多诊断条数 |
 | `bdl.limits.parseTimeoutMs` | `2000` | 单次解析超时（毫秒） |
 
-#### 组 2：生产环境（17 键；不配置就用不了采集/部署；只写 Workspace）
+#### 组 2：账号、生产环境、配置（16 键；不配置就用不了采集/上传；只写 Workspace）
 
 **Oracle 连接（4 键）**
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.prod.oracle.host` | `""` | 主机 |
+| `bdl.prod.oracle.host` | `""` | 主机（示例 `oracle`） |
 | `bdl.prod.oracle.port` | `1521` | 端口 |
-| `bdl.prod.oracle.service` | `""` | 服务名 |
-| `bdl.prod.oracle.user` | `""` | 只读账号（密码走环境变量或 `.project/secrets.json`） |
+| `bdl.prod.oracle.service` | `""` | 服务名（**连接必需**） |
+| `bdl.prod.oracle.user` | `""` | **应用 schema 账号**（字段资料默认 SQL 走 `USER_TAB_COLUMNS` + TiTop 字典；密码走环境变量或 `.project/secrets.json`） |
 
-**部署目标（13 键）**
+**生产服务器（4 键）**
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.prod.deploy.host` | `""` | 部署主机 |
+| `bdl.prod.deploy.host` | `""` | SSH 主机（示例 `erp`） |
 | `bdl.prod.deploy.port` | `22` | SSH 端口 |
-| `bdl.prod.deploy.user` | `""` | SSH 账号 |
-| `bdl.prod.deploy.remoteRoot` | `""` | 远程工作根（如 `/u1/toppord`） |
-| `bdl.prod.deploy.localRoot` | `.` | 本地根 |
-| `bdl.prod.deploy.transport` | `rsync` | 传输方式：`rsync`/`scp` |
-| `bdl.prod.deploy.fallback` | `scp` | transport 失败时的回退 |
-| `bdl.prod.deploy.delete` | `false` | 是否删除远端多余文件 |
-| `bdl.prod.deploy.include` | `[]` | 上传 glob（留空 = tiptop 默认） |
-| `bdl.prod.deploy.exclude` | `[]` | 排除 glob |
-| `bdl.prod.deploy.strictHostKey` | `true` | 严格校验 SSH host key |
-| `bdl.prod.deploy.compile4gl` | `""` | 远程编译命令模板（留空 = `fglcomp`） |
-| `bdl.prod.deploy.compilePer` | `""` | 远程编译命令模板（留空 = `fglform`） |
+| `bdl.prod.deploy.user` | `""` | SSH 账号（示例 `tiptop`；**只支持密钥登录**） |
+| `bdl.prod.deploy.strictHostKey` | `true` | 严格校验 SSH host key（换主机后可关掉，走 accept-new） |
 
-#### 组 3：链接资料（4 键；不配置不可用）
+**链接资料（4 键）**
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.link.enable` | `false` | **总开关**（轻量档默认关）：关闭后不加载资料、不发相关诊断、隐藏视图与命令 |
+| `bdl.link.mode` | `off` | 三态：`off` 不启用 / `file` 只用 CSV 导入 / `db` 允许连库同步 |
 | `bdl.link.dataDir` | `.project/link` | 资料目录 |
-| `bdl.link.moduleRoots` | `[]` | 模组根 |
+| `bdl.link.moduleRoots` | `[]` | 模组根（留空自动探测） |
 | `bdl.link.globalModules` | `["sub","lib","qry"]` | 全局模组名 |
 
-> 采集/同步的键（旧 `bdl.link.sync.*`）**不存在了**：采集由 tiptop 的命令行
-> 完成，见 [§8.6](#86-链接资料配置)。
-
-#### 组 4：部署（2 键；不配置不可用）
+**数据库字段（4 键）**
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.deploy.enable` | `false` | **总开关**（轻量档默认关）：关闭后命令面板隐藏部署命令 |
-| `bdl.deploy.target` | `""` | 目标名；留空用合成的 `defaultTarget` |
-
-#### 组 5：数据库字段（4 键）
-
-| 键 | 默认 | 作用 |
-|---|---|---|
-| `bdl.schema.enable` | `false` | **总开关**（轻量档默认关）：字段资料（`LIKE t.*` 成员校验、悬停字段说明要用） |
+| `bdl.schema.mode` | `off` | 三态：`off` / `file`（只用 CSV 导入）/ `db`（可连库同步） |
 | `bdl.schema.dataDir` | `.project/schema` | 字段资料目录 |
 | `bdl.schema.batchSize` | `200` | 「从数据库同步」每批查几张表（0=不分批）；慢链路可调小 |
-| `bdl.schema.timeoutSec` | `120` | 「从数据库同步」单批查询超时秒数；慢链路可加大 |
+| `bdl.schema.timeoutSec` | `120` | 单批查询超时秒数；慢链路可加大 |
 
-#### 组 6：本地编译（6 键）
+#### 组 3：上传编译链接（17 键）
+
+**上传（4 键）——只上传当前文件，不做批量同步**
 
 | 键 | 默认 | 作用 |
 |---|---|---|
-| `bdl.build.4gl.preview` | `cd ${path} && r.c2 ${name}` | 4GL 预演编译命令模板 |
-| `bdl.build.4gl.compile` | `cd ${path} && r.c2 ${name}` | 4GL 编译命令模板 |
-| `bdl.build.4gl.link` | `r.l2 ${name}` | 4GL 链接命令模板（无 MAIN 时本地报错、不执行） |
-| `bdl.build.per.preview` | `cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f` | Form 预演编译命令模板 |
-| `bdl.build.per.compile` | `cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/` | Form 编译命令模板 |
-| `bdl.build.per.form` | `cd ${path} && r.gf ${name}` | Form 预览画面命令模板 |
+| `bdl.deploy.enable` | `false` | **总开关**：关闭后隐藏上传与编译/链接/预览命令 |
+| `bdl.prod.deploy.transport` | `off` | 上传方式：`off` 不上传 / `rsync`（失败退 scp）/ `scp` |
+| `bdl.prod.deploy.localRoot` | `.` | 项目根目录（相对工作区根） |
+| `bdl.prod.deploy.remoteRoot` | `""` | 生产根目录（示例 `/u1/toppord`）：上传落点 + 命令的工作目录 |
 
-> 密码不在设置里。链接同步用 `BDL_ORA_PASSWORD` 或
-> `.project/secrets.json`；部署用 SSH key / agent。
+**编译 / 链接 / 预览（13 键；命令在生产服务器上通过 ssh 执行）**
+
+| 键 | 默认 | 作用 |
+|---|---|---|
+| `bdl.build.enable` | `false` | 编译/链接/预览总开关 |
+| `bdl.build.4gl.preview.enable` | `true` | 显示「4GL：预演编译」 |
+| `bdl.build.4gl.preview.command` | `cd ${path} && r.c2 ${name}` | 命令模板 |
+| `bdl.build.4gl.compile.enable` | `true` | 显示「4GL：编译」 |
+| `bdl.build.4gl.compile.command` | `cd ${path} && r.c2 ${name}` | 命令模板 |
+| `bdl.build.4gl.link.enable` | `true` | 显示「4GL：链接」（无 MAIN 时禁用/报错） |
+| `bdl.build.4gl.link.command` | `r.l2 ${name}` | 命令模板；**只有这条会弹 `${name}` 确认** |
+| `bdl.build.per.preview.enable` | `true` | 显示「Form：预演编译」 |
+| `bdl.build.per.preview.command` | `cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f` | 命令模板 |
+| `bdl.build.per.compile.enable` | `true` | 显示「Form：编译」 |
+| `bdl.build.per.compile.command` | `cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/` | 命令模板 |
+| `bdl.build.per.form.enable` | `true` | 显示「Form：预览画面」 |
+| `bdl.build.per.form.command` | `cd ${path} && r.gf ${name} 2 p` | 命令模板（三个参数：`${name}`、`2`、`p`） |
+
+> 密码不在设置里。链接/字段同步用 `BDL_ORA_PASSWORD` 或
+> `.project/secrets.json`；上传/执行用 SSH key / agent。
 
 ### 10.6 项目级配置 `.bdl-lsp/config.json`
 
@@ -1143,8 +1144,8 @@ VSCode 设置适合个人临时调整。
 ```jsonc
 {
   // 一键切换三档
-  "bdl.link.enable": false,
-  "bdl.schema.enable": false,
+  "bdl.link.mode": "off",
+  "bdl.schema.mode": "off",
   "bdl.deploy.enable": false,
 
   // 诊断按码调级（唯一入口）
@@ -1165,7 +1166,7 @@ VSCode 设置适合个人临时调整。
 
 | 现象 | 原因 / 怎么办 |
 |---|---|
-| 侧边栏没有「链接资料」/「数据库字段」视图，命令也搜不到 | 这两个功能**默认关闭**（轻量档）。打开 `bdl.link.enable` / `bdl.schema.enable` 后视图与命令才出现 |
+| 侧边栏没有「链接资料」/「数据库字段」视图，命令也搜不到 | 这两个功能**默认关闭**（轻量档）。把 `bdl.link.mode` / `bdl.schema.mode` 改成 `file`（只用 CSV）或 `db`（可连库）后视图与命令才出现 |
 | 函数调用报"找不到定义"（`function-not-found`） | 需要链接资料：模式 ② 导入 CSV，或模式 ① 从数据库同步。没有资料时这项**不报** |
 | 诊断太多/太吵 | 这是**你的选择**：`bdl.diagnostics` 按码调级（`off`/`error`/`warning`/`information`/`hint`），也可以 `bdl.ignore.files` 忽略生成代码目录 |
 | 打开大文件没有大纲、没有诊断 | Problems 里有 `file-too-large` / `parse-timeout` 警告 → 点**编辑器标题栏的"强制解析"**，或调大 `bdl.limits.maxFileBytes` / `maxFileLines` / `parseTimeoutMs`。强制解析会**后台不限时**解析并在完成后自动刷新大纲（状态栏显示耗时），**到文件关闭为止有效** |
@@ -1173,12 +1174,16 @@ VSCode 设置适合个人临时调整。
 | `RECORD LIKE t.*` 的成员校验不生效 | 需要字段资料 + 把 `bdl.diagnostics.record-member-unknown` 打开（默认 `off`），见 [§7.3](#73-数据库字段资料schema) |
 | 资料旧了要重启吗 | 不用：资料按 mtime 热加载（2 秒节流）。而且**不会有"过期"提示**——想更新就再执行一次同步 |
 | 连接数据库报"缺少密码" | 设 `BDL_ORA_PASSWORD`，或写 `<项目>/.project/secrets.json`（`chmod 600`）。**link 与 schema 都只读这一份**（不要放进 `.project/link/`） |
+| 编译/链接/预览报错（没有配置 / 连不上） | 这些命令**在生产服务器上执行**：先在「上传编译链接」打开 `bdl.deploy.enable`、把 `bdl.prod.deploy.transport` 设为 rsync/scp、填好生产根目录，并在「账号、生产环境、配置」填生产服务器主机/账号（SSH 密钥）；再打开 `bdl.build.enable`。报错通知里可点「打开日志」看完整输出 |
+| 点了编译，但服务器上还是旧代码 | 上传是**单独动作**：插件不会自动上传。先点「上传当前文件」，再点编译/链接/预览 |
+| 只有 4GL 链接弹 `${name}` 吗 | 是。只有 4GL「链接」弹确认框；4GL 编译、Form 预演编译/编译/预览都用文件名去扩展名，不打断 |
+| 上传能一次传整个工作区吗 | 不能（§0d 起**只允许单文件上传**）：只传当前打开的文件，按「工作区根 → 生产根」同路径映射。批量同步请用 `tiptop deploy` 命令行 |
 | 从数据库同步失败（退出码 1） | 失败通知已带 stderr 首行；点通知上的**「打开日志」**看完整输出（扩展 globalStorage 里的 `last-run-schema.log`），或点「显示输出」看「Genero BDL 数据库字段」通道。若是 `ORA-01013`（查询被取消）多半是单批超时：加大 `-timeout` 或减小 `-batch-size`；权限/owner 问题按「从数据库同步」一节核对 |
 | Windows 上提示 `secrets.json` 权限问题 | Windows 没有 unix 权限位，扩展在那边**跳过**权限校验（安全性由文件 ACL 决定） |
 | 语言服务器起不来 | 命令 `显示语言服务器信息` 看二进制来源。顺序：包内置 `bin/` → `bdl.server.path` → `PATH` → 工作区 `.bdl-lsp/bin/`。用 **dev 包/源码**运行时没有内置二进制，需要自己编译或指定路径 |
 | 公司网络不能上网 | 插件本身**不联网**；只有你手动点"从数据库同步/全量更新"时才连你配的那台数据库 |
-| 想彻底回到零配置 | 把 `bdl.link.enable` / `bdl.deploy.enable` / `bdl.schema.enable` 关掉，删掉 `<项目>/.project/` 即可 |
-| 链接资料有，但 `function-not-found` 还是报 | 确认 `bdl.link.enable` 是 `true`、`bdl.link.dataDir` 与实际目录一致（默认 `.project/link`） |
+| 想彻底回到零配置 | 把 `bdl.link.mode` / `bdl.schema.mode` 设为 `off`、`bdl.deploy.enable` 关掉，删掉 `<项目>/.project/` 即可 |
+| 链接资料有，但 `function-not-found` 还是报 | 确认 `bdl.link.mode` 不是 `off`、`bdl.link.dataDir` 与实际目录一致（默认 `.project/link`） |
 | GLOBALS 变量跳转不到 | 确认 `bdl.globals.searchPaths` 覆盖实际的 config 目录；确认工作区根没选错 |
 | 第一次索引很慢 | 工作区索引要扫全部文件（通常几分钟、也可能更长，进度见输出）；用 `bdl.ignore.files` 排除生成代码与备份目录，必要时调大 `bdl.limits.maxFileBytes` |
 | 升级后旧诊断设置不生效 | 旧专用键已删除，把旧值迁到 `bdl.diagnostics`，见 [§11.7](#117-升级后旧诊断设置不生效) |
@@ -1733,14 +1738,13 @@ tiptop deploy -workspace "$WORKSPACE" -target prod -no-upload <文件>
 
 | 命令 | 作用 |
 |---|---|
-| `部署当前文件并编译` | 上传当前打开的文件并远程编译 |
-| `部署到远程服务器并编译` | 按 `include` 传整个工作区 |
-| `部署预演（不上传）` | 只打印计划 |
-| `Genero BDL: 列出部署目标` | 打印 `targets` |
+| `上传当前文件` | 只上传当前打开的文件（不做批量同步） |
+| `预演上传` | 只打印计划，不连接 |
 
-> 部署功能**默认关闭**（轻量档）：`bdl.deploy.enable = false`（设置界面 "部署" 一组）。
-> 要部署时打开它，并在 "生产环境" 一组填主机/账号/远程根；
-> 没填全的话部署命令会明确告诉你缺哪一项，而不是含糊失败。
+> 上传功能**默认关闭**（轻量档）：`bdl.deploy.enable = false` 且
+> `bdl.prod.deploy.transport = off`（设置界面「上传编译链接」一组）。
+> 要上传时打开总开关并选 rsync/scp，并在「账号、生产环境、配置」一组填主机/账号/生产根；
+> 没填全的话上传命令会明确告诉你缺哪一项，而不是含糊失败。
 
 ### A.8 第 6 步：在 VSCode 里验证
 
@@ -1762,7 +1766,7 @@ cd "$WORKSPACE"
 tiptop link status -root "$WORKSPACE"
 ```
 
-> 侧边栏"链接资料"视图受 `bdl.link.enable` 控制（设置界面 "链接资料" 一组）。
+> 侧边栏"链接资料"视图受 `bdl.link.mode` 控制（设置界面「账号、生产环境、配置」一组）。
 > **默认关闭**（轻量档）：视图与命令面板里的链接命令都隐藏。
 > 需要时打开，并用 `Genero BDL: 链接资料：从 CSV 导入` 生成资料。
 
@@ -1809,7 +1813,7 @@ head -1 .project/link/gal_file.csv
 
 #### A.9.4 链接资料有，但 `function-not-found` 还是报
 
-- 确认 `bdl.link.enable` 是 `true`（设置界面 "链接资料" 一组；**默认是关的**，
+- 确认 `bdl.link.mode` 不是 `off`（设置界面「账号、生产环境、配置」一组；**默认是关的**，
   轻量档不会自动去加载资料）；
 - 确认 `bdl.link.dataDir` 与实际目录一致（默认 `.project/link`）；
 - 资料**旧**不会告警（P1-6 去掉了"7 天过期"提示）：同步只由命令触发，
@@ -1959,9 +1963,9 @@ code "$WORKSPACE"
 | `数据库字段：同步选中的表` / `同步已选中的表` / `同步当前筛选结果` / `全选当前列表` / `清除勾选` | ①② | 一张 / 多张 / 筛选结果批量 |
 | `数据库字段：正则过滤表名` / `清除过滤` / `刷新` | ①② | 视图顶部查询框 |
 | `数据库字段：复制列定义` / `打开表资料文件` | ①② | 得到 `LIKE 表.列` / 打开该表 JSON |
-| `4GL：预演编译` / `4GL：编译` / `4GL：链接` | ③ | 编辑器右上角按钮（`.4gl`）；无 MAIN 时「链接」不可用。模板见 [§5.10](#510-本地编译--链接--预览w5) |
-| `Form：预演编译` / `Form：编译` / `Form：预览画面` | ③ | 编辑器右上角按钮（`.per`）；模板见 [§5.10](#510-本地编译--链接--预览w5) |
-| `部署预演（不上传）` / `部署当前文件并编译` / `部署到远程服务器并编译` / `列出部署目标` | ①（打开 `bdl.deploy.enable`） | 由 `tiptop` 执行 |
+| `4GL：预演编译` / `4GL：编译` / `4GL：链接` | ③ | 编辑器右上角按钮（`.4gl`）；**在生产服务器上执行**；无 MAIN 时「链接」不可用。模板见 [§5.10](#510-编译--链接--预览在生产服务器上执行) |
+| `Form：预演编译` / `Form：编译` / `Form：预览画面` | ③ | 编辑器右上角按钮（`.per`）；**在生产服务器上执行**。模板见 [§5.10](#510-编译--链接--预览在生产服务器上执行) |
+| `上传当前文件` / `预演上传` | ①（`bdl.deploy.enable` + `transport ≠ off`） | 由 `tiptop upload` 执行；只传当前文件 |
 
 #### A.11.2 `tiptop` / `bdl-lsp` 命令行
 

@@ -13,16 +13,25 @@ import {
 import {
   buildCommandFor,
   buildPlaceholders,
+  buildTiptopArgs,
   disposeBuild,
   expandBuildTemplate,
   hasMainProgram,
   registerBuild,
+  relativePathFor,
 } from "./build";
 import {
   readDbReadiness,
   refreshDataContexts,
   registerDataContextWatcher,
 } from "./dbctx";
+import {
+  buildEnabled,
+  linkMode,
+  schemaMode,
+  transport,
+  uploadEnabled,
+} from "./settings";
 import { describeBinary, resolveBinary } from "./server/binary";
 import { disposeDeploy, registerDeployCommands } from "./deploy";
 import { registerLinks } from "./links";
@@ -99,6 +108,16 @@ interface ExtensionApi {
   hasMainProgram: typeof hasMainProgram;
   /** W5：当前设置下的命令模板（e2e 用）。 */
   buildCommandFor: typeof buildCommandFor;
+  /** §0d：编译命令组装成的 tiptop 参数（e2e 断言走 exec）。 */
+  buildTiptopArgs: typeof buildTiptopArgs;
+  /** §0d：文件相对工作区根路径（e2e 用）。 */
+  relativePathFor: typeof relativePathFor;
+  /** §0d：设置三态与开关（e2e 断言旧键兼容）。 */
+  linkMode: typeof linkMode;
+  schemaMode: typeof schemaMode;
+  transport: typeof transport;
+  uploadEnabled: typeof uploadEnabled;
+  buildEnabled: typeof buildEnabled;
 }
 
 export async function activate(
@@ -153,6 +172,13 @@ export async function activate(
     buildPlaceholders,
     hasMainProgram,
     buildCommandFor,
+    buildTiptopArgs,
+    relativePathFor,
+    linkMode,
+    schemaMode,
+    transport,
+    uploadEnabled,
+    buildEnabled,
   };
 }
 
@@ -202,11 +228,23 @@ function registerCommands(context: vscode.ExtensionContext): void {
       const cfg = vscode.workspace.getConfiguration("bdl");
       for (const key of [
         "server.path",
+        "tools.path",
         "server.logLevel",
         "trace.server",
         "generoVersion",
-        "link.enable",
+        "link.mode",
+        "link.dataDir",
+        "schema.mode",
+        "schema.dataDir",
+        "prod.oracle.host",
+        "prod.oracle.service",
+        "prod.oracle.user",
+        "prod.deploy.host",
+        "prod.deploy.user",
+        "prod.deploy.remoteRoot",
+        "prod.deploy.transport",
         "deploy.enable",
+        "build.enable",
         "diagnostics",
         "limits.maxFileBytes",
         "limits.maxFileLines",

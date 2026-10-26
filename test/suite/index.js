@@ -636,12 +636,10 @@ async function run() {
     // 21. 部署命令已注册（P5）
     await test("部署命令已注册", async () => {
       const all = await vscode.commands.getCommands(true);
-      for (const name of [
-        "bdl.deploy",
-        "bdl.deployCurrentFile",
-        "bdl.deployDryRun",
-        "bdl.deployListTargets",
-      ]) {
+      // §0d：整包部署与「列出部署目标」已删除（只允许单文件上传、单目标）。
+      assert.ok(!all.includes("bdl.deploy"), "整包部署命令应已删除");
+      assert.ok(!all.includes("bdl.deployListTargets"), "列出部署目标命令应已删除");
+      for (const name of ["bdl.deployCurrentFile", "bdl.deployDryRun"]) {
         assert.ok(all.includes(name), `缺少命令 ${name}`);
       }
     });
@@ -990,21 +988,16 @@ async function run() {
     });
 
     // 34. 设置界面分五组（P1-5），且默认是"轻量档"（P1-4）
-    await test("设置项按五组分组且默认轻量", async () => {
+    await test("设置项按三组分组且默认轻量", async () => {
       const pkg = require("../../package.json");
       const sections = pkg.contributes.configuration;
       assert.ok(Array.isArray(sections), "configuration 应为数组（分层设置）");
       const titles = sections.map((s) => s.title);
-      // P1-5：组标题不再重复 "Genero BDL: " 前缀（面板本身已按扩展分组）
-      for (const want of [
-        "基础",
-        "生产环境",
-        "链接资料",
-        "部署",
-        "数据库字段",
-      ]) {
+      // §0d：重构成 3 组（基本设置 / 账号、生产环境、配置 / 上传编译链接）
+      for (const want of ["基本设置", "账号、生产环境、配置", "上传编译链接"]) {
         assert.ok(titles.includes(want), `缺少设置分组：${want}`);
       }
+      assert.strictEqual(sections.length, 3, `应只有 3 组，实际 ${sections.length}`);
       // 三层里都必须有各自的键，且不重复
       const seen = new Set();
       for (const sec of sections) {
@@ -1017,30 +1010,32 @@ async function run() {
         {},
         ...sections.map((sec) => sec.properties),
       );
-      assert.ok(all["bdl.link.enable"], "缺少 bdl.link.enable");
-      assert.ok(all["bdl.deploy.enable"], "缺少 bdl.deploy.enable");
-      // P1-4：轻量档是默认——不连库、不部署、不扫 schema
+      // §0d：link/schema 从 enable 布尔变三态 mode；上传/编译各有总开关
+      assert.strictEqual(all["bdl.link.mode"].default, "off", "link.mode 默认 off");
+      assert.strictEqual(all["bdl.schema.mode"].default, "off", "schema.mode 默认 off");
+      assert.strictEqual(all["bdl.deploy.enable"].default, false, "deploy.enable 默认 false");
+      assert.strictEqual(all["bdl.build.enable"].default, false, "build.enable 默认 false");
       assert.strictEqual(
-        all["bdl.link.enable"].default,
-        false,
-        "link.enable 默认应为 false（轻量档）",
+        all["bdl.prod.deploy.transport"].default,
+        "off",
+        "transport 默认 off（不上传）",
       );
-      assert.strictEqual(
-        all["bdl.deploy.enable"].default,
-        false,
-        "deploy.enable 默认应为 false（轻量档）",
+      // 旧键已从清单移除（代码仍兼容读取）
+      assert.ok(!all["bdl.link.enable"], "旧的 bdl.link.enable 应已从清单移除");
+      assert.ok(!all["bdl.schema.enable"], "旧的 bdl.schema.enable 应已从清单移除");
+      assert.ok(!all["bdl.deploy.target"], "bdl.deploy.target 应已删除");
+      assert.ok(
+        !all["bdl.prod.deploy.include"] && !all["bdl.prod.deploy.compile4gl"],
+        "批量上传相关键应已删除",
       );
-      assert.strictEqual(
-        all["bdl.schema.enable"].default,
-        false,
-        "schema.enable 默认应为 false（轻量档）",
-      );
+      assert.ok(all["bdl.prod.oracle.service"], "缺少 bdl.prod.oracle.service");
+      assert.ok(all["bdl.prod.deploy.host"], "缺少 bdl.prod.deploy.host");
+      assert.ok(all["bdl.build.4gl.link.command"], "缺少 bdl.build.4gl.link.command");
+      assert.ok(all["bdl.build.4gl.link.enable"], "缺少 bdl.build.4gl.link.enable");
       // 运行时的实际取值也必须一致（代码里显式传默认值的地方别写反）
       const cfg = vscode.workspace.getConfiguration("bdl");
-      assert.strictEqual(cfg.get("link.enable"), false, "link.enable 实际值应为 false");
       assert.strictEqual(cfg.get("deploy.enable"), false, "deploy.enable 实际值应为 false");
-      assert.strictEqual(cfg.get("schema.enable"), false, "schema.enable 实际值应为 false");
-      assert.ok(all["bdl.prod.deploy.host"], "缺少 bdl.prod.deploy.host");
+      assert.strictEqual(cfg.get("build.enable"), false, "build.enable 实际值应为 false");
       assert.ok(all["bdl.schema.dataDir"], "缺少 bdl.schema.dataDir");
     });
 
@@ -1063,11 +1058,10 @@ async function run() {
       assert.ok(api.ensureDeployConfig, "应导出 ensureDeployConfig");
 
       const cfg = vscode.workspace.getConfiguration("bdl");
-      const target = "e2e-synth";
       await cfg.update("prod.deploy.host", "127.0.0.1", vscode.ConfigurationTarget.Global);
       await cfg.update("prod.deploy.user", "e2e", vscode.ConfigurationTarget.Global);
       await cfg.update("prod.deploy.remoteRoot", "/tmp/e2e", vscode.ConfigurationTarget.Global);
-      await cfg.update("deploy.target", target, vscode.ConfigurationTarget.Global);
+      await cfg.update("prod.deploy.transport", "rsync", vscode.ConfigurationTarget.Global);
       const dest = path.join(root, ".project", "deploy", "deploy.json");
       try {
         const res = await api.ensureDeployConfig(root, "test");
@@ -1077,13 +1071,25 @@ async function run() {
           String(doc.createdBy).startsWith("vscode-bdl"),
           `createdBy 应标明插件来源：${doc.createdBy}`,
         );
-        assert.strictEqual(doc.defaultTarget, target);
-        const t = doc.targets[target];
-        assert.ok(t, "应生成目标");
+        assert.strictEqual(doc.defaultTarget, "prod");
+        const t = doc.targets.prod;
+        assert.ok(t, "应生成 prod 目标");
         assert.strictEqual(t.host, "127.0.0.1");
         assert.strictEqual(t.user, "e2e");
         assert.strictEqual(t.remoteRoot, "/tmp/e2e");
         assert.strictEqual(t.upload.mode, "rsync");
+        assert.strictEqual(t.upload.fallback, "scp");
+        // §0d：不再生成批量上传与编译命令
+        assert.ok(!t.upload.include && !t.upload.delete, "不应再有 include/delete");
+        assert.ok(!t.compile, "不应再有 compile（编译命令由 tiptop exec 传入）");
+
+        // scp 模式：fallback 必须是 none（tiptop 校验不接受与 mode 相同的回退）
+        await cfg.update("prod.deploy.transport", "scp", vscode.ConfigurationTarget.Global);
+        const resScp = await api.ensureDeployConfig(root, "test");
+        const docScp = JSON.parse(fs.readFileSync(resScp.path, "utf8"));
+        assert.strictEqual(docScp.targets.prod.upload.mode, "scp");
+        assert.strictEqual(docScp.targets.prod.upload.fallback, "none");
+        await cfg.update("prod.deploy.transport", "rsync", vscode.ConfigurationTarget.Global);
 
         // 不是插件生成的文件（没有 createdBy）在覆盖前要备份
         fs.writeFileSync(dest, JSON.stringify({ targets: { hand: {} } }));
@@ -1095,13 +1101,16 @@ async function run() {
         await cfg.update("prod.deploy.host", "", vscode.ConfigurationTarget.Global);
         const res3 = await api.ensureDeployConfig(root, "test");
         assert.ok(!res3.path && res3.error, "缺设置时应返回错误");
-        assert.ok(
-          (res3.missing ?? []).length > 0,
-          "应列出缺哪些设置项",
-        );
+        assert.ok((res3.missing ?? []).length > 0, "应列出缺哪些设置项");
+
+        // 上传方式为 off 时拒绝合成
+        await cfg.update("prod.deploy.host", "127.0.0.1", vscode.ConfigurationTarget.Global);
+        await cfg.update("prod.deploy.transport", "off", vscode.ConfigurationTarget.Global);
+        const res4 = await api.ensureDeployConfig(root, "test");
+        assert.ok(!res4.path && res4.error, "transport=off 时应拒绝合成");
       } finally {
         fs.rmSync(path.join(root, ".project"), { recursive: true, force: true });
-        for (const key of ["prod.deploy.host", "prod.deploy.user", "prod.deploy.remoteRoot", "deploy.target"]) {
+        for (const key of ["prod.deploy.host", "prod.deploy.user", "prod.deploy.remoteRoot", "prod.deploy.transport"]) {
           await cfg.update(key, undefined, vscode.ConfigurationTarget.Global);
         }
       }
@@ -1137,8 +1146,8 @@ async function run() {
     await test("link.enable=false 时链接命令不报错", async () => {
       const cfg = vscode.workspace.getConfiguration("bdl");
       await cfg.update(
-        "link.enable",
-        false,
+        "link.mode",
+        "off",
         vscode.ConfigurationTarget.Global,
       );
       try {
@@ -1152,7 +1161,7 @@ async function run() {
         await new Promise((r) => setTimeout(r, 300));
       } finally {
         await cfg.update(
-          "link.enable",
+          "link.mode",
           undefined,
           vscode.ConfigurationTarget.Global,
         );
@@ -1173,11 +1182,11 @@ async function run() {
         // 但命令面板按 when 条件隐藏。
         const commands = await vscode.commands.getCommands(true);
         assert.ok(
-          commands.includes("bdl.deploy"),
+          commands.includes("bdl.deployCurrentFile"),
           "命令应仍然注册，只是面板隐藏",
         );
         // 执行不应抛错（内部提示已关闭）
-        await vscode.commands.executeCommand("bdl.deploy");
+        await vscode.commands.executeCommand("bdl.deployCurrentFile");
         await new Promise((r) => setTimeout(r, 300));
       } finally {
         await cfg.update(
@@ -1271,7 +1280,7 @@ async function run() {
       writeSchemaFixture(root);
 
       const cfg = vscode.workspace.getConfiguration("bdl");
-      await cfg.update("schema.enable", true, vscode.ConfigurationTarget.Global);
+      await cfg.update("schema.mode", "db", vscode.ConfigurationTarget.Global);
       try {
         await new Promise((r) => setTimeout(r, 600)); // 等配置下发 + 服务端重载
 
@@ -1308,13 +1317,13 @@ async function run() {
         await new Promise((r) => setTimeout(r, 200));
 
         // 关掉开关后：请求报 enabled=false（视图也被 when 隐藏）
-        await cfg.update("schema.enable", false, vscode.ConfigurationTarget.Global);
+        await cfg.update("schema.mode", "off", vscode.ConfigurationTarget.Global);
         await new Promise((r) => setTimeout(r, 600));
         const off = await api.querySchemaTables("");
         assert.strictEqual(off.enabled, false, "关掉后 enabled 应为 false");
         assert.ok(!off.present, "关掉后不应再持有资料");
       } finally {
-        await cfg.update("schema.enable", undefined, vscode.ConfigurationTarget.Global);
+        await cfg.update("schema.mode", undefined, vscode.ConfigurationTarget.Global);
         removeSchemaFixture(root);
         await new Promise((r) => setTimeout(r, 300));
       }
@@ -1330,7 +1339,7 @@ async function run() {
       writeSchemaFixture(root);
 
       const cfg = vscode.workspace.getConfiguration("bdl");
-      await cfg.update("schema.enable", true, vscode.ConfigurationTarget.Global);
+      await cfg.update("schema.mode", "db", vscode.ConfigurationTarget.Global);
       try {
         await new Promise((r) => setTimeout(r, 600));
         const provider = api.schemaProvider;
@@ -1428,7 +1437,7 @@ async function run() {
         fireAndForget("bdl.schema.syncAll");
         await new Promise((r) => setTimeout(r, 400));
       } finally {
-        await cfg.update("schema.enable", undefined, vscode.ConfigurationTarget.Global);
+        await cfg.update("schema.mode", undefined, vscode.ConfigurationTarget.Global);
         removeSchemaFixture(root);
         await new Promise((r) => setTimeout(r, 300));
       }
@@ -1437,8 +1446,8 @@ async function run() {
     await test("link.enable=false 时链接资料视图不发请求", async () => {
       const cfg = vscode.workspace.getConfiguration("bdl");
       await cfg.update(
-        "link.enable",
-        false,
+        "link.mode",
+        "off",
         vscode.ConfigurationTarget.Global,
       );
       try {
@@ -1448,7 +1457,7 @@ async function run() {
         await new Promise((r) => setTimeout(r, 300));
       } finally {
         await cfg.update(
-          "link.enable",
+          "link.mode",
           undefined,
           vscode.ConfigurationTarget.Global,
         );
@@ -1477,6 +1486,18 @@ async function run() {
         assert.strictEqual(state.configured, false, "未配 Oracle 时 configured 应为 false");
         assert.strictEqual(state.linkHasData, false, "没有 links.jsonl 时 linkHasData 应为 false");
         assert.strictEqual(state.schemaHasData, false, "没有 tables.json 时 schemaHasData 应为 false");
+        // §0d：模式三态（默认 off）
+        assert.strictEqual(state.linkMode, "off", "link.mode 默认应为 off");
+        assert.strictEqual(state.schemaMode, "off", "schema.mode 默认应为 off");
+
+        // 旧键 bdl.link.enable 已从清单移除（VSCode 不允许再写入未注册键）；
+        // 兼容读取只对"老 settings.json 里已有的值"生效，这里只验证新键。
+        assert.strictEqual(api.linkMode(), "off", "默认应为 off");
+        await cfg.update("link.mode", "file", vscode.ConfigurationTarget.Global);
+        assert.strictEqual(api.linkMode(), "file", "显式设 mode=file 应生效");
+        state = await api.dbReadiness();
+        assert.strictEqual(state.linkMode, "file", "dbReadiness 应反映 mode");
+        await cfg.update("link.mode", undefined, vscode.ConfigurationTarget.Global);
 
         // 已有全量链接资料（新布局）→ linkHasData
         fs.mkdirSync(path.join(root, ".project", "link"), { recursive: true });
@@ -1578,53 +1599,59 @@ async function run() {
       assert.strictEqual(params.fullname, "axcp500.4gl");
     });
 
-    // W5：预演编译真的执行（占位符 + 工作区根 cwd + 输出到子进程）。
-    await test("W5：预演编译真跑一条命令", async () => {
-      const root = process.env.BDL_E2E_WORKSPACE;
-      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+    // W5/§0d：编译命令改为在生产服务器执行——插件只负责组装 `tiptop exec` 参数。
+    await test("W5：编译命令走 tiptop exec", async () => {
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const api = await ext.activate();
       const cfg = vscode.workspace.getConfiguration("bdl");
-      const dir = path.join(root, "tiptop", "apm", "4gl");
-      fs.mkdirSync(dir, { recursive: true });
-      const file = path.join(dir, "axcp500.4gl");
-      fs.writeFileSync(file, "MAIN\nEND MAIN\n");
-      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
-      await vscode.window.showTextDocument(doc);
 
-      const marker = path.join(root, "build-marker.txt");
-      fs.rmSync(marker, { force: true });
-      // 用 echo + 重定向（cmd 与 sh 都支持），避免跨平台引号问题。
-      const tpl = "echo ${name} ${path} ${fullpath}>build-marker.txt";
-      await cfg.update(
-        "build.4gl.preview",
-        tpl,
-        vscode.ConfigurationTarget.Global,
-      );
+      // 新键 `.command` 优先生效
+      const tpl = "cd ${path} && echo ${name}>marker";
+      await cfg.update("build.4gl.preview.command", tpl, vscode.ConfigurationTarget.Global);
       try {
-        const extApi = await vscode.extensions
-          .getExtension("darcyjoven.4gl-full")
-          .activate();
         assert.strictEqual(
-          extApi.buildCommandFor("bdl.build.4gl.preview"),
+          api.buildCommandFor("4gl", "preview"),
           tpl,
-          "设置里的模板应被读到",
+          "新键 bdl.build.4gl.preview.command 应被读到",
         );
-        // 显式传文件 uri：不依赖"当前激活编辑器"（headless 下更稳）。
-        await vscode.commands.executeCommand("bdl.build.4gl.preview", doc.uri);
-        assert.ok(fs.existsSync(marker), "预演编译应真的执行了命令（应生成 marker）");
-        const text = fs.readFileSync(marker, "utf8").trim();
-        assert.strictEqual(
-          text,
-          "axcp500 apm/4gl tiptop/apm/4gl",
-          `占位符展开或 cwd 不对：${text}`,
-        );
-      } finally {
+        // 旧键（`bdl.build.4gl.preview` 直接当命令）已从清单移除，
+        // VSCode 不允许再写入未注册键；兼容读取只对"老 settings.json 里已有的值"生效，
+        // 这里只验证"新键清空后回退内置默认值"。
         await cfg.update(
-          "build.4gl.preview",
+          "build.4gl.preview.command",
           undefined,
           vscode.ConfigurationTarget.Global,
         );
-        fs.rmSync(marker, { force: true });
+        assert.strictEqual(
+          api.buildCommandFor("4gl", "preview"),
+          "cd ${path} && r.c2 ${name}",
+          "新键清空后应回退内置默认值",
+        );
+      } finally {
+        await cfg.update("build.4gl.preview.command", undefined, vscode.ConfigurationTarget.Global);
+        await cfg.update("build.4gl.preview", undefined, vscode.ConfigurationTarget.Global);
       }
+
+      // 内置默认值（Form 预览是三个参数：${name} 2 p）
+      assert.strictEqual(
+        api.buildCommandFor("per", "form"),
+        "cd ${path} && r.gf ${name} 2 p",
+        "Form 预览默认命令应含 '2 p'",
+      );
+      // 组装成 tiptop exec 参数（生产服务器执行；不自动上传）
+      assert.deepStrictEqual(
+        api.buildTiptopArgs("/ws", "tiptop/apm/4gl/axcp500.4gl", "r.l2 axcp500"),
+        [
+          "exec",
+          "-workspace",
+          "/ws",
+          "-file",
+          "tiptop/apm/4gl/axcp500.4gl",
+          "-command",
+          "r.l2 axcp500",
+        ],
+        "编译命令应交给 tiptop exec",
+      );
     });
 
     // W5：六个按钮与设置键都写进 manifest，链接按钮带 MAIN 门控。
@@ -1653,7 +1680,31 @@ async function run() {
         Object.keys(sec.properties),
       );
       for (const id of ids) {
-        assert.ok(props.includes(id), `设置应包含 ${id}`);
+        assert.ok(props.includes(`${id}.command`), `设置应包含 ${id}.command`);
+        assert.ok(props.includes(`${id}.enable`), `设置应包含 ${id}.enable`);
+      }
+      // §0d：编译图标改成运行形状，视图按钮图标化
+      const cmds = pkg.contributes.commands;
+      const iconOf = (id) =>
+        (cmds.find((c) => c.command === id) || {}).icon;
+      assert.strictEqual(
+        iconOf("bdl.build.4gl.compile"),
+        "$(play)",
+        "4GL 编译图标应是运行形状",
+      );
+      assert.strictEqual(
+        iconOf("bdl.build.per.compile"),
+        "$(play)",
+        "Form 编译图标应是运行形状",
+      );
+      for (const id of [
+        "bdl.schema.filter",
+        "bdl.schema.refresh",
+        "bdl.schema.import",
+        "bdl.links.resync",
+        "bdl.link.updateFromDb",
+      ]) {
+        assert.ok(iconOf(id), `${id} 应有图标（标题栏不再显示长文字）`);
       }
     });
 

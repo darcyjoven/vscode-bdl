@@ -1,6 +1,8 @@
 // 语言客户端：启动 bdl-lsp 并把它挂到 bdl/per 两种语言上。
 import * as path from "node:path";
 import * as vscode from "vscode";
+
+import { linkEnabled, linkMode, schemaEnabled, schemaMode } from "./settings";
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -164,8 +166,10 @@ function collectSettings(): Record<string, unknown> {
     },
     // 链接资料（P7-D）：同样必须显式转交（collectSettings 是白名单）。
     link: {
-      // P1-4：轻量档默认关闭（package.json 的默认值也是 false）。
-      enable: cfg.get<boolean>("link.enable") ?? false,
+      // §0d：模式三态（off/file/db），服务端仍只认 enable 布尔——这里换算过去。
+      // 旧 `bdl.link.enable` 由 settings.linkMode() 兼容读取。
+      enable: linkEnabled(),
+      mode: linkMode(),
       dataDir: cfg.get<string>("link.dataDir") ?? ".project/link",
       moduleRoots: cfg.get<string[]>("link.moduleRoots") ?? [],
       globalModules: cfg.get<string[]>("link.globalModules") ?? ["sub", "lib", "qry"],
@@ -176,8 +180,9 @@ function collectSettings(): Record<string, unknown> {
       enable: cfg.get<boolean>("index.enable") ?? true,
     },
     schema: {
-      // P1-4：默认关闭（要用 `LIKE t.*` 成员校验/悬停字段说明时才开）。
-      enable: cfg.get<boolean>("schema.enable") ?? false,
+      // §0d：模式三态 → enable 布尔；旧 `bdl.schema.enable` 兼容读取。
+      enable: schemaEnabled(),
+      mode: schemaMode(),
       // P2-1/W6：资料目录（默认 .project/schema，由 tiptop schema import 生成；旧 .project/.schema 只读兼容）。
       dataDir: cfg.get<string>("schema.dataDir") ?? ".project/schema",
     },
@@ -332,9 +337,13 @@ const RESTART_KEYS = [
   "bdl.server.path",
   "bdl.server.logLevel",
   "bdl.generoVersion",
-  // 总开关决定服务器启动时是否加载 .project/ 资料与采集调度，
-  // 热切换会造成“半开”状态，统一要求重启。
+  // 模式决定服务器启动时是否加载 .project/ 资料，热切换会造成“半开”状态，
+  // 统一要求重启。旧 `bdl.link.enable` 也一并算上（兼容老配置）。
+  "bdl.link.mode",
   "bdl.link.enable",
+  // 字段资料的模式是热切换：服务器会按新开关重载资料（与旧的 schema.enable 行为一致）；
+  // 链接资料因为还带采集调度，仍要求重启。
+  "bdl.schema.enable",
 ];
 
 /** 注册配置变化监听：需要重启的键提示重启，其余自动同步。 */

@@ -13,13 +13,14 @@
 //   - 只由用户显式触发，没有后台任务；
 //   - 写项目资料的动作直接执行（W2：不再预演，预演只留给编译类命令），
 //     用户确认后再落盘；
-//   - 默认关闭（`bdl.schema.enable`），视图与命令都据此门控。
+//   - §0d：模式三态 `bdl.schema.mode`（off/file/db），视图与命令据此门控；旧 `enable` 兼容。
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import * as vscode from "vscode";
 
 import { currentClient } from "./client";
 import { refreshDataContexts } from "./dbctx";
+import { schemaEnabled as schemaEnabledByMode, schemaMode } from "./settings";
 import {
   oracleCfg,
   promptNoOracle,
@@ -78,11 +79,13 @@ export interface SchemaSummary {
   pruned?: number;
 }
 
-/** 数据库字段功能总开关（`bdl.schema.enable`，默认关）。 */
+/**
+ * 数据库字段功能是否启用（`bdl.schema.mode != off`）。
+ *
+ * §0d：模式三态；旧 `bdl.schema.enable` 由 settings 兼容读取。
+ */
 export function schemaEnabled(): boolean {
-  return vscode.workspace
-    .getConfiguration("bdl")
-    .get<boolean>("schema.enable", false);
+  return schemaEnabledByMode();
 }
 
 /**
@@ -376,7 +379,7 @@ class SchemaProvider implements vscode.TreeDataProvider<Node> {
     }
     const out: Node[] = [];
     if (!res.enabled) {
-      out.push({ kind: "info", label: "数据库字段功能已关闭（bdl.schema.enable）" });
+      out.push({ kind: "info", label: "数据库字段功能已关闭（bdl.schema.mode = off）" });
       return out;
     }
     if (!res.present) {
@@ -515,6 +518,12 @@ async function syncSchema(
     source = "csv";
   } else {
     await promptNoOracle(root);
+    return;
+  }
+  if (source === "db" && schemaMode() !== "db") {
+    void vscode.window.showWarningMessage(
+      "数据库字段当前是「只用 CSV 导入」模式：要连数据库，请在设置里把「数据库字段 → 模式」改成「连接数据库」",
+    );
     return;
   }
   if (source === "db" && !oracle) {
