@@ -15,8 +15,12 @@
 ## 0. 一句话开场（复制给新会话）
 
 ```text
-读 vscode-extension/docs/TODO.md，先做 §0c「字段资料全量同步失败排查」（W7）：
-先修输出通道/失败可见性/日志落盘/临时文件清理，再让用户复跑取证定位退出码 1 的根因。
+读 vscode-extension/docs/TODO.md，先做 §0d「设置重构 V2 + 远程编译/链接/预览」：
+按已确认的方案重构设置分组、新增 tiptop 远程执行与单文件上传、插件命令随之调整。
+```
+
+```text
+（已完成的）§0c 字段资料同步、§0b Windows 反馈 W1–W6 见各自小节与附录 E。
 ```
 
 ```text
@@ -84,6 +88,46 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 
 **顺序**：W7.1–W7.3（根因）→ W7.5–W7.7（可见性）→ W7.8–W7.10（清理与文档）。
 做完请你在 Windows 复跑一次全量同步验证（慢链路正是要验的场景）。
+
+---
+
+## 0d. 设置重构 V2 + 远程编译/链接/预览（2026-10-26 已确认，执行中）
+
+**已确认的决策**（用户 2026-10-26 确认）
+
+| # | 决策 |
+|---|---|
+| D1 | 设置分 **3 组**：**基本设置** / **账号、生产环境、配置** / **上传编译链接**（把"键少的"生产环境+链接资料+数据库字段合并；基础与编译链接各独立一组） |
+| D2 | 数据库配置加 **`service`**（连接必需）；**不加 `owner`**；密码**不进设置**（`<项目>/.project/secrets.json` 或 `BDL_ORA_PASSWORD`） |
+| D3 | 生产服务器填 host/port/user（默认示例 `erp`/`22`/`tiptop`）；**SSH 密钥登录，不支持密码**；保留 `strictHostKey` |
+| D4 | 上传**只允许单文件**（当前打开文件，按"项目根目录 → 生产根目录"映射路径）；**删除整包/批量同步** |
+| D5 | **编译/链接/预览在生产服务器上执行（ssh）**；**不自动上传**——用户自己决定先点「上传当前文件」再点编译/链接/预览 |
+| D6 | link/schema 做**三态** `bdl.link.mode` / `bdl.schema.mode` = `off|file|db`（`file`=只用 CSV 导入，`db`=可连库；代码兼容旧 `enable=false`→`off`） |
+| D7 | 删除：整包部署命令、`bdl.deploy.target`、「列出部署目标」、`include/exclude/delete`、`prod.deploy.compile4gl/compilePer`（由新的编译命令取代） |
+| D8 | 保留：上传方式 `transport`（`off|rsync|scp`，rsync 主 scp 备）、`localRoot`（项目根目录，默认 `.`）、`remoteRoot`（生产根目录，示例 `/u1/toppord`）、`link.moduleRoots`/`globalModules`、schema `batchSize`/`timeoutSec` |
+| D9 | 基本设置（现有 22 键：server/tools 路径、日志、trace、generoVersion、diagnostics、format、index、globals/perRoots、builtins、ignore、limits）**维持不变** |
+
+**目标键位（3 组，约 55 键）**
+
+| 组 | 键 |
+|---|---|
+| 基本设置（22） | 现有「基础」原样 |
+| 账号、生产环境、配置（16） | `prod.oracle.host/port/service/user`；`prod.deploy.host/port/user/strictHostKey`；`link.mode`/`link.dataDir`/`link.moduleRoots`/`link.globalModules`；`schema.mode`/`schema.dataDir`/`schema.batchSize`/`schema.timeoutSec` |
+| 上传编译链接（17） | `deploy.enable`（组总开关）、`prod.deploy.transport`、`prod.deploy.localRoot`、`prod.deploy.remoteRoot`；`build.enable`（编译/链接/预览总开关）；6 组 `<lang>.<mode>.enable` + `.command`（4gl：preview/compile/link，per：preview/compile/form） |
+
+**要做的（下一轮起）**
+
+| # | 事项 | 验收 |
+|---|---|---|
+| T1 | 设置重构：`package.json` 改成 3 组；新增/删除键；`bdl.link.mode`/`bdl.schema.mode` 三态；build 6 键拆成 `enable`+`command`；保留旧键兼容读取（`enable`、旧 6 键） | 设置面板 3 组；旧 `settings.json` 不失效；键数/文档一致 |
+| T2 | tiptop 新增远程执行：`tiptop exec`——读 deploy 配置 →（可选）单文件上传 → `ssh` 在**生产根目录**执行命令（模板里的 `cd ${path}` 由此生效）→ stdout/stderr 流式回传 + 退出码；`-dry-run`/`-json` | 本地无法测真机，需 Windows/生产服务器复测；单测覆盖配置解析、路径映射、缺配置报错 |
+| T3 | 单文件上传：`tiptop upload -file <相对路径>`（当前文件 → `remoteRoot/<相对路径>`），rsync 主/scp 备（scp 前先 `mkdir -p`）；无整包、无 include/exclude/delete | 单文件落到正确远端路径；不传其它文件 |
+| T4 | 插件：删除 `bdl.deploy`（整包）、`bdl.deploy.target`、`bdl.deployListTargets`；改名/保留「上传当前文件」「预演上传」；6 条编译/链接/预览命令改调 `tiptop exec`（**不再本地 spawn**，占位符仍在插件侧展开，输出仍进「Genero BDL 编译」） | 命令面板与工具栏只剩单文件上传 + 6 条远程命令；输出完整 |
+| T5 | 兼容与迁移说明：旧 `link.enable`/`schema.enable`/`deploy.target`/`include/exclude/delete`/`compile4gl|Per` 的处理（映射或忽略 + README 提示） | 升级后旧配置行为可预期 |
+| T6 | 测试：tiptop exec/upload 单测（dry-run、路径映射、缺配置）；插件 e2e（命令注册、3 组设置、门控、上传预演） | 全绿 |
+| T7 | 文档：README（三档/设置/命令/FAQ）、三份 `FEATURES.md`、本文件、`OPEN-ITEMS.md` | 无死链、口径一致 |
+
+**说明**：D5 与现有 W5 实现（本机执行）冲突，T2/T4 完成后 W5 的"本地执行"描述要一并改掉；「预演编译」仍是远程执行同一条命令（不写盘效果由脚本自身保证）。
 
 ---
 
