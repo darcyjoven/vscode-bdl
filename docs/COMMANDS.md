@@ -27,7 +27,7 @@
 | `bdl.restartServer` | 重启语言服务器 | — | 设置里需要重启的键改过之后也会提示它 |
 | `bdl.showServerInfo` | 显示语言服务器信息 | — | 二进制来源、版本、当前设置；通知里有**「打开日志」**（C5 合并了原「显示输出」） |
 | `bdl.forceParseCurrentFile` | 强制解析当前文件 | `bdl.parseSkipped` | C4：只在当前文件被跳过解析时出现（编辑器按钮同条件） |
-| `bdl.initProject` | 初始化项目（从生产服务器拉取代码） | `workspaceFolderCount > 0` | 按宿主平台选 bash/PowerShell 脚本（命令里可强制），**在集成终端里执行**；收集 SSH 目标/生产根/目标目录/选项/编码，上次值预填（不含密码） |
+| `bdl.initProject` | 初始化项目（从生产服务器拉取代码） | `workspaceFolderCount > 0` | 按宿主平台选 bash/PowerShell 脚本（命令里可强制），**在集成终端里执行**；收集 SSH 目标/生产根/目标目录/选项/编码，上次值预填（不含密码）。**没配密钥时可在过程中输入密码**（只有本命令允许；上传/编译仍需密钥） |
 
 ### 1.2 链接资料（7 条）
 

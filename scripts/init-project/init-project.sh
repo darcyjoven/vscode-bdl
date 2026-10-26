@@ -17,7 +17,7 @@ DEFAULT_REMOTE_ROOT="/u1/topprod"
 TARGET="${INIT_PROJECT_TARGET:-}"
 PORT=""; KEY=""; REMOTE_ROOT=""; MODULES=""
 DEST=""; BRANCH="main"; FROM_ENC=""
-DRY_RUN=0; UPDATE=0; DELETE=0; FORCE=0; ASSUME_YES=0; PROTO=0
+DRY_RUN=0; UPDATE=0; DELETE=0; FORCE=0; ASSUME_YES=0; PROTO=0; ASK_PASSWORD=0
 COMMIT=1; LEGACY=0; SAMPLES=6; VERBOSE=0; FORCE_TEMPLATES=0; PRINT_REMOTE=0
 SSH_BIN="${INIT_PROJECT_SSH:-ssh}"
 RSYNC_BIN="${INIT_PROJECT_RSYNC:-rsync}"
@@ -68,6 +68,10 @@ usage() {
       --from-encoding <gbk|big5|euc-cn|utf-8>   跳过样本检测与询问
       --dry-run  -y/--yes  --samples <n>  -v/--verbose  -h/--help
       --progress-protocol               进度按 `进度\t阶段\t信息` 输出（给调用方解析；终端里默认是可读格式）
+      --ask-password                    允许用密码登录（没配密钥时；每步会提示输入密码，不保存）
+                                        默认：密钥失败且在终端里会询问"是否改用密码登录"
+
+注意：只有本初始化脚本允许密码登录（本阶段）；上传/编译**仍然只支持 SSH 密钥**。
 USAGE
 }
 
@@ -89,6 +93,7 @@ while [ $# -gt 0 ]; do
     --force-templates) FORCE_TEMPLATES=1; shift ;;
     --print-remote) PRINT_REMOTE=1; shift ;;
     --progress-protocol) PROTO=1; shift ;;
+    --ask-password) ASK_PASSWORD=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
     -y|--yes) ASSUME_YES=1; shift ;;
     --samples) SAMPLES=${2:-6}; shift 2 ;;
@@ -121,16 +126,34 @@ confirm() {
 }
 
 # ── ssh（只用来跑只读命令）
+# 注意：INIT_PROJECT_SSH 只替换 ssh 可执行文件（测试缝隙），**不影响**选项构造；
+# 这样"未配密钥 → 密码登录"的回退逻辑在自测里也能被覆盖。
 SSH_OPTS=()
-[ "$TEST_SSH" = 1 ] || {
-  [ -n "$PORT" ] && SSH_OPTS+=(-p "$PORT")
-  [ -n "$KEY" ] && SSH_OPTS+=(-i "$KEY")
-  SSH_OPTS+=(-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new)
-}
+[ -n "$PORT" ] && SSH_OPTS+=(-p "$PORT")
+[ -n "$KEY" ] && SSH_OPTS+=(-i "$KEY")
+SSH_OPTS+=(-o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new)
 LEGACY_OPTS=(-o HostkeyAlgorithms=+ssh-rsa -o PubkeyAcceptedAlgorithms=+ssh-rsa
              -o KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-sha1
              -o MACs=+hmac-sha1)
 ssh_run() { "$SSH_BIN" "${SSH_OPTS[@]}" "$TARGET" "$1"; }
+
+# 关掉 BatchMode，改成"密码优先"的交互登录（密码由 ssh 自己提示，不经过本脚本、不落盘）
+enable_password_mode() {
+  local out=() i=0 n=${#SSH_OPTS[@]}
+  while [ $i -lt $n ]; do
+    case "${SSH_OPTS[$i]}" in
+      -o)
+        case "${SSH_OPTS[$((i+1))]:-}" in
+          BatchMode=yes|PreferredAuthentications=*) i=$((i+2)); continue ;;
+          *) out+=("-o" "${SSH_OPTS[$((i+1))]}"); i=$((i+2));;
+        esac ;;
+      *) out+=("${SSH_OPTS[$i]}"); i=$((i+1));;
+    esac
+  done
+  SSH_OPTS=("${out[@]}")
+  SSH_OPTS+=(-o "PreferredAuthentications=password,keyboard-interactive")
+  SSH_OPTS+=(-o "NumberOfPasswordPrompts=3")
+}
 q() { printf '%q' "$1"; }
 
 # 远端只读 find：fmt 会被 shell 转义成"一个参数"，suffix 是原样追加的管道
@@ -177,14 +200,27 @@ if [ "$PRINT_REMOTE" = 1 ]; then print_remote_commands; exit 0; fi
 
 # ── 1) 连通性（老服务器自动 legacy 重试）
 prog "连接" "连接 $TARGET（远端只读）"
-if [ "$TEST_SSH" = 0 ]; then
+if [ "$TEST_SSH" = 0 ] || [ "${INIT_TEST_PROBE:-0}" = 1 ]; then
+  info "连接 $TARGET …（先试密钥）"
   if ! ssh_run true 2>/dev/null; then
-    [ "$LEGACY" = 1 ] && die "连不上 $TARGET（已用 --legacy-ssh）"
-    warn "默认算法连不上，按老服务器（OpenSSH 5.x）兼容参数重试…"
-    SSH_OPTS+=("${LEGACY_OPTS[@]}"); LEGACY=1
-    ssh_run true || die "连不上 $TARGET：确认密钥/agent、网络与主机名（只支持密钥）"
+    if [ "$LEGACY" != 1 ]; then
+      warn "默认算法连不上，按老服务器（OpenSSH 5.x）兼容参数重试…"
+      SSH_OPTS+=("${LEGACY_OPTS[@]}"); LEGACY=1
+    fi
+    if ! ssh_run true 2>/dev/null; then
+      ask_ok=0
+      if [ "$ASK_PASSWORD" = 1 ]; then ask_ok=1
+      elif [ -t 0 ] && confirm "密钥登录失败。改用密码登录？（只有本初始化脚本允许；上传/编译仍需密钥）"; then ask_ok=1; fi
+      [ "$ask_ok" = 1 ] || die "连接失败：没有可用密钥（先配好密钥/agent），或加 --ask-password 用密码登录"
+      enable_password_mode
+      ASK_PASSWORD=1
+      warn "已改用密码登录：接下来每一步远端操作都会提示输入密码（密码只交给 ssh，不保存、不写入日志）"
+      [ "$LEGACY" = 1 ] && SSH_OPTS+=("${LEGACY_OPTS[@]}")
+      ssh_run true || die "密码登录也失败：确认账号/密码，或该服务器是否允许密码认证（PasswordAuthentication yes）"
+    fi
   fi
   [ "$LEGACY" = 1 ] && warn "已启用 ssh-rsa/SHA-1 兼容（老服务器）"
+  [ "$ASK_PASSWORD" = 1 ] && warn "密码登录模式：每次远端调用会提示输入密码（不会保存）"
 fi
 
 # ── 2) 远端只读预检

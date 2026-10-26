@@ -31,8 +31,26 @@ printf 'secret\n' > "$ROOT/.project/link/links.jsonl"
 printf 'git\n'    > "$ROOT/.git/config"
 
 FAKE="$TMP/fake-ssh"
-printf '#!/usr/bin/env bash\nset -euo pipefail\nshift\nsh -c "$1"\n' > "$FAKE"
+SSHLOG="$TMP/ssh.log"
+cat > "$FAKE" <<'FEOF'
+#!/usr/bin/env bash
+set -euo pipefail
+echo "$*" >> "${INIT_TEST_SSH_LOG:-/dev/null}"
+args=("$@"); i=0
+while [ $i -lt ${#args[@]} ]; do
+  case "${args[$i]}" in
+    -o|-p|-i) i=$((i+2)) ;;
+    -*)       i=$((i+1)) ;;
+    *)        i=$((i+1)); break ;;
+  esac
+done
+cmd=${args[$i]:-}
+# 模拟"没有可用密钥"：只要带了 BatchMode=yes 就失败
+if [ "${INIT_TEST_NO_KEY:-0}" = 1 ] && [[ " $* " == *"BatchMode=yes"* ]]; then exit 255; fi
+sh -c "$cmd"
+FEOF
 chmod +x "$FAKE"
+: > "$SSHLOG"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
 
 run_init() { # run_init [额外参数...]
@@ -106,6 +124,21 @@ check "只有 find/ls/head/base64/rsync（无上传/部署）" \
 check "没有重定向写文件" "! printf '%s' \"\$CMDS\" | grep -qE '>>|>'"
 check "没有 rm/mkdir/mktemp/touch/cp/mv" \
   "! printf '%s' \"\$CMDS\" | grep -qE '(^|[^a-z])(rm|mkdir|mktemp|touch|tee|cp|mv) '"
+
+echo "── 未配密钥：允许过程中输入密码（--ask-password） ──"
+DEST2="$TMP/local/topprod-pw"
+: > "$SSHLOG"
+INIT_TEST_SSH_LOG="$SSHLOG" INIT_TEST_PROBE=1 INIT_TEST_NO_KEY=1 \
+  INIT_PROJECT_SSH="$FAKE" INIT_PROJECT_RSYNC_SRC="$ROOT" \
+  "$SELF_DIR/init-project.sh" --target fake@host --remote-root "$ROOT" \
+  --dest "$DEST2" --from-encoding gbk --ask-password -y >"$TMP/runpw.log" 2>&1 \
+  || { tail -20 "$TMP/runpw.log"; bad "无密钥+--ask-password 应能跑通"; }
+check "无密钥时用密码登录跑通"      "[ -e '$DEST2/other/lib/4gl/libutil.4gl' ]"
+check "提示已改用密码登录"          "grep -q '已改用密码登录' '$TMP/runpw.log'"
+check "探针只在前两次带 BatchMode（≤2）" "[ \"\$(grep -c 'BatchMode=yes' '$SSHLOG')\" -le 2 ]"
+check "最后一次远端调用不再带 BatchMode" "! tail -1 '$SSHLOG' | grep -q 'BatchMode=yes'"
+check "密码模式带 PreferredAuthentications=password" \
+  "grep -q 'PreferredAuthentications=password' '$SSHLOG'"
 
 echo
 echo "结果：$pass 通过 / $fail 失败"

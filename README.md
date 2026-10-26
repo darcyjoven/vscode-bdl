@@ -2119,6 +2119,7 @@ npm run test:e2e         # 无头 VSCode 端到端测试（50 个用例）
 
 # 从生产服务器初始化一个 4GL 项目仓库：
 #   ① VSCode 命令面板 →「Genero BDL: 初始化项目（从生产服务器拉取代码）」
+#      （有密钥用密钥；没配密钥时可在过程中输入密码——只有初始化允许，上传/编译仍需密钥）
 #      （按客户端平台自动选脚本：Windows→PowerShell，Linux/WSL→bash；在集成终端里执行）
 #   ② 或命令行（详见 scripts/init-project/README.md）
 scripts/init-project/init-project.sh -t <user@host> -r /u1/topprod -d <本地目录> -y   # Linux/WSL：rsync 拉取

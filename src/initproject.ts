@@ -26,6 +26,8 @@ export interface InitProjectOptions {
   dryRun?: boolean;
   /** 源编码；空 = 自动（脚本取样检测后在终端里问你） */
   fromEncoding?: string;
+  /** 没配密钥时允许改用密码登录（只有初始化脚本；上传/编译仍需密钥） */
+  allowPassword?: boolean;
 }
 
 /** 按宿主平台决定实际用哪个脚本（纯函数，便于 e2e 断言）。 */
@@ -89,6 +91,7 @@ export function buildInitProjectCommandLine(
     if (opts.noCommit) parts.push("-NoCommit");
     if (opts.dryRun) parts.push("-DryRun");
     if (opts.fromEncoding) parts.push("-FromEncoding", psDoubleQuote(opts.fromEncoding));
+    if (opts.allowPassword) parts.push("-AskPassword");
     return parts.join(" ");
   }
   const script = path.join(
@@ -113,6 +116,7 @@ export function buildInitProjectCommandLine(
   if (opts.noCommit) parts.push("--no-commit");
   if (opts.dryRun) parts.push("--dry-run");
   if (opts.fromEncoding) parts.push("--from-encoding", shellSingleQuote(opts.fromEncoding));
+  if (opts.allowPassword) parts.push("--ask-password");
   return parts.join(" ");
 }
 
@@ -152,7 +156,8 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
 
   const target = await vscode.window.showInputBox({
     title: "初始化项目（1/4）：SSH 目标",
-    prompt: "user@host 或 ~/.ssh/config 别名；只支持密钥/agent，不支持密码",
+    prompt:
+      "user@host 或 ~/.ssh/config 别名；有密钥优先用密钥；没配密钥时可在过程中输入密码（上传/编译仍需密钥）",
     value: last.target ?? "",
     ignoreFocusOut: true,
   });
@@ -207,6 +212,11 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
       },
       { label: "不自动提交（--no-commit）", value: "nocommit", picked: false },
       { label: "只预演（--dry-run，不落盘）", value: "dryrun", picked: false },
+      {
+        label: "允许在过程中输入密码（没配密钥时；上传/编译仍需密钥）",
+        value: "askpass",
+        picked: true,
+      },
     ],
     {
       title: "初始化项目（4/4）：选项（可多选）",
@@ -240,6 +250,7 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
     noCommit: values.has("nocommit"),
     dryRun: values.has("dryrun"),
     fromEncoding: encPick.value || undefined,
+    allowPassword: values.has("askpass"),
   };
   await context.workspaceState.update(STATE_KEY, {
     target: opts.target,

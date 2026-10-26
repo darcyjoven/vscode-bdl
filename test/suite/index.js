@@ -1801,6 +1801,7 @@ async function run() {
         noCommit: true,
         dryRun: true,
         fromEncoding: "gbk",
+        allowPassword: true,
       };
       const sh = api.buildInitProjectCommandLine("bash", "/ext/path with space", opts);
       assert.ok(sh.startsWith("bash '"), `应显式用 bash 启动：${sh}`);
@@ -1816,6 +1817,7 @@ async function run() {
         "--no-commit",
         "--dry-run",
         "--from-encoding 'gbk'",
+        "--ask-password",
       ]) {
         assert.ok(sh.includes(frag), `bash 命令缺 ${frag}：${sh}`);
       }
@@ -1832,6 +1834,7 @@ async function run() {
         remoteRoot: "/u1/topprod",
         dest: "C:\\my proj",
         update: true,
+        allowPassword: true,
       });
       assert.ok(
         ps.startsWith("powershell -NoProfile -ExecutionPolicy Bypass -File "),
@@ -1844,6 +1847,7 @@ async function run() {
         `脚本路径应带引号且是单个参数：${ps}`,
       );
       assert.ok(psNorm.includes('-Dest "C:/my proj"') && ps.includes("-Update"), ps);
+      assert.ok(ps.includes("-AskPassword"), `应透传密码登录开关：${ps}`);
       assert.ok(!ps.includes("-Yes"), "终端里跑要保留脚本的交互（不应传 -Yes）");
 
       // 命令已注册且面板门控要求打开工作区

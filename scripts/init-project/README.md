@@ -82,14 +82,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-project/init-pr
 | `--print-remote` | `-PrintRemote` | 只打印将在服务器上执行的命令（审计） |
 | `--dry-run` | `-DryRun` | 只预检/检测，不拉取不写盘 |
 | `-y/--yes` | `-Yes` | 不再交互确认（在终端里跑时通常**不要**加，保留编码/删除确认） |
+| `--ask-password` | `-AskPassword` | 没配密钥时允许用密码登录（每步会提示输入密码；密码只交给 ssh，不保存） |
 | `--progress-protocol` | `-ProgressProtocol` | 进度改成 `进度\t阶段\t信息` 机器格式（默认是终端可读的 `[阶段] 信息`） |
+
+## 密码登录（本阶段允许，仅初始化脚本）
+
+- **有密钥**：优先用密钥/agent，不会提示密码。
+- **没配密钥**：默认先试一次密钥；失败且在终端里时会问一句
+  `密钥登录失败。改用密码登录？（只有本初始化脚本允许；上传/编译仍需密钥）`，答 y 即可；
+  也可显式加 `--ask-password`（Windows：`-AskPassword`）跳过询问。
+- 密码**由 ssh 自己在终端提示**输入：脚本不读取、不保存、不写日志、不进命令行（`ps` 里看不到）。
+- 密码模式下每一步远端操作（预检 / 取样 / rsync 或 tar+scp）都会**再提示一次密码**——本阶段的预期行为。
+- 若服务器禁用密码认证（`PasswordAuthentication no`），密码模式仍会失败，那就只能配密钥。
+- **上传/编译命令仍然只支持密钥**（按之前决定），不会提示密码。
 
 ## 排障
 
 | 现象 | 处理 |
 |---|---|
 | `no matching host key type / kex` | 老服务器：脚本自动 legacy 重试；也可显式 `--legacy-ssh` / `-LegacySsh` |
-| `Permission denied (publickey)` | 只支持密钥：先 `ssh -i <key> <target> true` 或加好 ssh-agent |
+| `Permission denied (publickey)` | 没配密钥时：初始化脚本会问是否改用密码登录（或加 `--ask-password`）；**上传/编译**必须先配密钥（`ssh-copy-id` 或 ssh-agent） |
 | 中文乱码 | 先用 `--dry-run`/`-DryRun` 看编码报告（含候选与预览），再用 `--from-encoding big5` 重跑 |
 | Windows 组策略禁止脚本 | 命令会把命令行写进输出通道，复制到终端手工执行（或让管理员放开 ExecutionPolicy） |
 | 目标目录已有内容 | 用 `--update`/`-Update`；确实要混着用才加 `--force`/`-Force` |

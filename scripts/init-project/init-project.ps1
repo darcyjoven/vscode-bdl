@@ -30,7 +30,8 @@ param(
   [switch]$DryRun,
   [switch]$Yes,
   [switch]$LegacySsh,
-  [switch]$ProgressProtocol
+  [switch]$ProgressProtocol,
+  [switch]$AskPassword
 )
 $ErrorActionPreference = "Stop"
 $SelfDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -69,16 +70,27 @@ $ProjectName = Split-Path -Leaf $Dest
 
 # ── ssh/ scp 参数（只支持密钥；老服务器自动 legacy 重试）
 $sshExe = if ($env:INIT_PROJECT_SSH) { $env:INIT_PROJECT_SSH } else { "ssh" }
+# 注意：INIT_PROJECT_SSH 只替换 ssh 可执行文件（测试缝隙），不影响选项构造
 $sshCommon = @()
-if (-not $env:INIT_PROJECT_SSH) {
-  if ($Port -gt 0) { $sshCommon += @("-p", "$Port") }
-  if ($Key) { $sshCommon += @("-i", $Key) }
-  $sshCommon += @("-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "StrictHostKeyChecking=accept-new")
-}
+if ($Port -gt 0) { $sshCommon += @("-p", "$Port") }
+if ($Key) { $sshCommon += @("-i", $Key) }
+$sshCommon += @("-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "StrictHostKeyChecking=accept-new")
 $legacy = @("-o", "HostkeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa",
             "-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-sha1", "-o", "MACs=+hmac-sha1")
 $sshArgs = $sshCommon
+$passwordMode = $false
 function Invoke-Remote([string]$cmd) { & $sshExe @sshArgs $Target $cmd }
+
+# 关掉 BatchMode，改成"密码优先"的交互登录（密码由 ssh 自己提示，不保存、不进命令行）
+function Enable-PasswordMode {
+  $script:sshArgs = @()
+  for ($i = 0; $i -lt $sshCommon.Count; $i++) {
+    if ($sshCommon[$i] -eq "-o" -and $i + 1 -lt $sshCommon.Count -and $sshCommon[$i + 1] -eq "BatchMode=yes") { $i++; continue }
+    $script:sshArgs += $sshCommon[$i]
+  }
+  $script:sshArgs += @("-o", "PreferredAuthentications=password,keyboard-interactive", "-o", "NumberOfPasswordPrompts=3")
+  $script:passwordMode = $true
+}
 
 # ── 远端只读 find 的公共谓词
 $pruneNames = ".git", ".svn", "CVS", "node_modules", "42f", "4fd", "bin", "obj", "tmp", "backup", "bak", ".project", ".link", ".pack", "out"
@@ -112,15 +124,28 @@ if ($PrintRemote) {
 Progress2 "连接" "连接 $Target（远端只读）"
 Info "连接 $Target …"
 if (-not $env:INIT_PROJECT_SSH) {
+  Info "连接 $Target …（先试密钥）"
   Invoke-Remote "true" | Out-Null
   if ($LASTEXITCODE -ne 0) {
-    if ($LegacySsh) { Die "连不上 $Target（已用 -LegacySsh）" }
-    Warn2 "默认算法连不上，按老服务器（OpenSSH 5.x）兼容参数重试…"
-    $sshArgs = $sshCommon + $legacy
-    Invoke-Remote "true" | Out-Null
-    if ($LASTEXITCODE -ne 0) { Die "连不上 $Target：确认密钥/agent、网络与主机名（只支持密钥）" }
-    Warn2 "已启用 ssh-rsa/SHA-1 兼容（老服务器）"
+    if (-not $LegacySsh) {
+      Warn2 "默认算法连不上，按老服务器（OpenSSH 5.x）兼容参数重试…"
+      $sshArgs = $sshCommon + $legacy
+      Invoke-Remote "true" | Out-Null
+    }
+    if ($LASTEXITCODE -ne 0) {
+      # 没配密钥 / 密钥不可用 → 允许改用密码登录（仅本初始化脚本）
+      $askOk = $AskPassword
+      if (-not $askOk) { $askOk = Confirm2 "密钥登录失败。改用密码登录？（只有本初始化脚本允许；上传/编译仍需密钥）" }
+      if (-not $askOk) { Die "连接失败：没有可用密钥，或加 -AskPassword 用密码登录" }
+      Enable-PasswordMode
+      if ($LegacySsh) { $script:sshArgs += $legacy }
+      Warn2 "已改用密码登录：接下来每一步远端操作都会提示输入密码（只交给 ssh，不保存）"
+      Invoke-Remote "true" | Out-Null
+      if ($LASTEXITCODE -ne 0) { Die "密码登录也失败：确认账号/密码，或服务器不允许密码认证" }
+    }
   }
+  if ($LegacySsh) { Warn2 "已启用 ssh-rsa/SHA-1 兼容（老服务器）" }
+  if ($passwordMode) { Warn2 "密码登录模式：每次远端调用会提示输入密码（不会保存）" }
 }
 
 # ── 2) 远端只读预检
@@ -240,8 +265,13 @@ try {
   if (-not $env:INIT_PROJECT_SSH) {
     if ($Port -gt 0) { $scpArgs += @("-P", "$Port") }
     if ($Key) { $scpArgs += @("-i", $Key) }
-    $scpArgs += @("-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "StrictHostKeyChecking=accept-new")
-    if ($LegacySsh -or ($sshArgs.Count -gt $sshCommon.Count)) { $scpArgs += $legacy }
+    if ($passwordMode) {
+      $scpArgs += @("-o", "ConnectTimeout=15", "-o", "StrictHostKeyChecking=accept-new",
+                    "-o", "PreferredAuthentications=password,keyboard-interactive", "-o", "NumberOfPasswordPrompts=3")
+    } else {
+      $scpArgs += @("-o", "BatchMode=yes", "-o", "ConnectTimeout=15", "-o", "StrictHostKeyChecking=accept-new")
+    }
+    if ($LegacySsh) { $scpArgs += $legacy }
   }
   & scp @scpArgs "$($Target):$tarPath" $localTar
   if ($LASTEXITCODE -ne 0) { Die "scp 失败（exit=$LASTEXITCODE）" }
