@@ -15,8 +15,13 @@
 ## 0. 一句话开场（复制给新会话）
 
 ```text
-读 vscode-extension/docs/TODO.md，做 §1「发布闭环」：按附录 A 做 Windows 实机验收（C0，
-其中务必按附录 E 复测 W1–W6）、打 tag（C1）、给 bundle-vsix.yml 加 release job（C2）。
+读 vscode-extension/docs/TODO.md，先做 §0c「字段资料全量同步失败排查」（W7）：
+先修输出通道/失败可见性/日志落盘/临时文件清理，再让用户复跑取证定位退出码 1 的根因。
+```
+
+```text
+然后做 §1「发布闭环」：按附录 A 做 Windows 实机验收（C0，其中务必按附录 E 复测 W1–W6）、
+打 tag（C1）、给 bundle-vsix.yml 加 release job（C2）。
 ```
 
 ```text
@@ -28,6 +33,54 @@
 > 2026-10-24 实机反馈的 6 组问题已全部实现（2026-10-26，第 1–4 轮；e2e 49/49、三仓库全绿）。
 > 实现摘要与**真机复测要点**见 [附录 E](#附录-ew1w6-实现摘要与真机复测要点)。
 > 这批改动尚未在 Windows 实机复测——**C0 验收时按附录 E 逐条复测**，有问题就新开待办。
+
+---
+
+## 0c. 字段资料全量同步失败排查（2026-10-26 反馈，下一轮先做）
+
+**现象**：`数据库字段：从数据库同步` 报「失败（退出码 1）」。输出其实写进了**「Genero BDL 链接资料」**通道
+（不是"空面板"），错误原文：
+
+```text
+tiptop schema sync: 查询失败: ORA-01013: user requested cancel of current operation
+ error occur at position: 182
+```
+
+**根因（已确认）**：`ORA-01013` 是 Oracle 的"语句被取消"。
+
+| # | 事实 | 位置 |
+|---|---|---|
+| a | `schema sync` 给全量查询的**总超时只有 120 秒**（`link sync` 是 60 秒） | `tiptop/internal/schemacli/sync.go:133`、`tiptop/internal/linksync/db.go:36` |
+| b | 这个超时是**整段查询 + 逐行读取**的总时限（`context.WithTimeout`），不是"无进展才取消" | `tiptop/internal/oradb/oradb.go:88-91`、`QueryContext` |
+| c | 超时后 context 取消传到 go-ora → Oracle 中断语句 → `ORA-01013`，被包成「查询失败」退出 1 | `oradb.go:103-105` |
+| d | 全量查 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`（几千表/几万列）在慢链路超过 120s 很正常；等待期间能看到「已收到 N 行」进度 | `docs/FEATURES.md` 里的 2.4 s 是本机快库口径 |
+
+**第二个问题（W6 回归）**：`secrets.json` 路径不一致——schema 读 `.project/secrets.json`，
+link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入目录找 secrets，
+而 W6 把 link 资料目录改成 `.project/link` 后，`linksync` 把 link 目录当成了 secrets 目录
+（`linksync/db.go:36` ← `source.go:138` ← `sync.go:51-56`）。**统一为 `.project/secrets.json`。**
+
+**第三个问题（可见性）**：schema 的输出被写进「链接资料」通道，失败提示却让用户看「数据库字段」通道。
+
+**关于空的 `.tmp-#T28_SID`**：`writeFileAtomic` 正常错误返回会 `defer` 删除临时文件；**空**文件更像
+**上一次运行被取消/被杀**（插件取消会 `child.kill()`，defer 来不及跑）或删除时被 Windows 占用
+（`_ = os.Remove(tmp)` 静默吞掉）。不是本次失败的直接原因，但仍要清理＋告警（W7.8）。
+
+| # | 要做的事 | 验收 |
+|---|---|---|
+| W7.1 | **查询超时改为「空闲超时 + 总上限」**：每收到一行就重置空闲计时（默认 120s），另设总上限（默认 30min）；`schema sync` / `link sync` 共用；CLI 加 `-timeout`；插件加设置（策略见 OPEN-ITEMS `W-i`） | 慢链路上的全量查询不再 120s 到点被取消 |
+| W7.2 | `ORA-01013` 人话化：识别该码 → 「查询被超时取消（空闲超过 Ns）：可加大 `-timeout`/设置，或改用 CSV 导入」 | 报错一眼能懂并给出下一步 |
+| W7.3 | **secrets 路径统一**：`oradb` 参数语义改为"secrets 目录"；`linksync` 传**项目目录**（`.project`）而非 link 资料目录；schema 保持 `.project` | 同一个 `.project/secrets.json` 对 link/schema 都生效；`link sync` 不再去 `.project/link/` 找密码 |
+| W7.4 | 回归测试：`link sync -source golang` 的 secrets 只在 `.project/secrets.json` 生效（`.project/link/secrets.json` 不再被读）；`schema sync` 同理；文档口径一致 | 单测 + 文档 |
+| W7.5 | **输出通道修正**：进度执行器支持指定通道；schema 写「数据库字段」、link 写「链接资料」 | 两个通道各自只出现本功能输出 |
+| W7.6 | 失败可见性：错误对话框带 stderr 末尾若干行（去空行、限长）；"详见…"指向的通道保证有内容 | 只看通知就知道原因 |
+| W7.7 | 每次 tiptop 运行**落盘完整日志**（扩展 globalStorage，带时间戳）；失败提示给出文件路径 | 通道被清/编辑器重启后仍可回看，便于远程报错 |
+| W7.8 | 临时文件：`schema import/sync` 启动时清理 `tables/` 下遗留的 `.tmp-*`（link 目录同理）；删除失败记警告 | 复跑后不再残留；失败有记录 |
+| W7.9 | 表名安全校验：`tableFileName` 对 `\ / : * ? " < > \|` 与超长名给明确报错（带表名） | 遇到非法表名能看出是哪张表 |
+| W7.10 | 排障文档：通道/日志/`-timeout`/`ORA-01013`/权限与 `-owner` 自检 SQL 写进 README FAQ + tiptop 文档 | 用户可自助定位 |
+
+**顺序**：W7.1–W7.3（根因）→ W7.5–W7.7（可见性）→ W7.8–W7.10（清理与文档）。
+做完请你在 Windows 复跑一次全量同步验证（慢链路正是要验的场景）。
 
 ---
 
