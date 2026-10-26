@@ -67,14 +67,21 @@
 > 你已选定方案：**分批查询**——先取表清单，再按**每批 200 张表**查明细，一批完成继续下一批。
 > 实现为 `schema sync -batch-size 200`（0=不分批）、每批超时 `-timeout 120` 秒；不再依赖加大单条查询的超时。
 
-## 7. 设置重构 V2 的小决策（2026-10-26 待确认）
+## 7. 设置重构 V2 的小决策（2026-10-26 已确认）
+
+- **S-a** 接受建议：`bdl.prod.deploy.transport` = `off | rsync | scp`（`off` 时隐藏上传命令；`rsync` = 主 rsync、备 scp）。
+- **S-b** **只有 4GL「链接」弹 `${name}` 输入框**；4GL 编译、Form 预演编译/编译/预览都不弹。
+- **S-c** 远程执行会自行调起本地 GUI；我们只按命令执行并回传输出，不做特殊处理。
+- **S-d** `2 p` 不是笔误：Form「预览画面」默认命令字面为 `cd ${path} && r.gf ${name} 2 p`。
+- **S-e** 基本设置（现有 22 键）全部维持不动。
+- **S-f** 沿用 `bdl.deploy.enable` 作为"上传编译链接"组的总开关。
+
+## 8. 字段说明 SQL 与图标（2026-10-26 待确认）
 
 | 编号 | 事项 | 背景/现状 | 影响 | 需要你确认什么 |
 |---|---|---|---|---|
-| S-a | 上传方式枚举取值 | 你的列表写"（不启用，rsync+scp，scp）" | 决定上传命令是否出现 | 用 `bdl.prod.deploy.transport` = `off \| rsync \| scp`（`off` 时隐藏上传命令，`rsync`=主 rsync 备 scp）？【建议】是 |
-| S-b | `${name}` 弹框 | 现在链接与编译每次弹、预演编译不弹 | 操作节奏 | 保持现状？【建议】保持 |
-| S-c | 预览画面 `r.gf` 的远程行为 | 改为 ssh 远程执行后，它是 GUI 程序的话服务器上无 X | `预览画面` 是否可用 | 它在服务器上输出什么（生成文件/需要 X/转发）？【建议】先按"普通命令、只回显输出"实现，真机再调 |
-| S-d | 列表末尾"2 p" | 你的原文最后有"2 p" | 可能是笔误 | 是否删掉？【建议】删掉 |
-| S-e | 基本设置 22 键 | D9 已默认维持 | 设置面 | 确认全部不动（含 `limits`/`ignore`/`builtins`/格式化）？【建议】不动 |
-| S-f | 组总开关键名 | 新组"上传编译链接"的总开关 | 兼容 | 沿用旧键名 `bdl.deploy.enable`（避免旧配置失效），语义改为"上传+编译/链接/预览组"总开关？【建议】沿用 |
-
+| S-g | `zta02='ds'` 是否固定 | 你给的 SQL 里写死 `zta02='ds'` | 决定能否采集其它模组/库的表 | 固定 `'ds'`，还是做成设置（如 `bdl.prod.oracle.tableGroup`）？多模组时要支持多值吗？【建议】先固定 `'ds'`，同时保留 `-query` 覆盖 |
+| S-h | 连接账号与表 owner | 新 SQL 用 `user_tab_columns`，只有"账号自己拥有的表"才有行，且要能读 `ds.zta_file`/`ds.gaq_file` | 用独立只读账号会查不到任何表 | 生产上是用**应用 schema 账号**（如 TOPPORD，只给 SELECT 权限）连，还是独立只读账号？若是后者，需要改回 `all_tab_columns WHERE owner = upper(...)`（那 `owner` 设置得加回来）【建议】用应用 schema 账号 + `user_tab_columns` |
+| S-i | 是否保留"通用（Oracle 注释）"预设 | 新默认 SQL 是 TiTop 专属（`DS.ZTA_FILE` + `DS.GAQ_FILE`） | 非 TiTop 项目/其它子公司 | 只保留 `-query` 覆盖够不够？还是要 `-preset tiptop\|generic`（或设置项）？【建议】先只保留 `-query`，确有第二个环境再加 preset |
+| S-j | 列名大小写与 `2 p` 写法 | SQL 里 `lower(column_name)`；预览命令含 `2 p` | 悬停/补全显示的列名 | 列名接受小写吗（现在是大写）？`r.gf ${name} 2 p` 是否就是**两个参数 `2` 和 `p`**（还是要写成 `2p` / `2.p`）？【建议】列名按 SQL 小写；`2 p` 字面照录 |
+| S-k | 图标选择 | 你要求 5 处视图按钮图标化 + 编译图标改运行形状 | 观感 | 建议：过滤 `$(filter)`、刷新 `$(refresh)`、CSV 导入 `$(file-add)`、重新同步 `$(sync)`、从数据库更新 `$(cloud-download)`；编译 4gl/per 改 `$(play)`（预演编译仍 `$(beaker)`、链接 `$(link)`、Form 预览 `$(eye)`）。另外 view title 里还有「同步已选中的表 / 全选 / 清除勾选 / 同步筛选结果」现在是文字，要不要一起图标化？【建议】是：分别 `$(cloud-upload)` / `$(checklist)` / `$(close)` / `$(cloud-upload)` |

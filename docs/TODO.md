@@ -106,6 +106,11 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 | D7 | 删除：整包部署命令、`bdl.deploy.target`、「列出部署目标」、`include/exclude/delete`、`prod.deploy.compile4gl/compilePer`（由新的编译命令取代） |
 | D8 | 保留：上传方式 `transport`（`off|rsync|scp`，rsync 主 scp 备）、`localRoot`（项目根目录，默认 `.`）、`remoteRoot`（生产根目录，示例 `/u1/toppord`）、`link.moduleRoots`/`globalModules`、schema `batchSize`/`timeoutSec` |
 | D9 | 基本设置（现有 22 键：server/tools 路径、日志、trace、generoVersion、diagnostics、format、index、globals/perRoots、builtins、ignore、limits）**维持不变** |
+| D10 | 上传方式枚举 `transport = off\|rsync\|scp`（`off` 时隐藏上传命令；`rsync` = 主 rsync、备 scp） |
+| D11 | **只有 4GL「链接」弹 `${name}` 输入框**；4GL 编译、Form 预演编译/编译/预览都不弹，直接用默认名 |
+| D12 | Form「预览画面」默认命令**按原文加 `2 p`**：`cd ${path} && r.gf ${name} 2 p`（不是笔误，字面照录；确切写法见 OPEN-ITEMS S-j） |
+| D13 | 远程执行会自行调起本地 GUI（`r.gf` 等）；我们只按命令执行、回传输出，不做特殊处理 |
+| D14 | 视图/工具栏图标化：「数据库字段」的正则过滤/刷新/CSV 导入，「链接资料」的重新同步/从数据库更新；**编译 4gl / 编译 per 的图标从齿轮改为运行形状**（`$(play)`） |
 
 **目标键位（3 组，约 55 键）**
 
@@ -126,8 +131,54 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 | T5 | 兼容与迁移说明：旧 `link.enable`/`schema.enable`/`deploy.target`/`include/exclude/delete`/`compile4gl|Per` 的处理（映射或忽略 + README 提示） | 升级后旧配置行为可预期 |
 | T6 | 测试：tiptop exec/upload 单测（dry-run、路径映射、缺配置）；插件 e2e（命令注册、3 组设置、门控、上传预演） | 全绿 |
 | T7 | 文档：README（三档/设置/命令/FAQ）、三份 `FEATURES.md`、本文件、`OPEN-ITEMS.md` | 无死链、口径一致 |
+| T8 | 图标化：`bdl.schema.filter` / `bdl.schema.refresh` / `bdl.schema.import` / `bdl.links.resync` / `bdl.link.updateFromDb` 加 `icon`；`bdl.build.4gl.compile`、`bdl.build.per.compile` 改 `$(play)`（具体 codicon 见 OPEN-ITEMS S-k） | 视图标题栏只显示图标；编译按钮是运行形状 |
+| T9 | `${name}` 弹框规则改为**只有 4GL 链接弹**（D11）：`build.ts` 里 4gl.compile / per.preview / per.compile / per.form 的 `promptName` 置 false | 点编译/预览不再弹框；点 4GL 链接仍弹 |
 
 **说明**：D5 与现有 W5 实现（本机执行）冲突，T2/T4 完成后 W5 的"本地执行"描述要一并改掉；「预演编译」仍是远程执行同一条命令（不写盘效果由脚本自身保证）。
+
+---
+
+## 0e. 字段说明来源：改用 TiTop 字典（DS.ZTA_FILE + DS.GAQ_FILE）（2026-10-26 待确认）
+
+**现状（已核实）**：`tiptop schema sync` 的默认 SQL 是
+`ALL_TAB_COLUMNS c LEFT JOIN ALL_COL_COMMENTS cc ...`（`internal/schemacli/sync.go` 的 `DefaultSchemaQuery`）——
+说明列取的是 **Oracle 自己的备注（column comments）**。你们环境里 Oracle 备注基本不维护，所以只有少数列有说明。
+
+**目标 SQL（用户 2026-10-26 提供）**：
+
+```sql
+select zta01 table_name,
+       lower(column_name) column_name,
+       gaq03 column_desc,
+       data_type, data_length, char_length, data_precision, data_scale, nullable, default_length
+  from ds.zta_file, user_tab_columns
+  left join ds.gaq_file
+    on column_name = upper(gaq01)
+   and gaq02 = '2'
+ where zta02 = 'ds'
+   and table_name = upper(zta01)
+   and zta01 = 'ima_file'        -- 分批时变成：and zta01 in ('ima_file', …)
+ order by table_name, column_name
+```
+
+**要点（对照现有实现）**
+
+| # | 变化 | 影响 |
+|---|---|---|
+| a | 说明来源从 `ALL_COL_COMMENTS.comments` 换成 **`DS.GAQ_FILE.gaq03`**（`gaq02='2'`） | 列说明终于来自你们真正维护的字典档 |
+| b | 表清单从 `all_tab_columns` 换成 **`DS.ZTA_FILE`（`zta02='ds'`）**，明细用 `user_tab_columns` | 需要连接账号**自己是表 owner**（`user_tab_columns` 才有行），且能读 `ds.zta_file`/`ds.gaq_file` |
+| c | 列名按 SQL 的 **`lower(column_name)`** 存小写（现在是大写） | 悬停/补全显示的列名变成小写；不想要就去掉 `lower()` |
+| d | CSV 列名与现有解析器**完全一致**（`table_name/column_name/column_desc/data_type/data_length/char_length/data_precision/data_scale/nullable/default_length`） | **解析器不用改**；只换默认查询 |
+| e | 分批：表清单查 `SELECT DISTINCT zta01 FROM ds.zta_file WHERE zta02='ds'`，批次条件 `AND zta01 IN (...)`（用 ZTA_FILE 里的原名） | W7 的分批逻辑保留，只把 SQL/条件换掉 |
+| f | `-query` 自定义 SQL 仍保留；`-owner` 在默认查询下不再需要（保留参数，仅自定义/通用 SQL 用） | 非 TiTop 环境可继续用 `-query` |
+
+**待确认**：`zta02='ds'` 是否固定；连接账号是否即表 owner；是否需要保留一套"通用（Oracle 注释）"预设；列名是否接受小写（见 OPEN-ITEMS S-g/S-h/S-i/S-j）。
+
+| # | 要做的事 | 验收 |
+|---|---|---|
+| T10 | 默认查询换成上面的 TiTop 字典 SQL（含分批与表清单） | 导入后 `ima_file` 等表的列说明来自 `ds.gaq_file`，覆盖率明显提高 |
+| T11 | 保留 `-query` 覆盖；`-owner` 语义在文档里标注"仅自定义/通用 SQL" | 非 TiTop 环境不被破坏 |
+| T12 | 文档：tiptop README/FEATURES + 插件 README/FEATURES 写清"说明来自 DS.GAQ_FILE"、需要的权限与账号 | 用户能自查权限；命令都在文档里 |
 
 ---
 
