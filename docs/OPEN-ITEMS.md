@@ -79,17 +79,13 @@
 ## 8. 字段说明 SQL 与图标（2026-10-26 已确认）
 
 - **S-g** `zta02='ds'` 固定；临时条件 `zta01='ima_file'` 去掉（分批时自动变成 `zta01 IN (...)`）。
-- **S-h** 用**应用 schema 账号**（自己拥有表、且对 `ds.zta_file`/`ds.gaq_file` 有读权限）→ 用 `user_tab_columns`，不需要 `owner`。
+- **S-h** 用**应用 schema 账号**（自己拥有表、且对 `ds.zta_file`/`ds.gaq_file` 有读权限）→ `user_tab_columns`，不需要 `owner`。
 - **S-i** 本版本只做 **TiTop 专用**；字典表不存在时提示「请改用 CSV 导入」。
-- **S-j** 列名**全部小写**；Form 预览命令是**三个参数** `${name}`、`2`、`p` → `cd ${path} && r.gf ${name} 2 p`。
-- **S-k** 图标方案（过滤/刷新/CSV 导入、重新同步/从数据库更新、编译改 `$(play)`）**待你最终点头**，见下。
+- **S-j** 列名**全部小写**；Form 预览命令是**三个参数** `${name}`、`2`、`p`。
+- **S-k** 图标方案确认：过滤 `$(filter)`、刷新 `$(refresh)`、CSV 导入 `$(file-add)`、重新同步 `$(sync)`、从数据库更新 `$(cloud-download)`；编译 4gl/per 改 `$(play)`；标题栏其余 4 个文字按钮一并图标化。
 
-## 9. 采集中间文件落盘（2026-10-26 待确认）
+## 9. 采集中间文件（2026-10-26 已定）
 
-| 编号 | 事项 | 背景/现状 | 影响 | 需要你确认什么 |
-|---|---|---|---|---|
-| S-l | 文件名与放置 | 建议 `.project/link/gal_file.oracle.csv` + `link.sql`、`.project/schema/gal_schema.oracle.csv` + `schema.sql`（来源后缀，避免覆盖 CSV 导入落点 `gal_file.csv`/`gal_schema.csv`） | 会不会互相覆盖、能不能直接复用 | 用"来源后缀 + 直接放 link/schema 根"（推荐）？还是放子目录 `link/sync/`、`schema/sync/`？还是就用 `gal_file.csv` 同名覆盖？ |
-| S-m | 是否也保存 SQL | 现在 SQL 只在代码里 | 审计/复现/交付 DBA | 保存 SQL 文件（推荐：`link.sql`/`schema.sql`，schema 存不分批的基础 SQL + 注释）？还是只要 CSV？ |
-| S-n | `-source file` / `command` | file 的输入本身就是文件；command 的输出现在只在内存 | 一致性 | `command` 落 `gal_file.command.csv`（推荐），`file` 不另存只记路径？ |
-| S-o | 是否记进 meta | `links.meta.json` / `tables.json` 有 `source` 字段 | 能否追溯"哪次导出" | 把 CSV/SQL 文件名记进 meta/索引并在 Output 打印路径（推荐）？ |
+- **S-l / S-m / S-n / S-o**：用户决定**不保存中间文件**——采集本身不落盘（维持现状），只保存最终结果（`links.jsonl` / `.schema`）。
+  TODO §0f 已作废，不再实现 CSV/SQL 落盘。
 

@@ -448,7 +448,7 @@ GLOBALS 文件找不到时默认 warning（`globals-file-not-found`）；确认�
 ### 7.3 数据库字段资料（schema）
 
 `RECORD LIKE table.*` 的成员、`LIKE table.col` 的类型与中文说明，都不在源码里——
-它们来自 **Oracle 导出的"表字段"CSV**（`ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`，含
+它们来自 **TiTop 字典**（`DS.ZTA_FILE` + `DS.GAQ_FILE.gaq03`，或 DBA 导出的同格式 CSV，含
 表名/列名/中文说明/类型/长度/精度/是否可空），由 `tiptop` 转换成项目资料：
 
 ```bash
@@ -488,8 +488,9 @@ tiptop schema status -root .          # 看表数/列数/导入时间
 主机/服务名/只读账号（密码走环境变量 `BDL_ORA_PASSWORD` 或 `<项目>/.project/secrets.json`
 ——link 与 schema **共用这一份**），然后：
 
-- `从数据库同步`：查 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`（应用 schema 默认为
-  `-user` 的大写；账号与应用 schema 不同时在终端加 `-owner`）；
+- `从数据库同步`：默认 SQL 查 **`DS.ZTA_FILE`（`zta02='ds'`）+ `USER_TAB_COLUMNS`**，
+  列说明取 **`DS.GAQ_FILE.gaq03`**（`gaq02='2'`）——所以**连接账号要用应用 schema 账号**
+  （自己拥有表，且对这两张字典表有读权限）；字典表不存在时会提示改用 CSV 导入；
 - **分批查询（W7）**：先取表清单，再每 **200 张表**查一批（`-batch-size`，0=不分批），
   每批超时 120 秒（`-timeout`），跑完一批继续下一批。慢链路上不会再出现单条大查询
   被取消的 `ORA-01013`；
@@ -548,7 +549,7 @@ tiptop schema status -root .          # 看表数/列数/导入时间
 | 文件 | 从哪来 | 用来做什么 |
 |---|---|---|
 | **程序链接资料**（DS.GAL_FILE 导出，列 `GAL01..GAL04`） | DBA/生产环境执行一条 SQL 导出，或用脚本 [`fetch-gal-file.sh`](https://github.com/darcyjoven/tiptop/blob/main/scripts/fetch-gal-file.sh) 在生产机上跑 | 跨模块**函数可见性**：`function-not-found` 不再乱报；侧边栏"链接资料"树与**反查引用程序** |
-| **表字段资料**（表名/列名/中文说明/类型/长度…） | DBA 导出 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS` | 悬停 `LIKE t.col` 显示**中文说明**；`RECORD LIKE t.*` 的成员校验；`rec.` 补全带说明 |
+| **表字段资料**（表名/列名/中文说明/类型/长度…） | 直连时查 TiTop 字典 `DS.ZTA_FILE` + `DS.GAQ_FILE`；也可由 DBA 导出同格式 CSV | 悬停 `LIKE t.col` 显示**中文说明**；`RECORD LIKE t.*` 的成员校验；`rec.` 补全带说明 |
 
 表字段 CSV 的导入与使用见 [§7.3](#73-数据库字段资料schema)；本节下面的内容针对链接资料。
 
@@ -688,7 +689,7 @@ chmod 600 <项目>/.project/secrets.json
 | `Genero BDL: 链接资料：全量更新` | 直连 Oracle 查 DS.GAL_FILE，重算全部链接链（确认后执行，不再预演） |
 | `Genero BDL: 链接资料：更新当前文件` | 只重算**当前文件**涉及的作业（通常几秒；不再预演） |
 | `Genero BDL: 链接资料：按模组更新` | 只更新 `lib`/`sub`/`qry` 等你选的模组 |
-| `Genero BDL: 数据库字段：从数据库同步` | 查 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`，同步表字段资料 |
+| `Genero BDL: 数据库字段：从数据库同步` | 查 TiTop 字典 `DS.ZTA_FILE` + `DS.GAQ_FILE.gaq03`（配 `USER_TAB_COLUMNS`），同步表字段资料 |
 | `Genero BDL: 链接资料：查看状态` | 链数/文件数/生成时间/来源 |
 
 **进度**：每次同步都会弹出进度通知，能看清"卡在哪一步"、并且可以取消：
@@ -1975,7 +1976,7 @@ tiptop link status -root .                                      # 链数/文件�
 
 # ===== 数据库字段资料 =====
 tiptop schema import -csv gal_schema.csv -root .                # 从 CSV 导入
-tiptop schema sync   -root . -host <主机> -service <服务名> -user <账号> [-owner <schema>]
+tiptop schema sync   -root . -host <主机> -service <服务名> -user <应用schema账号>
 tiptop schema status -root .                                    # 表数/列数/导入时间
 
 # ===== 部署 =====

@@ -194,7 +194,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | # | 功能 | 归属 | 说明 / 入口 |
 |---|---|---|---|
 | G1 | CSV 导入 | TIPTOP | `tiptop schema import -csv <表字段导出.csv> -root <项目根>` |
-| G2 | 直连采集（分批，W7） | TIPTOP | `tiptop schema sync -source golang`：先取表清单，再每 `-batch-size`（默认 200）张表查一批，每批 `-timeout`（默认 120s）；查 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`；`-owner` 默认取 `-user` 大写 |
+| G2 | 直连采集（TiTop 字典 + 分批） | TIPTOP | `tiptop schema sync -source golang`：默认 SQL 用 `DS.ZTA_FILE`（`zta02='ds'`）+ `USER_TAB_COLUMNS`，列说明取 `DS.GAQ_FILE.gaq03`（`gaq02='2'`，非 Oracle 备注）；先取表清单、每 `-batch-size`（默认 200）张表一批、每批 `-timeout`（默认 120s）；字典表缺失提示改用 CSV 导入 |
 | G3 | 状态查看 | TIPTOP | `tiptop schema status`：表数/列数/导入时间/来源 |
 | G4 | 增量与选择 | TIPTOP | `-tables a,b` / `-tables-file 文件`（大清单，插件走这个）/ `-only-new`（只补本地没有的表）/ `-prune`（删除本地多出、仅全量）/ `-dry-run`（命令行能力，**插件不再自动预演**，W2） |
 | G5 | 逐表增量写 | TIPTOP | 全量查询后**逐表逐字节比较**，内容没变不重写（避免无意义 mtime 变化触发编辑器重载） |
@@ -292,7 +292,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | `tiptop link sync` | `-root` `-out` `-roots` `-source golang\|command\|file` `-command` `-file` `-host` `-port` `-service` `-user` `-query` `-modules` `-files` `-dry-run` |
 | `tiptop link status` | `-root` `-out` `-global` |
 | `tiptop schema import` | `-csv <文件>`（必填）`-root` `-out` `-tables` `-tables-file` `-only-new` `-dry-run` |
-| `tiptop schema sync` | `-root` `-out` `-source golang\|file` `-file` `-host` `-port` `-service` `-user` `-owner` `-tables` `-tables-file` `-only-new` `-prune` `-dry-run` |
+| `tiptop schema sync` | `-root` `-out` `-source golang\|file` `-file` `-host` `-port` `-service` `-user` `-query` `-tables` `-tables-file` `-only-new` `-prune` `-dry-run` `-batch-size` `-timeout`（`-owner` 仅自定义 SQL 用） |
 | `tiptop schema status` | `-root` `-out` |
 | `tiptop deploy` | `-target` `-config` `-workspace` `-dry-run` `-no-compile` `-no-upload` `-json` `-list` `-version` `[文件...]` |
 | `tiptop version` | 打印版本 |

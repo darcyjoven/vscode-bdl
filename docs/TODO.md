@@ -178,40 +178,14 @@ select zta01 table_name,
 
 **待确认**：`zta02='ds'` 是否固定；连接账号是否即表 owner；是否需要保留一套"通用（Oracle 注释）"预设；列名是否接受小写（见 OPEN-ITEMS S-g/S-h/S-i/S-j）。
 
-| # | 要做的事 | 验收 |
-|---|---|---|
-| T10 | 默认查询换成上面的 TiTop 字典 SQL（含分批与表清单） | 导入后 `ima_file` 等表的列说明来自 `ds.gaq_file`，覆盖率明显提高 |
-| T11 | 保留 `-query` 覆盖；`-owner` 语义在文档里标注"仅自定义/通用 SQL" | 非 TiTop 环境不被破坏 |
-| T12 | 文档：tiptop README/FEATURES + 插件 README/FEATURES 写清"说明来自 DS.GAQ_FILE"、需要的权限与账号 | 用户能自查权限；命令都在文档里 |
-| T13 | 字典表缺失的友好报错：识别 ORA-00942 并提示「TiTop 字典表（DS.ZTA_FILE/DS.GAQ_FILE）不存在，请改用 CSV 导入」 | 非 TiTop 库/权限不足时不会只抛原始 ORA 码 |
-
----
-
-## 0f. 采集中间文件落盘（CSV + SQL）（2026-10-26 待确认）
-
-**现状（已核实）**：直连 Oracle 采集的资料**不落盘**——`oradb.QueryCSV` 把 CSV 返回给内存，直接交给导入器
-（`linksync` → `link.RunImport`、`schemacli` → `Import(CSVData)`）；SQL 也只是代码里拼出来执行。
-项目里目前只有「从 CSV 导入」那条路会留下 CSV（插件把用户选的文件复制到 `.project/link/gal_file.csv` / `.project/schema/gal_schema.csv`），
-**没有任何采集产物/查询记录**。
-
-**建议落盘**（按你要求放 link/ 与 schema/ 目录下）：
-
-| 采集方式 | 建议文件 | 说明 |
-|---|---|---|
-| `link sync -source golang` | `.project/link/gal_file.oracle.csv` + `.project/link/link.sql` | CSV 便于交付/对比/复跑（`-source file`）；SQL 便于审计与复现 |
-| `link sync -source command` | `.project/link/gal_file.command.csv` + `link.sql` | 命令 stdout 同样留一份 |
-| `link sync -source file` | 不另存（输入本身就是文件） | meta 里记来源路径即可 |
-| `schema sync -source golang` | `.project/schema/gal_schema.oracle.csv` + `.project/schema/schema.sql` | 同上；SQL 保存**不分批的基础 SQL**，注释里注明每批 N 张表 |
-| `schema sync -source file` | 不另存 | — |
-
-写入时机：采集成功、导入开始前（临时文件 + rename，原子）；`-dry-run` 不写。
-文件名带来源后缀（`.oracle.` / `.command.`）是为了**不覆盖**「从 CSV 导入」落点 `gal_file.csv` / `gal_schema.csv`（那份是用户选的源文件）。
+**状态（2026-10-26，已实现）**：默认 SQL 已换成 TiTop 字典；生成的 SQL 与用户给的完全一致（多 `NVL(gaq03,'')` 与分批 `zta01 IN (...)`）；`go test ./...` 全绿；**待真库复跑**（用 schema 账号）。另：用户决定**中间文件不落盘**（维持现状、只保存结果），原 §0f 作废。
 
 | # | 要做的事 | 验收 |
 |---|---|---|
-| T14 | tiptop：采集成功后把 CSV + SQL 原子写入对应目录（来源后缀命名）；`-dry-run` 不写 | 每次直连同步后能在 link/schema 下看到 CSV 与 SQL |
-| T15 | meta/索引记录文件名（`links.meta.json`、`tables.json` 的 `source` 或新增字段），Output 里打印路径 | 插件/终端能知道"这份资料是哪次导出的" |
-| T16 | 文档：README/FEATURES 写清落盘位置与用途，并提醒 `.project/` 不进版本库 | 用户能自助找到/交付这些文件 |
+| ✅ T10 | 默认查询换成上面的 TiTop 字典 SQL（含分批与表清单） | 导入后 `ima_file` 等表的列说明来自 `ds.gaq_file`，覆盖率明显提高 |
+| ✅ T11 | 保留 `-query` 覆盖；`-owner` 语义在文档里标注"仅自定义/通用 SQL" | 非 TiTop 环境不被破坏 |
+| ✅ T12 | 文档：tiptop README/FEATURES + 插件 README/FEATURES 写清"说明来自 DS.GAQ_FILE"、需要的权限与账号 | 用户能自查权限；命令都在文档里 |
+| ✅ T13 | 字典表缺失的友好报错：识别 ORA-00942 并提示「TiTop 字典表（DS.ZTA_FILE/DS.GAQ_FILE）不存在，请改用 CSV 导入」 | 非 TiTop 库/权限不足时不会只抛原始 ORA 码 |
 
 ---
 
