@@ -3,7 +3,12 @@
 在 **Ubuntu / WSL** 上跑：从 **RedHat 6.5 类生产服务器**（TiTop 环境）把 `*.4gl` / `*.global` / `*.per`
 取回本地，整理成一个 **git 仓库**，并生成 `.gitignore` / `.gitattributes` / 示例设置。
 
-> Windows 版计划中的 `init-project.ps1` 与本脚本**参数同名**（远端脚本与模板共用同一份）。
+> **运行位置**：只在**本地 / WSL** 直接执行——**不要把这个脚本放到生产服务器上跑**。
+> 对服务器只做**只读**操作：`find` / `stat` / `ls` / `head` / `base64` / `tar`（结果经 stdout 回传），
+> 不在服务器上写任何文件（**连临时文件都不建**）、不调用任何上传/部署命令（`tiptop`、`rsync`、`scp` 一律不用）。
+> 用 `--print-remote` 可以把将要执行的远端命令原样打印出来审计。
+>
+> Windows 版计划中的 `init-project.ps1` 与本脚本**参数同名**（远端命令与模板共用同一套）。
 
 ## 依赖
 
@@ -44,7 +49,8 @@ scripts/init-project/init-project.sh \
 | `--force` | 目标非空也继续（可能与旧文件混在一起，慎用） |
 | `--no-commit` | 只落盘不提交 |
 | `--force-templates` | 覆盖已存在的 `.gitignore` / `.gitattributes` |
-| `--dry-run` | 只预检 + 检测编码，不传输不写盘 |
+| `--print-remote` | 打印将在服务器上执行的**只读**命令（可单独用，便于审计） |
+| `--dry-run` | 只预检 + 检测编码，不传输不写盘（结束时也会打印远端命令） |
 | `-y, --yes` | 全程不再确认（编码仍用检测结果） |
 | `--keep-tmp` / `-v` | 保留临时 tarball / 详细输出 |
 
@@ -52,10 +58,10 @@ scripts/init-project/init-project.sh \
 
 1. **连通性**：默认算法失败时按老服务器（OpenSSH 5.x）兼容参数重试，并提示已启用。
 2. **只读预检**：统计匹配到的文件数与字节数，打印顶层目录名让你核对。
-3. **编码检测**：取最多 6 个文件的前 4KB，用 `detect-encoding.py` 打分（能解码 + 汉字多 + 控制字符少），
-   打印候选与各自解码预览，**问你选哪个**（默认给检测建议）。
-4. **流式打包**：远端 `find` 出清单 → `tar czf -` 直接流回本地；**不落远端临时文件、不依赖 rsync**。
-   远端脚本用 `ssh … "sh -s -- …"` 送入，登录 shell 是 csh/ksh 也不受影响。
+3. **编码检测**：远端 `head -c 4096 | base64` 取最多 6 个样本，本地用 `detect-encoding.py` 打分
+   （能解码 + 汉字多 + 控制字符少），打印候选与各自解码预览，**问你选哪个**（默认给检测建议）。
+4. **流式取回**：远端 `find … | tar czf - -T -` 直接把 tar.gz 写到 stdout 回传；
+   **服务器上不落任何文件**，也不依赖 rsync。
 5. **解包 + 规范化**：转 UTF-8（**本来就是 UTF-8 的文件跳过**）、CRLF→LF、剔除副作用文件。
 6. **git**：`git init -b main`、写模板、生成来源段落、`git add -A` 后提交
    （`chore: 从 <host>:<root> 初始化/更新生产代码镜像`）。
@@ -92,7 +98,8 @@ scripts/init-project/init-project.sh \
 | 中文全是乱码 | 编码选错：先 `--dry-run` 看检测报告（含 alt 预览），再用 `--from-encoding big5`（或 gbk）重跑 |
 | `tar: Removing leading '/'` | 已修（远端输出相对路径）；若在旧版本看到，更新脚本即可 |
 | 目标目录已有内容 | 正常重跑用 `--update`；确实要混着用才加 `--force` |
-| 想看远端到底选中了哪些文件 | `ssh <target> "sh -s -- stats --root <root>" < scripts/init-project/remote-collect.sh` |
+| 想看远端到底会执行什么 | `scripts/init-project/init-project.sh -t <host> -r <root> --print-remote` |
+| 想手工核对选中了哪些文件 | `ssh <host> "cd <root> && find . \( -name 42f -o -name 4fd -o -name bin \) -prune -o -type f \( -name '*.4gl' -o -name '*.global' -o -name '*.per' \) -print"` |
 
 ## 自测（不需要真服务器）
 
@@ -100,6 +107,7 @@ scripts/init-project/init-project.sh \
 scripts/init-project/test-local.sh
 ```
 
-造一棵"远端"fixture + 假 `ssh`，把整条链路（预检 → 编码检测 → 流式打包 → 解包 → 规范化 → git）
+造一棵"远端"fixture + 假 `ssh`，把整条链路（预检 → 编码检测 → 流式取回 → 解包 → 规范化 → git）
 跑一遍并逐项断言（取数/排除、GBK→UTF-8、CRLF→LF、模板、提交、增量更新与删除同步），
-当前 **26/26 通过**。
+外加**只读审计**（远端命令里不许出现重定向/`rm`/`mkdir`/`tiptop`/`rsync`/`scp`/`upload`/`deploy`），
+当前 **29/29 通过**。

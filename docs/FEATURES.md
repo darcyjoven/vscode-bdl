@@ -401,7 +401,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | L16 | `npm run test:e2e` | 无头 VSCode 端到端 49 用例 |
 | L17 | `scripts/package-vsix.mjs` | 平台 VSIX 打包，内置对应平台二进制与 `BUILD-INFO.json` |
 | L18 | CI 自检 | 构建 + 单测 + 二进制自检 + VSIX 内容自检；`bundle-vsix.yml` 出 4 平台包（`win32-x64` / `linux-x64` / `darwin-x64` / `darwin-arm64`） |
-| L19 | 项目初始化脚本 | `scripts/init-project/init-project.sh`：从生产服务器（RH6.5 类）流式取回 4gl/global/per，转 UTF-8 + 归一行尾，生成 git 仓库与 `.gitignore`/`.gitattributes`/示例设置/来源段落；离线自测 `test-local.sh`（26 项） |
+| L19 | 项目初始化脚本 | `scripts/init-project/init-project.sh`（本地直接执行）：从生产服务器（RH6.5 类）流式取回 4gl/global/per，转 UTF-8 + 归一行尾，生成 git 仓库与 `.gitignore`/`.gitattributes`/示例设置/来源段落。**远端只读**（find/stat/head/base64/tar，不写文件、不上传/部署；`--print-remote` 可审计），离线自测 `test-local.sh`（29 项） |
 
 ---
 

@@ -16,6 +16,7 @@ check(){ if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 
 # ── 1) 造远端 fixture（含 UTF-8 / GBK / 垃圾产物 / 多模组）
 ROOT="$TMP/remote/toppord"
+DEST="$TMP/local/toppord"
 mkdir -p "$ROOT/topcust/aap/4gl" "$ROOT/topcust/aap/per" "$ROOT/topcust/aap/42f" \
          "$ROOT/other/lib/4gl" "$ROOT/topcust/aap/bin" "$ROOT/.git" "$ROOT/.project/link"
 printf 'MAIN\n    DISPLAY "ok"\nEND MAIN\n' > "$ROOT/topcust/aap/4gl/axcp500.4gl"
@@ -36,19 +37,30 @@ printf 'tool\n'  > "$ROOT/topcust/aap/bin/tool"
 printf 'secret\n'> "$ROOT/.project/link/links.jsonl"
 printf 'git\n'   > "$ROOT/.git/config"
 
-# ── 2) 假 ssh：忽略目标，把远端脚本在 fixture 上执行
+# ── 2) 假 ssh：忽略目标，把远端命令在本地 fixture 上执行
+#      （现在远端是**内联只读命令**，脚本本身不再送到服务器上）
 FAKE="$TMP/fake-ssh"
 cat > "$FAKE" <<'FEOF'
 #!/usr/bin/env bash
-# 用法与 ssh 一致：fake-ssh <target> "<remote-cmd>" （stdin = remote-collect.sh）
 set -euo pipefail
 shift              # 丢掉 target
-sh -c "$1"         # 远端命令本身带 --root <fixture>，所以本地路径就对
+sh -c "$1"         # 命令里已 cd 到 fixture 根，所以本地跑与远端一致
 FEOF
 chmod +x "$FAKE"
 
+# ── 2b) 只读审计：打印出来的远端命令里不许出现任何写/上传动作
+echo "── 审计：远端只读 ──"
+REMOTE_CMDS=$(INIT_PROJECT_SSH="$FAKE" "$SELF_DIR/init-project.sh" \
+  --target fake@host --remote-root "$ROOT" --dest "$DEST" --print-remote 2>&1)
+printf '%s
+' "$REMOTE_CMDS" | sed 's/^/    /' | head -6
+check "远端命令只有 find/stat/ls/head/base64/tar/awk/sed/wc" \
+  "! printf '%s' \"\$REMOTE_CMDS\" | grep -qE 'tiptop|rsync|scp|curl|wget|upload|deploy'"
+check "远端命令没有重定向（> / >>）" "! printf '%s' \"\$REMOTE_CMDS\" | grep -qE '>>|>'"
+check "远端命令没有 rm/mkdir/mktemp/touch/tee/cp/mv" \
+  "! printf '%s' \"\$REMOTE_CMDS\" | grep -qE '(^|[^a-z])(rm|mkdir|mktemp|touch|tee|cp|mv) '"
+
 # ── 3) 跑主脚本（首次初始化）
-DEST="$TMP/local/toppord"
 export GIT_AUTHOR_NAME=t GIT_AUTHOR_EMAIL=t@example.com
 export GIT_COMMITTER_NAME=t GIT_COMMITTER_EMAIL=t@example.com
 echo "── 首次初始化 ──"
