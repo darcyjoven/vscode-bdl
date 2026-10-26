@@ -9,7 +9,8 @@
 | 入口 | 数量 | 说明 |
 |---|---|---|
 | 命令（`contributes.commands`） | **32** | 命令面板可见 27 条（打开工作区时），隐藏 5 条（内部或只走右键） |
-| 编辑器右上角按钮（`editor/title`） | **7** | 强制解析（按需）+ 6 条编译/链接/预览 |
+| 编辑器右上角按钮（`editor/title`） | **8** | 上传当前文件（按需）+ 强制解析（按需）+ 6 条编译/链接/预览 |
+| 编辑器右键菜单（`editor/context`） | **2** | 上传当前文件 / 预演上传（`.4gl`/`.global`/`.per` 且启用上传时） |
 | 视图标题栏按钮（`view/title`） | **8** | 链接资料 2 + 数据库字段 6 |
 | 视图项按钮/右键（`view/item/context`） | **4** | 链接反查 1 + 字段表/列 3 |
 | 输出通道 | **2** | `Genero BDL`（服务器+追踪）与 `Genero BDL 任务`（链接/字段/上传/编译） |
@@ -87,13 +88,21 @@
 | `bdl.schema.openTable` | 数据库字段：打开表资料文件 | 字段视图**表节点右键** |
 | `bdl.schema.copyColumn` | 数据库字段：复制列定义 | 字段视图**列节点内联按钮** |
 
-## 2. 编辑器右上角按钮（7 个）
+## 2. 编辑器右上角按钮（8 个）与右键菜单（2 个）
 
 | 文件 | 显示条件 | 按钮 |
 |---|---|---|
+| `.4gl` / `.global` / `.per` | `bdl.upload.enabled`（= `bdl.deploy.enable` 且上传方式不是「不上传」） | 上传当前文件 `$(cloud-upload)`（排在编译按钮前面） |
 | `.4gl` / `.per` | 只有当前文件被跳过解析（`bdl.parseSkipped`） | 强制解析当前文件 `$(refresh)` |
 | `.4gl` | `bdl.build.enabled` | 预演编译 `$(beaker)`、编译 `$(play)`、链接 `$(link)`（无 `MAIN` 时置灰） |
 | `.per` | `bdl.build.enabled` | 预演编译 `$(beaker)`、编译 `$(play)`、预览画面 `$(eye)` |
+
+**编辑器右键菜单**（`editor/context`；同样只在 `.4gl`/`.global`/`.per` 且 `bdl.upload.enabled` 时出现）
+
+| 菜单项 | 说明 |
+|---|---|
+| 上传当前文件 `$(cloud-upload)` | 只上传当前文件（不做批量） |
+| 预演上传 `$(cloud-upload)` | 只打印上传计划，不连接服务器 |
 
 ## 3. 视图标题栏按钮（8 个）
 

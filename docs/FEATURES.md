@@ -242,7 +242,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 
 | # | 功能 | 归属 | 说明 / 入口 |
 |---|---|---|---|
-| H7 | 上传命令（只允许单文件） | VSC | `上传当前文件` / `预演上传`；`bdl.deploy.enable=false` 或 `transport=off` 时命令面板隐藏、直接调用也只提示不执行。**整包部署与列出目标已删除** |
+| H7 | 上传命令（只允许单文件） | VSC | `上传当前文件` / `预演上传`；入口：命令面板 + **编辑器右上角按钮 + 编辑器右键菜单**（`.4gl`/`.global`/`.per` 且 `bdl.upload.enabled` 时出现）；`bdl.deploy.enable=false` 或 `transport=off` 时全部隐藏、直接调用也只提示不执行。**整包部署与列出目标已删除**（批量走 `tiptop deploy` 命令行） |
 | H8 | 配置合成 | VSC | 从 `bdl.prod.deploy.*` 合成 `<项目>/.project/deploy/deploy.json`（带 `createdBy: "vscode-bdl <版本>"`）；手写文件被覆盖前先备份 `deploy.json.bak` |
 | H9 | 部署当前文件 | VSC | 先保存脏文档，只把当前 `.4gl`/`.global`/`.per` 交给 `tiptop deploy`；Zed 用 task `$ZED_FILE`（Zed 侧暂停） |
 | H10 | 编译诊断回传 | VSC | 部署结果解析为编辑器诊断；输出写入「Genero BDL」通道 |

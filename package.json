@@ -898,6 +898,11 @@
       ],
       "editor/title": [
         {
+          "command": "bdl.deployCurrentFile",
+          "when": "(resourceLangId == bdl || resourceLangId == per) && bdl.upload.enabled",
+          "group": "navigation@3"
+        },
+        {
           "command": "bdl.forceParseCurrentFile",
           "when": "bdl.parseSkipped && (resourceLangId == bdl || resourceLangId == per)",
           "group": "navigation"
@@ -932,6 +937,18 @@
           "command": "bdl.build.per.form",
           "when": "resourceLangId == per && bdl.build.enabled",
           "group": "navigation@6"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "bdl.deployCurrentFile",
+          "when": "(resourceLangId == bdl || resourceLangId == per) && bdl.upload.enabled",
+          "group": "navigation@1"
+        },
+        {
+          "command": "bdl.deployDryRun",
+          "when": "(resourceLangId == bdl || resourceLangId == per) && bdl.upload.enabled",
+          "group": "navigation@2"
         }
       ]
     }

@@ -1866,6 +1866,35 @@ async function run() {
       );
     });
 
+    // 上传按钮：编辑器工具栏 + 编辑器右键菜单
+    await test("上传按钮：工具栏与编辑器右键", async () => {
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const pkg = JSON.parse(
+        fs.readFileSync(path.join(ext.extensionPath, "package.json"), "utf8"),
+      );
+      const title = pkg.contributes.menus["editor/title"];
+      const up = title.find((m) => m.command === "bdl.deployCurrentFile");
+      assert.ok(up, "编辑器工具栏应有「上传当前文件」");
+      assert.ok(
+        String(up.when).includes("bdl.upload.enabled"),
+        `工具栏门控应含 bdl.upload.enabled：${up.when}`,
+      );
+      assert.ok(
+        String(up.when).includes("resourceLangId == bdl") &&
+          String(up.when).includes("resourceLangId == per"),
+        `应覆盖 .4gl/.global/.per：${up.when}`,
+      );
+      const ctx = pkg.contributes.menus["editor/context"] || [];
+      for (const cmd of ["bdl.deployCurrentFile", "bdl.deployDryRun"]) {
+        const m = ctx.find((x) => x.command === cmd);
+        assert.ok(m, `编辑器右键菜单应有 ${cmd}`);
+        assert.ok(
+          String(m.when).includes("bdl.upload.enabled"),
+          `${cmd} 门控应含 bdl.upload.enabled：${m.when}`,
+        );
+      }
+    });
+
   } finally {
     report();
   }
