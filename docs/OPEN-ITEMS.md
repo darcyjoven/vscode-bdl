@@ -76,12 +76,20 @@
 - **S-e** 基本设置（现有 22 键）全部维持不动。
 - **S-f** 沿用 `bdl.deploy.enable` 作为"上传编译链接"组的总开关。
 
-## 8. 字段说明 SQL 与图标（2026-10-26 待确认）
+## 8. 字段说明 SQL 与图标（2026-10-26 已确认）
+
+- **S-g** `zta02='ds'` 固定；临时条件 `zta01='ima_file'` 去掉（分批时自动变成 `zta01 IN (...)`）。
+- **S-h** 用**应用 schema 账号**（自己拥有表、且对 `ds.zta_file`/`ds.gaq_file` 有读权限）→ 用 `user_tab_columns`，不需要 `owner`。
+- **S-i** 本版本只做 **TiTop 专用**；字典表不存在时提示「请改用 CSV 导入」。
+- **S-j** 列名**全部小写**；Form 预览命令是**三个参数** `${name}`、`2`、`p` → `cd ${path} && r.gf ${name} 2 p`。
+- **S-k** 图标方案（过滤/刷新/CSV 导入、重新同步/从数据库更新、编译改 `$(play)`）**待你最终点头**，见下。
+
+## 9. 采集中间文件落盘（2026-10-26 待确认）
 
 | 编号 | 事项 | 背景/现状 | 影响 | 需要你确认什么 |
 |---|---|---|---|---|
-| S-g | `zta02='ds'` 是否固定 | 你给的 SQL 里写死 `zta02='ds'` | 决定能否采集其它模组/库的表 | 固定 `'ds'`，还是做成设置（如 `bdl.prod.oracle.tableGroup`）？多模组时要支持多值吗？【建议】先固定 `'ds'`，同时保留 `-query` 覆盖 |
-| S-h | 连接账号与表 owner | 新 SQL 用 `user_tab_columns`，只有"账号自己拥有的表"才有行，且要能读 `ds.zta_file`/`ds.gaq_file` | 用独立只读账号会查不到任何表 | 生产上是用**应用 schema 账号**（如 TOPPORD，只给 SELECT 权限）连，还是独立只读账号？若是后者，需要改回 `all_tab_columns WHERE owner = upper(...)`（那 `owner` 设置得加回来）【建议】用应用 schema 账号 + `user_tab_columns` |
-| S-i | 是否保留"通用（Oracle 注释）"预设 | 新默认 SQL 是 TiTop 专属（`DS.ZTA_FILE` + `DS.GAQ_FILE`） | 非 TiTop 项目/其它子公司 | 只保留 `-query` 覆盖够不够？还是要 `-preset tiptop\|generic`（或设置项）？【建议】先只保留 `-query`，确有第二个环境再加 preset |
-| S-j | 列名大小写与 `2 p` 写法 | SQL 里 `lower(column_name)`；预览命令含 `2 p` | 悬停/补全显示的列名 | 列名接受小写吗（现在是大写）？`r.gf ${name} 2 p` 是否就是**两个参数 `2` 和 `p`**（还是要写成 `2p` / `2.p`）？【建议】列名按 SQL 小写；`2 p` 字面照录 |
-| S-k | 图标选择 | 你要求 5 处视图按钮图标化 + 编译图标改运行形状 | 观感 | 建议：过滤 `$(filter)`、刷新 `$(refresh)`、CSV 导入 `$(file-add)`、重新同步 `$(sync)`、从数据库更新 `$(cloud-download)`；编译 4gl/per 改 `$(play)`（预演编译仍 `$(beaker)`、链接 `$(link)`、Form 预览 `$(eye)`）。另外 view title 里还有「同步已选中的表 / 全选 / 清除勾选 / 同步筛选结果」现在是文字，要不要一起图标化？【建议】是：分别 `$(cloud-upload)` / `$(checklist)` / `$(close)` / `$(cloud-upload)` |
+| S-l | 文件名与放置 | 建议 `.project/link/gal_file.oracle.csv` + `link.sql`、`.project/schema/gal_schema.oracle.csv` + `schema.sql`（来源后缀，避免覆盖 CSV 导入落点 `gal_file.csv`/`gal_schema.csv`） | 会不会互相覆盖、能不能直接复用 | 用"来源后缀 + 直接放 link/schema 根"（推荐）？还是放子目录 `link/sync/`、`schema/sync/`？还是就用 `gal_file.csv` 同名覆盖？ |
+| S-m | 是否也保存 SQL | 现在 SQL 只在代码里 | 审计/复现/交付 DBA | 保存 SQL 文件（推荐：`link.sql`/`schema.sql`，schema 存不分批的基础 SQL + 注释）？还是只要 CSV？ |
+| S-n | `-source file` / `command` | file 的输入本身就是文件；command 的输出现在只在内存 | 一致性 | `command` 落 `gal_file.command.csv`（推荐），`file` 不另存只记路径？ |
+| S-o | 是否记进 meta | `links.meta.json` / `tables.json` 有 `source` 字段 | 能否追溯"哪次导出" | 把 CSV/SQL 文件名记进 meta/索引并在 Output 打印路径（推荐）？ |
+

@@ -111,6 +111,10 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 | D12 | Form「预览画面」默认命令**按原文加 `2 p`**：`cd ${path} && r.gf ${name} 2 p`（不是笔误，字面照录；确切写法见 OPEN-ITEMS S-j） |
 | D13 | 远程执行会自行调起本地 GUI（`r.gf` 等）；我们只按命令执行、回传输出，不做特殊处理 |
 | D14 | 视图/工具栏图标化：「数据库字段」的正则过滤/刷新/CSV 导入，「链接资料」的重新同步/从数据库更新；**编译 4gl / 编译 per 的图标从齿轮改为运行形状**（`$(play)`） |
+| D15 | 字段说明 SQL：默认查询就用你的 TiTop 字典 SQL，`zta02='ds'` **固定**；你临时加的 `zta01='ima_file'` **去掉**（分批时自动变成 `zta01 IN (...)`） |
+| D16 | 连接账号 = **应用 schema 账号**（自己拥有表 + 对 `ds.zta_file`/`ds.gaq_file` 有读权限），故用 `user_tab_columns`，`owner` 不需要 |
+| D17 | 本版本**只用 TiTop 专用字典 SQL**；若 `DS.ZTA_FILE`/`DS.GAQ_FILE` 不存在（ORA-00942）→ 明确提示「TiTop 字典表不存在，请改用 CSV 导入」 |
+| D18 | 列名**全部小写**（SQL 里 `lower(column_name)`）；Form 预览命令是**三个参数**：`cd ${path} && r.gf ${name} 2 p`（`${name}`、`2`、`p`） |
 
 **目标键位（3 组，约 55 键）**
 
@@ -157,7 +161,7 @@ select zta01 table_name,
    and gaq02 = '2'
  where zta02 = 'ds'
    and table_name = upper(zta01)
-   and zta01 = 'ima_file'        -- 分批时变成：and zta01 in ('ima_file', …)
+   -- 默认查询到此结束；分批时由工具追加：and zta01 in ('ima_file', …)
  order by table_name, column_name
 ```
 
@@ -170,7 +174,7 @@ select zta01 table_name,
 | c | 列名按 SQL 的 **`lower(column_name)`** 存小写（现在是大写） | 悬停/补全显示的列名变成小写；不想要就去掉 `lower()` |
 | d | CSV 列名与现有解析器**完全一致**（`table_name/column_name/column_desc/data_type/data_length/char_length/data_precision/data_scale/nullable/default_length`） | **解析器不用改**；只换默认查询 |
 | e | 分批：表清单查 `SELECT DISTINCT zta01 FROM ds.zta_file WHERE zta02='ds'`，批次条件 `AND zta01 IN (...)`（用 ZTA_FILE 里的原名） | W7 的分批逻辑保留，只把 SQL/条件换掉 |
-| f | `-query` 自定义 SQL 仍保留；`-owner` 在默认查询下不再需要（保留参数，仅自定义/通用 SQL 用） | 非 TiTop 环境可继续用 `-query` |
+| f | `-query` 自定义 SQL 仍保留；`-owner` 在默认查询下不再需要（保留参数，仅自定义 SQL 用）。字典表不存在时按 T13 提示改用 CSV 导入 | 非 TiTop 环境用 `-query`；权限/表缺失有明确提示 |
 
 **待确认**：`zta02='ds'` 是否固定；连接账号是否即表 owner；是否需要保留一套"通用（Oracle 注释）"预设；列名是否接受小写（见 OPEN-ITEMS S-g/S-h/S-i/S-j）。
 
@@ -179,6 +183,35 @@ select zta01 table_name,
 | T10 | 默认查询换成上面的 TiTop 字典 SQL（含分批与表清单） | 导入后 `ima_file` 等表的列说明来自 `ds.gaq_file`，覆盖率明显提高 |
 | T11 | 保留 `-query` 覆盖；`-owner` 语义在文档里标注"仅自定义/通用 SQL" | 非 TiTop 环境不被破坏 |
 | T12 | 文档：tiptop README/FEATURES + 插件 README/FEATURES 写清"说明来自 DS.GAQ_FILE"、需要的权限与账号 | 用户能自查权限；命令都在文档里 |
+| T13 | 字典表缺失的友好报错：识别 ORA-00942 并提示「TiTop 字典表（DS.ZTA_FILE/DS.GAQ_FILE）不存在，请改用 CSV 导入」 | 非 TiTop 库/权限不足时不会只抛原始 ORA 码 |
+
+---
+
+## 0f. 采集中间文件落盘（CSV + SQL）（2026-10-26 待确认）
+
+**现状（已核实）**：直连 Oracle 采集的资料**不落盘**——`oradb.QueryCSV` 把 CSV 返回给内存，直接交给导入器
+（`linksync` → `link.RunImport`、`schemacli` → `Import(CSVData)`）；SQL 也只是代码里拼出来执行。
+项目里目前只有「从 CSV 导入」那条路会留下 CSV（插件把用户选的文件复制到 `.project/link/gal_file.csv` / `.project/schema/gal_schema.csv`），
+**没有任何采集产物/查询记录**。
+
+**建议落盘**（按你要求放 link/ 与 schema/ 目录下）：
+
+| 采集方式 | 建议文件 | 说明 |
+|---|---|---|
+| `link sync -source golang` | `.project/link/gal_file.oracle.csv` + `.project/link/link.sql` | CSV 便于交付/对比/复跑（`-source file`）；SQL 便于审计与复现 |
+| `link sync -source command` | `.project/link/gal_file.command.csv` + `link.sql` | 命令 stdout 同样留一份 |
+| `link sync -source file` | 不另存（输入本身就是文件） | meta 里记来源路径即可 |
+| `schema sync -source golang` | `.project/schema/gal_schema.oracle.csv` + `.project/schema/schema.sql` | 同上；SQL 保存**不分批的基础 SQL**，注释里注明每批 N 张表 |
+| `schema sync -source file` | 不另存 | — |
+
+写入时机：采集成功、导入开始前（临时文件 + rename，原子）；`-dry-run` 不写。
+文件名带来源后缀（`.oracle.` / `.command.`）是为了**不覆盖**「从 CSV 导入」落点 `gal_file.csv` / `gal_schema.csv`（那份是用户选的源文件）。
+
+| # | 要做的事 | 验收 |
+|---|---|---|
+| T14 | tiptop：采集成功后把 CSV + SQL 原子写入对应目录（来源后缀命名）；`-dry-run` 不写 | 每次直连同步后能在 link/schema 下看到 CSV 与 SQL |
+| T15 | meta/索引记录文件名（`links.meta.json`、`tables.json` 的 `source` 或新增字段），Output 里打印路径 | 插件/终端能知道"这份资料是哪次导出的" |
+| T16 | 文档：README/FEATURES 写清落盘位置与用途，并提醒 `.project/` 不进版本库 | 用户能自助找到/交付这些文件 |
 
 ---
 
