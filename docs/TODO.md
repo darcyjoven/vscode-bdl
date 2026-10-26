@@ -46,7 +46,7 @@ tiptop schema sync: 查询失败: ORA-01013: user requested cancel of current op
  error occur at position: 182
 ```
 
-**根因（已确认）**：`ORA-01013` 是 Oracle 的"语句被取消"。
+**根因（已确认）**：`ORA-01013` 是 Oracle 的"语句被取消"。用户选定方案：**分批查询**——先取表清单，再每 200 张表查一批，跑完一批继续下一批（而不是单纯加大超时）。
 
 | # | 事实 | 位置 |
 |---|---|---|
@@ -66,18 +66,21 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 **上一次运行被取消/被杀**（插件取消会 `child.kill()`，defer 来不及跑）或删除时被 Windows 占用
 （`_ = os.Remove(tmp)` 静默吞掉）。不是本次失败的直接原因，但仍要清理＋告警（W7.8）。
 
+**状态（2026-10-26，已修复）**：W7.1–W7.10 全部实现；tiptop 全量测试、`npm run typecheck`、e2e 49/49 通过。
+**待你在 Windows 慢链路上复跑一次全量同步验证**（正是要验的场景：能否跑完、失败时能否看到原因）。
+
 | # | 要做的事 | 验收 |
 |---|---|---|
-| W7.1 | **查询超时改为「空闲超时 + 总上限」**：每收到一行就重置空闲计时（默认 120s），另设总上限（默认 30min）；`schema sync` / `link sync` 共用；CLI 加 `-timeout`；插件加设置（策略见 OPEN-ITEMS `W-i`） | 慢链路上的全量查询不再 120s 到点被取消 |
-| W7.2 | `ORA-01013` 人话化：识别该码 → 「查询被超时取消（空闲超过 Ns）：可加大 `-timeout`/设置，或改用 CSV 导入」 | 报错一眼能懂并给出下一步 |
-| W7.3 | **secrets 路径统一**：`oradb` 参数语义改为"secrets 目录"；`linksync` 传**项目目录**（`.project`）而非 link 资料目录；schema 保持 `.project` | 同一个 `.project/secrets.json` 对 link/schema 都生效；`link sync` 不再去 `.project/link/` 找密码 |
-| W7.4 | 回归测试：`link sync -source golang` 的 secrets 只在 `.project/secrets.json` 生效（`.project/link/secrets.json` 不再被读）；`schema sync` 同理；文档口径一致 | 单测 + 文档 |
-| W7.5 | **输出通道修正**：进度执行器支持指定通道；schema 写「数据库字段」、link 写「链接资料」 | 两个通道各自只出现本功能输出 |
-| W7.6 | 失败可见性：错误对话框带 stderr 末尾若干行（去空行、限长）；"详见…"指向的通道保证有内容 | 只看通知就知道原因 |
-| W7.7 | 每次 tiptop 运行**落盘完整日志**（扩展 globalStorage，带时间戳）；失败提示给出文件路径 | 通道被清/编辑器重启后仍可回看，便于远程报错 |
-| W7.8 | 临时文件：`schema import/sync` 启动时清理 `tables/` 下遗留的 `.tmp-*`（link 目录同理）；删除失败记警告 | 复跑后不再残留；失败有记录 |
-| W7.9 | 表名安全校验：`tableFileName` 对 `\ / : * ? " < > \|` 与超长名给明确报错（带表名） | 遇到非法表名能看出是哪张表 |
-| W7.10 | 排障文档：通道/日志/`-timeout`/`ORA-01013`/权限与 `-owner` 自检 SQL 写进 README FAQ + tiptop 文档 | 用户可自助定位 |
+| ✅ W7.1 | **查询超时改为「空闲超时 + 总上限」**：每收到一行就重置空闲计时（默认 120s），另设总上限（默认 30min）；`schema sync` / `link sync` 共用；CLI 加 `-timeout`；插件加设置（策略见 OPEN-ITEMS `W-i`） | 慢链路上的全量查询不再 120s 到点被取消 |
+| ✅ W7.2 | `ORA-01013` 人话化：识别该码 → 「查询被超时取消（空闲超过 Ns）：可加大 `-timeout`/设置，或改用 CSV 导入」 | 报错一眼能懂并给出下一步 |
+| ✅ W7.3 | **secrets 路径统一**：`oradb` 参数语义改为"secrets 目录"；`linksync` 传**项目目录**（`.project`）而非 link 资料目录；schema 保持 `.project` | 同一个 `.project/secrets.json` 对 link/schema 都生效；`link sync` 不再去 `.project/link/` 找密码 |
+| ✅ W7.4 | 回归测试：`link sync -source golang` 的 secrets 只在 `.project/secrets.json` 生效（`.project/link/secrets.json` 不再被读）；`schema sync` 同理；文档口径一致 | 单测 + 文档 |
+| ✅ W7.5 | **输出通道修正**：进度执行器支持指定通道；schema 写「数据库字段」、link 写「链接资料」 | 两个通道各自只出现本功能输出 |
+| ✅ W7.6 | 失败可见性：错误对话框带 stderr 末尾若干行（去空行、限长）；"详见…"指向的通道保证有内容 | 只看通知就知道原因 |
+| ✅ W7.7 | 每次 tiptop 运行**落盘完整日志**（扩展 globalStorage，带时间戳）；失败提示给出文件路径 | 通道被清/编辑器重启后仍可回看，便于远程报错 |
+| ✅ W7.8 | 临时文件：`schema import/sync` 启动时清理 `tables/` 下遗留的 `.tmp-*`（link 目录同理）；删除失败记警告 | 复跑后不再残留；失败有记录 |
+| ✅ W7.9 | 表名安全校验：`tableFileName` 对 `\ / : * ? " < > \|` 与超长名给明确报错（带表名） | 遇到非法表名能看出是哪张表 |
+| ✅ W7.10 | 排障文档：通道/日志/`-timeout`/`ORA-01013`/权限与 `-owner` 自检 SQL 写进 README FAQ + tiptop 文档 | 用户可自助定位 |
 
 **顺序**：W7.1–W7.3（根因）→ W7.5–W7.7（可见性）→ W7.8–W7.10（清理与文档）。
 做完请你在 Windows 复跑一次全量同步验证（慢链路正是要验的场景）。

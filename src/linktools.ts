@@ -93,6 +93,102 @@ export function humanizeProgress(p: ProgressLine): string {
 /** 带进度回调的 tiptop 运行结果。 */
 export interface ProgressRunResult extends RunResult {
   cancelled: boolean;
+  /** 本次运行的完整日志文件（有 globalStorage 时才有）。 */
+  logPath?: string;
+}
+
+/**
+ * 运行日志目录（扩展 globalStorage）。由 registerLinkToolCommands 设置。
+ *
+ * 只保留每个子命令的**最后一次**运行：`last-run-<cmd>.log`。
+ */
+let runLogDir: string | undefined;
+
+/** 设置运行日志目录（不存在会创建）。 */
+export function setRunLogDir(dir: string | undefined): void {
+  runLogDir = dir;
+  if (dir) {
+    void fs.mkdir(dir, { recursive: true }).catch(() => {});
+  }
+}
+
+/**
+ * 失败时统一提示：带 stderr 摘要在通知里，并给「打开日志」「显示输出」两个动作。
+ *
+ * W7.6：以前只报退出码 + "详见某通道"，而通道可能压根没内容（schema 曾写错通道），
+ * 用户拿不到任何线索。现在至少能看到失败原因的首行，并能一键打开完整日志。
+ */
+export async function reportRunFailure(
+  label: string,
+  res: ProgressRunResult,
+  channel: vscode.OutputChannel,
+): Promise<void> {
+  const detail = firstLine(res.stderr) || firstLine(res.stdout) || "没有输出";
+  const actions: string[] = [];
+  if (res.logPath) {
+    actions.push("打开日志");
+  }
+  actions.push("显示输出");
+  const pick = await vscode.window.showErrorMessage(
+    `${label}失败（退出码 ${res.code ?? "?"}）：${detail}`,
+    ...actions,
+  );
+  if (pick === "打开日志" && res.logPath) {
+    try {
+      const doc = await vscode.workspace.openTextDocument(
+        vscode.Uri.file(res.logPath),
+      );
+      await vscode.window.showTextDocument(doc, { preview: true });
+    } catch {
+      channel.show(true);
+    }
+  } else if (pick === "显示输出") {
+    channel.show(true);
+  }
+}
+
+/** 取第一行非空文本，截断到 300 字符（放进通知里）。 */
+function firstLine(text: string): string {
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line !== "") {
+      return line.length > 300 ? `${line.slice(0, 300)}…` : line;
+    }
+  }
+  return "";
+}
+
+/**
+ * 把一次 tiptop 运行的完整输出写盘，返回文件路径（写失败返回 undefined）。
+ *
+ * 名字用 `last-run-<子命令>.log`（link / schema / deploy），每次覆盖：
+ * 目的是"报错后能拿到现场"，不是审计历史。异步写，不阻塞命令返回。
+ */
+function writeRunLog(
+  args: string[],
+  stdout: string,
+  stderr: string,
+  code: number | null,
+  cancelled: boolean,
+): string | undefined {
+  if (!runLogDir) {
+    return undefined;
+  }
+  const cmd = (args[0] ?? "tiptop").replace(/[^a-zA-Z0-9_-]/g, "");
+  const file = path.join(runLogDir, `last-run-${cmd || "tiptop"}.log`);
+  const body = [
+    `# Genero BDL 本地运行日志`,
+    `# 时间：${new Date().toISOString()}`,
+    `# 命令：tiptop ${args.join(" ")}`,
+    `# 退出码：${code ?? "?"}${cancelled ? "（已取消）" : ""}`,
+    ``,
+    `===== stdout =====`,
+    stdout,
+    `===== stderr =====`,
+    stderr,
+  ].join("\n");
+  void fs.writeFile(file, body, "utf8").catch(() => {});
+  return file;
 }
 
 /**
@@ -105,12 +201,16 @@ export async function runTiptopWithProgress(
   root: string,
   args: string[],
   title: string,
+  channel?: vscode.OutputChannel,
 ): Promise<ProgressRunResult> {
   const bin = toolsBinary();
   if (!bin) {
     return { code: null, stdout: "", stderr: "", cancelled: false };
   }
-  const out = output();
+  // 输出写到哪个通道由调用方决定：link 命令写「链接资料」，schema 命令写「数据库字段」。
+  // 默认仍是链接通道（保持既有行为），schema 必须显式传自己的通道——
+  // 否则报错让用户去「数据库字段」看，内容却在「链接资料」里（W7.5）。
+  const out = channel ?? output();
   out.appendLine(`\n> tiptop ${args.join(" ")}`);
   return vscode.window.withProgress(
     {
@@ -153,11 +253,13 @@ export async function runTiptopWithProgress(
         });
         child.on("error", (err) => {
           out.appendLine(`启动失败：${String(err)}`);
-          resolve({ code: null, stdout, stderr, cancelled });
+          const logPath = writeRunLog(args, stdout, stderr + String(err), null, cancelled);
+          resolve({ code: null, stdout, stderr, cancelled, logPath });
         });
         child.on("close", (code) => {
           out.appendLine(`（退出码 ${code ?? "?"}）`);
-          resolve({ code, stdout, stderr, cancelled });
+          const logPath = writeRunLog(args, stdout, stderr, code, cancelled);
+          resolve({ code, stdout, stderr, cancelled, logPath });
         });
       }),
   );
@@ -452,10 +554,7 @@ async function syncWithConfirm(
     return;
   }
   if (res.code !== 0) {
-    output().show(true);
-    void vscode.window.showErrorMessage(
-      `${label}失败（退出码 ${res.code ?? "?"}）：详见「Genero BDL 链接资料」输出通道`,
-    );
+    await reportRunFailure(label, res, output());
     return;
   }
   void vscode.window.showInformationMessage(`${label}完成`);
@@ -509,10 +608,7 @@ async function importCsv(): Promise<void> {
     return;
   }
   if (res.code !== 0) {
-    output().show(true);
-    void vscode.window.showErrorMessage(
-      `导入失败（退出码 ${res.code ?? "?"}）：详见「Genero BDL 链接资料」输出通道`,
-    );
+    await reportRunFailure("链接资料导入", res, output());
     return;
   }
   void vscode.window.showInformationMessage("链接资料导入完成");
@@ -591,6 +687,8 @@ export function registerLinkToolCommands(
   context: vscode.ExtensionContext,
 ): void {
   extensionPath = context.extensionPath;
+  // W7.7：把每次运行的完整输出落盘，输出通道被清或编辑器重启后仍能回看。
+  setRunLogDir(context.globalStorageUri.fsPath);
   context.subscriptions.push(
     output(),
     vscode.commands.registerCommand("bdl.link.importCsv", () => importCsv()),

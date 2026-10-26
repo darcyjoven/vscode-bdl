@@ -194,7 +194,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | # | 功能 | 归属 | 说明 / 入口 |
 |---|---|---|---|
 | G1 | CSV 导入 | TIPTOP | `tiptop schema import -csv <表字段导出.csv> -root <项目根>` |
-| G2 | 直连采集 | TIPTOP | `tiptop schema sync -source golang`：查 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`；`-owner` 默认取 `-user` 大写（应用 schema 与账号不同时显式指定） |
+| G2 | 直连采集（分批，W7） | TIPTOP | `tiptop schema sync -source golang`：先取表清单，再每 `-batch-size`（默认 200）张表查一批，每批 `-timeout`（默认 120s）；查 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`；`-owner` 默认取 `-user` 大写 |
 | G3 | 状态查看 | TIPTOP | `tiptop schema status`：表数/列数/导入时间/来源 |
 | G4 | 增量与选择 | TIPTOP | `-tables a,b` / `-tables-file 文件`（大清单，插件走这个）/ `-only-new`（只补本地没有的表）/ `-prune`（删除本地多出、仅全量）/ `-dry-run`（命令行能力，**插件不再自动预演**，W2） |
 | G5 | 逐表增量写 | TIPTOP | 全量查询后**逐表逐字节比较**，内容没变不重写（避免无意义 mtime 变化触发编辑器重载） |
@@ -269,6 +269,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I14 | 端到端测试 | VSC | `npm run test:e2e`，无头 VSCode（`--ozone-platform=headless`）**49 个用例** |
 | I15 | 预演策略（W2） | VSC | 只有**编译类**允许预演（`tiptop deploy -dry-run`、W5 的本地「预演编译」）；link/schema 的同步与导入一律直接执行（避免整份扫描跑两遍） |
 | I16 | 数据库按钮门控（W3/W4） | VSC | context key `bdl.db.configured`（Oracle host/service/user 配齐）、`bdl.link.hasData`（links.jsonl 存在）、`bdl.schema.hasData`（tables.json 存在）；「链接资料」的 `从数据库更新` 需前两者，「数据库字段」的局部/批量同步需 configure+hasData |
+| I18 | 失败可见性与运行日志（W7） | VSC | tiptop 输出按功能写通道（schema → 「数据库字段」，link → 「链接资料」）；失败通知带 stderr 首行 + 「打开日志」；每次运行完整输出落盘到扩展 globalStorage 的 `last-run-<cmd>.log` |
 | I17 | 本地编译/链接/预览（W5） | VSC | 命令面板 + 编辑器右上角按钮：`.4gl` 预演编译/编译/链接，`.per` 预演编译/编译/预览画面；六种命令模板可自定义（`bdl.build.*`），占位符 `${path}`（两层目录）/`${fullpath}`（三层）/`${name}`/`${fullname}`，分隔符恒为 `/`；运行目录=工作区根，stdout/stderr 原样进「Genero BDL 编译」；无 `MAIN` 程序块时「链接」按钮不可用且命令本地报错；`${name}` 在链接/编译时弹框确认 |
 
 ---
@@ -312,7 +313,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 
 ## 11. 配置项
 
-### 11.1 VSC 设置（6 组 53 键）
+### 11.1 VSC 设置（6 组 55 键）
 
 | 组 | 键 | 默认 | 作用 |
 |---|---|---|---|
@@ -332,7 +333,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | 生产环境 | `bdl.prod.deploy.host` / `port` / `user` / `remoteRoot` / `localRoot` / `transport` / `fallback` / `delete` / `include` / `exclude` / `strictHostKey` / `compile4gl` / `compilePer` | `22` / `rsync` / `scp` / `true`，其余空 | 部署目标；合成为 `.project/deploy/deploy.json` |
 | 链接资料 | `bdl.link.enable` / `dataDir` / `moduleRoots` / `globalModules` | **`false`** / `.project/link` / `[]` / `["sub","lib","qry"]` | 链接资料读取与跨模块可见性 |
 | 部署 | `bdl.deploy.enable` / `target` | **`false`** / 空 | 部署命令总开关与默认目标 |
-| 数据库字段 | `bdl.schema.enable` / `dataDir` | **`false`** / `.project/schema` | 字段资料读取 |
+| 数据库字段 | `bdl.schema.enable` / `dataDir` / `batchSize` / `timeoutSec` | **`false`** / `.project/schema` / `200` / `120` | 字段资料读取；后两者是 W7 分批同步参数（0=不分批） |
 | 本地编译 | `bdl.build.4gl.preview` / `.compile` / `.link` · `bdl.build.per.preview` / `.compile` / `.form` | 见 README §5.10（4GL/Form 各自默认脚本） | 本地编译/链接/预览命令模板；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}` |
 
 > 密码**不放在设置里**：`BDL_ORA_PASSWORD` 环境变量，或 `<项目>/.project/secrets.json`（`chmod 600`）。

@@ -23,6 +23,7 @@ import { refreshDataContexts } from "./dbctx";
 import {
   oracleCfg,
   promptNoOracle,
+  reportRunFailure,
   runTiptopWithProgress,
   workspaceRoot,
 } from "./linktools";
@@ -82,6 +83,27 @@ export function schemaEnabled(): boolean {
   return vscode.workspace
     .getConfiguration("bdl")
     .get<boolean>("schema.enable", false);
+}
+
+/**
+ * 「从数据库同步」每批查几张表（`bdl.schema.batchSize`，默认 200；0=不分批）。
+ *
+ * W7：全量一次性查几千张表在慢链路上会被单条查询超时取消（ORA-01013）；
+ * 改成先取表清单、再每 N 张一批，跑完一批继续下一批。
+ */
+function schemaBatchSize(): number {
+  const v = vscode.workspace
+    .getConfiguration("bdl")
+    .get<number>("schema.batchSize", 200);
+  return Number.isFinite(v) && v >= 0 ? Math.floor(v) : 200;
+}
+
+/** 「从数据库同步」单批查询超时秒数（`bdl.schema.timeoutSec`，默认 120）。 */
+function schemaTimeoutSec(): number {
+  const v = vscode.workspace
+    .getConfiguration("bdl")
+    .get<number>("schema.timeoutSec", 120);
+  return Number.isFinite(v) && v > 0 ? Math.floor(v) : 120;
 }
 
 /** 字段资料目录（相对工作区根，默认 `.project/schema`；W6，旧 `.project/.schema` 只读兼容）。 */
@@ -541,6 +563,10 @@ async function syncSchema(
           oracle.service,
           "-user",
           oracle.user,
+          "-batch-size",
+          String(schemaBatchSize()),
+          "-timeout",
+          String(schemaTimeoutSec()),
           ...extra,
         ]
       : [
@@ -572,16 +598,15 @@ async function syncSchema(
       return;
     }
   }
-  const res = await runTiptopWithProgress(root, base, options.label);
+  // W7.5：显式把输出写进「数据库字段」通道（否则会落到「链接资料」通道）。
+  const res = await runTiptopWithProgress(root, base, options.label, out);
   if (res.cancelled) {
     vscode.window.setStatusBarMessage(`${options.label}已取消`, 3000);
     return;
   }
   if (res.code !== 0) {
-    out.show(true);
-    void vscode.window.showErrorMessage(
-      `${options.label}失败（退出码 ${res.code ?? "?"}）：详见「Genero BDL 数据库字段」输出`,
-    );
+    // W7.6：通知里带 stderr 首行 + 「打开日志」；完整输出仍在「数据库字段」通道。
+    await reportRunFailure(options.label, res, out);
     return;
   }
   void vscode.window.showInformationMessage(

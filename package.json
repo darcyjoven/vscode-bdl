@@ -490,6 +490,18 @@
             "default": ".project/schema",
             "scope": "window",
             "markdownDescription": "字段资料目录（相对工作区根，默认 `.project/schema`）：`tables.json` 是总索引，`tables/<表>.json` 是每张表的列。由 `tiptop schema import` 生成。旧布局 `.project/.schema` 仍兼容读取。"
+          },
+          "bdl.schema.batchSize": {
+            "type": "number",
+            "default": 200,
+            "scope": "window",
+            "markdownDescription": "「从数据库同步」每批查几张表（默认 200）。慢链路上单批仍超时时可调小；`0` = 不分批（单条大查询）。"
+          },
+          "bdl.schema.timeoutSec": {
+            "type": "number",
+            "default": 120,
+            "scope": "window",
+            "markdownDescription": "「从数据库同步」单批查询超时秒数（默认 120）。慢链路可加大。"
           }
         }
       },
