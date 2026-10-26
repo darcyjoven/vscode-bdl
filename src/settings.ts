@@ -53,11 +53,6 @@ export function buildEnabled(): boolean {
   return cfg().get<boolean>("build.enable", false);
 }
 
-/** 某个编译方式是否启用（`bdl.build.<lang>.<mode>.enable`，默认 true）。 */
-export function buildCommandEnabled(lang: string, mode: string): boolean {
-  return cfg().get<boolean>(`build.${lang}.${mode}.enable`, true);
-}
-
 /**
  * 某个编译方式的命令模板（`bdl.build.<lang>.<mode>.command`）。
  *

@@ -20,6 +20,7 @@ import * as vscode from "vscode";
 
 import { currentClient } from "./client";
 import { refreshDataContexts } from "./dbctx";
+import { taskChannel } from "./output";
 import { schemaEnabled as schemaEnabledByMode, schemaMode } from "./settings";
 import {
   oracleCfg,
@@ -115,19 +116,9 @@ function schemaDirName(): string {
   );
 }
 
-/** 输出通道（与链接资料分开，日志不混）。 */
-let channel: vscode.OutputChannel | undefined;
+/** 任务输出通道（清理项 C6：与链接资料/上传/编译共用一个通道）。 */
 function output(): vscode.OutputChannel {
-  if (!channel) {
-    channel = vscode.window.createOutputChannel("Genero BDL 数据库字段");
-  }
-  return channel;
-}
-
-/** 释放输出通道（deactivate 时调）。 */
-export function disposeSchemaView(): void {
-  channel?.dispose();
-  channel = undefined;
+  return taskChannel();
 }
 
 /** 查询表清单（正则过滤交给服务端）；服务器没起来时返回 undefined。 */
@@ -597,7 +588,7 @@ async function syncSchema(
     const from = source === "db" ? "数据库" : "CSV";
     const pick = await vscode.window.showWarningMessage(
       `${options.label}：将从${from}重算全部字段资料。通常几分钟、也可能更长，` +
-        `请开「输出 → Genero BDL 数据库字段」看进度。继续？`,
+        `请开「输出 → Genero BDL 任务」看进度。继续？`,
       { modal: true },
       "开始",
     );
@@ -683,19 +674,6 @@ async function syncSelected(provider: SchemaProvider): Promise<void> {
   });
 }
 
-/** 同步"当前筛选结果"里的全部表（正则过滤后的列表）。 */
-async function syncFiltered(provider: SchemaProvider): Promise<void> {
-  const tables = provider.listedTables();
-  if (tables.length === 0) {
-    void vscode.window.showWarningMessage("当前列表没有表（可能正则没匹配到）");
-    return;
-  }
-  await syncSchema(provider, {
-    tables,
-    label: `同步当前筛选结果（${tables.length} 张表）`,
-  });
-}
-
 /** 复制列定义（4GL 形式：`LIKE table.col`）。 */
 async function copyColumn(node?: Node): Promise<void> {
   if (!node || node.kind !== "column") {
@@ -766,9 +744,8 @@ export function registerSchemaView(context: vscode.ExtensionContext): SchemaProv
       }
       return syncSchema(provider, { tables: [node.name], label: `同步表 ${node.name}` });
     }),
-    // P2-1 补：勾选多张后批量同步
+    // P2-1 补：勾选多张后批量同步（C2：筛选后先「全选当前列表」，再用这条）
     vscode.commands.registerCommand("bdl.schema.syncSelected", () => syncSelected(provider)),
-    vscode.commands.registerCommand("bdl.schema.syncFiltered", () => syncFiltered(provider)),
     // P2-1 补：直连数据库全量同步（本地多出的表用 -prune 清理）
     vscode.commands.registerCommand("bdl.schema.syncAll", () =>
       syncSchema(provider, { force: "db", prune: true, label: "从数据库全量同步" }),

@@ -82,7 +82,7 @@
 - **S-h** 用**应用 schema 账号**（自己拥有表、且对 `ds.zta_file`/`ds.gaq_file` 有读权限）→ `user_tab_columns`，不需要 `owner`。
 - **S-i** 本版本只做 **TiTop 专用**；字典表不存在时提示「请改用 CSV 导入」。
 - **S-j** 列名**全部小写**；Form 预览命令是**三个参数** `${name}`、`2`、`p`。
-- **S-k** 图标方案确认：过滤 `$(filter)`、刷新 `$(refresh)`、CSV 导入 `$(file-add)`、重新同步 `$(sync)`、从数据库更新 `$(cloud-download)`；编译 4gl/per 改 `$(play)`；标题栏其余 4 个文字按钮一并图标化。
+- **S-k** 图标方案确认：过滤 `$(filter)`、刷新 `$(refresh)`、CSV 导入 `$(file-add)`、从数据库更新 `$(cloud-download)`；编译 4gl/per 改 `$(play)`；标题栏其余文字按钮一并图标化。（后续清理项 C1/C2 删掉了「重新同步」「同步当前筛选结果」两个按钮。）
 
 ## 9. 采集中间文件（2026-10-26 已定）
 

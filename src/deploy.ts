@@ -9,22 +9,12 @@ import * as vscode from "vscode";
 
 import { ensureDeployConfig } from "./deployconfig";
 import { reportRunFailure, runTiptopWithProgress } from "./linktools";
+import { taskChannel } from "./output";
 import { uploadEnabled } from "./settings";
 
-let channel: vscode.OutputChannel | undefined;
-
-/** 上传输出通道。 */
+/** 任务输出通道（清理项 C6：与链接资料/字段/编译共用一个通道）。 */
 function output(): vscode.OutputChannel {
-  if (!channel) {
-    channel = vscode.window.createOutputChannel("Genero BDL 部署");
-  }
-  return channel;
-}
-
-/** 释放输出通道（deactivate 用）。 */
-export function disposeDeploy(): void {
-  channel?.dispose();
-  channel = undefined;
+  return taskChannel();
 }
 
 /** 上传功能是否可用（`bdl.deploy.enable` + 上传方式不是「不上传」）。 */

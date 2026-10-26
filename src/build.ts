@@ -2,7 +2,7 @@
 //
 // 关键变化（2026-10-26 确认）：命令**不在本机执行**——开发机没有 Genero 环境，
 // 统一交给 `tiptop exec` 在生产服务器上跑（工作目录 = 生产根目录），
-// stdout/stderr 原样进「Genero BDL 编译」输出通道。
+// stdout/stderr 原样进「Genero BDL 任务」输出通道。
 //
 // 占位符：`${path}`（两层目录）、`${fullpath}`（三层）、`${name}`（去扩展名）、
 // `${fullname}`（含扩展名）；分隔符恒为 `/`。命令模板可在设置里改。
@@ -12,6 +12,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 
 import { reportRunFailure, runTiptopWithProgress } from "./linktools";
+import { taskChannel } from "./output";
 import { buildCommandValue, buildEnabled } from "./settings";
 
 /** 四个占位符的取值。 */
@@ -64,25 +65,19 @@ export const BUILD_DEFAULTS: Readonly<Record<string, string>> = {
   "per.form": "cd ${path} && r.gf ${name} 2 p",
 };
 
-let channel: vscode.OutputChannel | undefined;
 let contextKeyTimer: NodeJS.Timeout | undefined;
 
-/** 输出通道（编译输出与语言服务器/采集分开，便于排查）。 */
+/** 任务输出通道（清理项 C6：与链接资料/字段/上传共用一个通道）。 */
 function output(): vscode.OutputChannel {
-  if (!channel) {
-    channel = vscode.window.createOutputChannel("Genero BDL 编译");
-  }
-  return channel;
+  return taskChannel();
 }
 
-/** 释放输出通道（deactivate 用）。 */
+/** 释放定时器（deactivate 用；通道由 output.ts 统一释放）。 */
 export function disposeBuild(): void {
   if (contextKeyTimer) {
     clearTimeout(contextKeyTimer);
     contextKeyTimer = undefined;
   }
-  channel?.dispose();
-  channel = undefined;
 }
 
 /**

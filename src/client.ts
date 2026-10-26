@@ -2,6 +2,7 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 
+import { serverChannel } from "./output";
 import { linkMode, schemaMode } from "./settings";
 import {
   LanguageClient,
@@ -118,16 +119,10 @@ function workspaceCwd(): string | undefined {
 }
 
 /** 构造客户端选项。 */
-function clientOptionsFor(context: vscode.ExtensionContext): LanguageClientOptions {
-  const outputChannel = vscode.window.createOutputChannel("Genero BDL", {
-    log: true,
-  });
-  context.subscriptions.push(outputChannel);
-
-  traceChannel = vscode.window.createOutputChannel("Genero BDL 追踪", {
-    log: true,
-  });
-  context.subscriptions.push(traceChannel);
+function clientOptionsFor(): LanguageClientOptions {
+  // C6：服务器日志与 LSP 追踪共用同一个通道（"Genero BDL"）。
+  const outputChannel = serverChannel();
+  traceChannel = outputChannel;
 
   return {
     documentSelector: DOCUMENT_SELECTOR,
@@ -244,7 +239,7 @@ export async function startClient(
   extensionPath = context.extensionPath;
   binaryInfo = resolved.binary;
   const serverOptions = serverOptionsFor(resolved.binary);
-  const clientOptions = clientOptionsFor(context);
+  const clientOptions = clientOptionsFor();
 
   const instance = new LanguageClient(
     "bdl",

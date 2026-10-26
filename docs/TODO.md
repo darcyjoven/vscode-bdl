@@ -122,15 +122,15 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 |---|---|
 | 基本设置（22） | 现有「基础」原样 |
 | 账号、生产环境、配置（16） | `prod.oracle.host/port/service/user`；`prod.deploy.host/port/user/strictHostKey`；`link.mode`/`link.dataDir`/`link.moduleRoots`/`link.globalModules`；`schema.mode`/`schema.dataDir`/`schema.batchSize`/`schema.timeoutSec` |
-| 上传编译链接（17） | `deploy.enable`（组总开关）、`prod.deploy.transport`、`prod.deploy.localRoot`、`prod.deploy.remoteRoot`；`build.enable`（编译/链接/预览总开关）；6 组 `<lang>.<mode>.enable` + `.command`（4gl：preview/compile/link，per：preview/compile/form） |
+| 上传编译链接（11） | `deploy.enable`（组总开关）、`prod.deploy.transport`、`prod.deploy.localRoot`、`prod.deploy.remoteRoot`；`build.enable`（编译/链接/预览总开关）；6 个 `<lang>.<mode>.command`（4gl：preview/compile/link，per：preview/compile/form）。清理项 C10 去掉了 6 个 per-command `enable` |
 
 **要做的**
 
 **状态（2026-10-26，已实现并全绿）**：**T1–T9 全部完成**。
 
-- 设置重构为 **3 组 55 键**（基本设置 22 / 账号、生产环境、配置 16 / 上传编译链接 17）；新增 `bdl.prod.oracle.service`、`bdl.link.mode`/`bdl.schema.mode`（off/file/db）、`bdl.prod.deploy.transport`（off/rsync/scp）、`bdl.build.enable` + 6 组 `enable`/`command`；删除整包部署、`deploy.target`、列出目标、`include`/`exclude`/`delete`/`compile4gl|Per`。**不保留任何旧键兼容**：`link.enable`/`schema.enable`、旧 6 个 build 键、`deploy.target` 等一律不再读取（未发布）。
+- 设置重构为 **3 组 49 键**（基本设置 22 / 账号、生产环境、配置 16 / 上传编译链接 11；清理项 C10 又去掉 6 个 per-command enable）；新增 `bdl.prod.oracle.service`、`bdl.link.mode`/`bdl.schema.mode`（off/file/db）、`bdl.prod.deploy.transport`（off/rsync/scp）、`bdl.build.enable` + 6 个 `command`（C10 去掉了各自的 `enable`）；删除整包部署、`deploy.target`、列出目标、`include`/`exclude`/`delete`/`compile4gl|Per`。**不保留任何旧键兼容**：`link.enable`/`schema.enable`、旧 6 个 build 键、`deploy.target` 等一律不再读取（未发布）。
 - **bdl-lsp 也认 `mode`**（`SchemaSettings.Mode`/`LinkSettings.Mode`；服务端另有 `enable` 布尔入口，供 Zed 等直接配置 LSP 的客户端使用，`mode` 非空时优先），并加了单测。
-- 插件：命令 37 → **35**（删除 2 条），上传只剩「上传当前文件 / 预演上传」（单文件）；编译/链接/预览改走 `tiptop exec`（生产端 ssh，不自动上传）；**只有 4GL 链接弹 `${name}`**；视图按钮图标化 + 编译图标 `$(play)`；`dbctx` 新增 `bdl.link.enabled`/`modeDb`/`schema.enabled`/`schema.modeDb`/`upload.enabled`/`build.enabled` 门控。
+- 插件：命令 37 → **31**（V2 删整包部署/列出目标 2 条，清理项 C1/C2/C5 再删 4 条），上传只剩「上传当前文件 / 预演上传」（单文件）；编译/链接/预览改走 `tiptop exec`（生产端 ssh，不自动上传）；**只有 4GL 链接弹 `${name}`**；视图按钮图标化 + 编译图标 `$(play)`；`dbctx` 新增 `bdl.link.enabled`/`modeDb`/`schema.enabled`/`schema.modeDb`/`upload.enabled`/`build.enabled` 门控。
 - 验证：bdl-lsp 全量测试、tiptop 全量测试、`npm run typecheck`、**e2e 49/49** 全绿；`tiptop upload/exec -dry-run` 实跑验证。
 - **剩余**：真机连生产服务器验证上传/编译/链接/预览（本地无法连）——建议按下面清单在 Windows 上过一遍。
 
@@ -148,7 +148,7 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 
 | # | 事项 | 验收 |
 |---|---|---|
-| ✅ T1 | 设置重构：`package.json` 改成 3 组；新增/删除键；`bdl.link.mode`/`bdl.schema.mode` 三态；build 6 键拆成 `enable`+`command`；**不留旧键兼容**（未发布） | 设置面板 3 组；键数/文档一致 |
+| ✅ T1 | 设置重构：`package.json` 改成 3 组；新增/删除键；`bdl.link.mode`/`bdl.schema.mode` 三态；build 6 键拆成 `command`（C10 又去掉 6 个 `enable`）；**不留旧键兼容**（未发布） | 设置面板 3 组、49 键；键数/文档一致 |
 | ✅ T2 | tiptop 新增远程执行：`tiptop exec`——读 deploy 配置 → `ssh` 在**生产根目录**执行命令（模板里的 `cd ${path}` 由此生效）→ stdout/stderr 流式回传 + 退出码；`-dry-run`/`-json`。**不自动上传**（用户自己决定先上传） | 本地无法测真机，需 Windows/生产服务器复测；单测覆盖配置解析、路径映射、缺配置报错 |
 | ✅ T3 | 单文件上传：`tiptop upload -file <相对路径>`（当前文件 → `remoteRoot/<相对路径>`），rsync 主/scp 备（scp 前先 `mkdir -p`）；无整包、无 include/exclude/delete | 单文件落到正确远端路径；不传其它文件 |
 | ✅ T4 | 插件：删除 `bdl.deploy`（整包）、`bdl.deploy.target`、`bdl.deployListTargets`；改名/保留「上传当前文件」「预演上传」；6 条编译/链接/预览命令改调 `tiptop exec`（**不再本地 spawn**，占位符仍在插件侧展开，输出仍进「Genero BDL 编译」） | 命令面板与工具栏只剩单文件上传 + 6 条远程命令；输出完整 |
@@ -209,26 +209,26 @@ select zta01 table_name,
 
 ---
 
-## 0g. 命令清理（2026-10-26 待你圈定）
+## 0g. 命令清理（C1–C10 已执行，2026-10-26）
 
-**当前操作清单**（命令面板 / 编辑器按钮 / 视图按钮 / 右键 / 后台任务）已整理成
-[docs/COMMANDS.md](COMMANDS.md)：35 条命令（面板可见 33、隐藏 2）、编辑器按钮 7 个、
-视图标题栏 10 个、视图项 5 个、输出通道 6 个、上下文键 11 个。
+**操作清单**见 [docs/COMMANDS.md](COMMANDS.md)（命令面板 / 编辑器按钮 / 视图按钮 / 右键 / 后台任务）。
+清理后：命令 **31** 条（面板可见 26、隐藏 5）、编辑器按钮 7、视图标题栏 8、视图项 4、
+输出通道 **2**、上下文键 11、激活事件 26；设置 **3 组 49 键**。
 
-**待决策**：COMMANDS.md §7 的 C1–C10——
+| # | 结论 | 落点 |
+|---|---|---|
+| C1 | 链接「更新」只留一个入口 | 删 `bdl.link.syncCurrent` / `bdl.links.resync`；保留 `bdl.link.updateFromDb`（视图标题栏 + 面板） |
+| C2 | 字段同步合并 | 删 `bdl.schema.syncFiltered`；保留 `syncAll`/`syncSelected`（面板）+ `syncTable`（右键）；筛选后走「全选 → 同步已选中」 |
+| C3 | 反查引用去重 | 视图按钮/视图项保留；面板条目加 `editorLangId == 4gl` |
+| C4 | 强制解析面板常显 | 面板条目加 `when: bdl.parseSkipped` |
+| C5 | 显示输出合并 | 删 `bdl.showOutput`；`bdl.showServerInfo` 通知里加「打开日志」 |
+| C6 | 输出通道 6 → 2 | 新增 `src/output.ts`：`Genero BDL`（服务器+追踪）与 `Genero BDL 任务`（链接/字段/上传/编译） |
+| C7 | `migrateLinkDir` 保持隐藏 | 通知按钮触发；README 写明手动迁移路径 |
+| C8 | 复制列定义 / 打开表资料 | 只走右键/内联（面板 `when: false`） |
+| C9 | 显示更多反查结果 | 保持隐藏（内部） |
+| C10 | 6 个 build enable | 删除，只留 `bdl.build.enable` 总开关 + 6 个命令模板 |
 
-- C1 「更新链接资料」3 个同义入口（`syncCurrent` / `links.resync` / `link.updateFromDb`）→ 只留 1 个？
-- C2 字段同步 4 个入口（`syncAll` / `syncSelected` / `syncFiltered` / `syncTable`）→ 合并成 2–3 个？
-- C3 `bdl.links.references` 出现在 3 处 → 去重？
-- C4 `bdl.forceParseCurrentFile` 面板始终可见 → 加 `when: bdl.parseSkipped`？
-- C5 `showOutput` 与 `showServerInfo` 合并？
-- C6 输出通道 6 → 2？
-- C7 `migrateLinkDir` 面板隐藏（通知触发）→ 保持 + 文档写手动路径？
-- C8 `copyColumn` / `openTable` 只留右键？
-- C9 `moreRefs` 保持隐藏（内部）？
-- C10 6 个 build `enable` 开关是否精简为"总开关 + 命令模板"？
-
-你圈定后我改代码 + e2e + 文档，并更新 COMMANDS.md。
+验证：`npm run typecheck` 通过、e2e **49/49** 全绿；文档（README/FEATURES/COMMANDS/本文件）同步。
 
 ---
 

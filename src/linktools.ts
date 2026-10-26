@@ -12,26 +12,16 @@ import * as vscode from "vscode";
 
 import { currentTools } from "./client";
 import { refreshDataContexts } from "./dbctx";
+import { taskChannel } from "./output";
 import { linkMode } from "./settings";
 import { resolveTools } from "./server/binary";
 
 /** 扩展安装目录，用于定位内置的 tiptop（注册命令时写入）。 */
 let extensionPath: string | undefined;
 
-/** 链接资料输出通道。 */
-let channel: vscode.OutputChannel | undefined;
-
+/** 任务输出通道（清理项 C6：与字段/上传/编译共用一个通道）。 */
 function output(): vscode.OutputChannel {
-  if (!channel) {
-    channel = vscode.window.createOutputChannel("Genero BDL 链接资料");
-  }
-  return channel;
-}
-
-/** 扩展停用时释放输出通道。 */
-export function disposeLinkTools(): void {
-  channel?.dispose();
-  channel = undefined;
+  return taskChannel();
 }
 
 /** 一条进度行（tiptop 的 `进度\t阶段\t详情[\ti\tn]` 协议）。 */
@@ -540,7 +530,7 @@ async function syncWithConfirm(
     const from = oracle ? "数据库" : "CSV";
     const pick = await vscode.window.showWarningMessage(
       `${label}：将从${from}重算全部链接资料。通常几分钟、也可能更长，` +
-        `请开「输出 → Genero BDL 链接资料」看进度。继续？`,
+        `请开「输出 → Genero BDL 任务」看进度。继续？`,
       { modal: true },
       "开始",
     );
@@ -718,13 +708,11 @@ export function registerLinkToolCommands(
   context.subscriptions.push(
     output(),
     vscode.commands.registerCommand("bdl.link.importCsv", () => importCsv()),
-    vscode.commands.registerCommand("bdl.link.syncCurrent", () => syncCurrent()),
     vscode.commands.registerCommand("bdl.link.syncModules", () => syncModules()),
     vscode.commands.registerCommand("bdl.link.syncAll", () => syncAll()),
     vscode.commands.registerCommand("bdl.link.status", () => showStatus()),
-    // 「反查引用程序」旁边的"重新同步"：语义就是"更新当前文件的资料"。
-    vscode.commands.registerCommand("bdl.links.resync", () => syncCurrent()),
-    // W3：视图标题栏的「从数据库更新」按钮（等同"更新当前文件"；门控见 package.json）。
+    // C1：链接资料的"更新"只保留**一个**用户入口（视图标题栏 + 命令面板同一条命令）；
+    // 之前的 bdl.link.syncCurrent / bdl.links.resync 是它的同义别名，已删除。
     vscode.commands.registerCommand("bdl.link.updateFromDb", () => syncCurrent()),
   );
 }

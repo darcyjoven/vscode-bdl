@@ -96,7 +96,7 @@ async function run() {
       for (const id of [
         "bdl.restartServer",
         "bdl.showServerInfo",
-        "bdl.showOutput",
+        // 清理项 C5：bdl.showOutput 已并入「显示语言服务器信息」
         // P7-E：链接资料视图的刷新与反查
         "bdl.links.refresh",
         "bdl.links.references",
@@ -105,7 +105,6 @@ async function run() {
         // P2-1：数据库字段视图与命令（含勾选多表批量同步）
         "bdl.schema.syncAll",
         "bdl.schema.syncSelected",
-        "bdl.schema.syncFiltered",
         "bdl.schema.selectAll",
         "bdl.schema.clearSelection",
         "bdl.schema.refresh",
@@ -115,11 +114,9 @@ async function run() {
         "bdl.schema.copyColumn",
         // P1-1：链接资料的采集/导入/状态命令（调用 tiptop）
         "bdl.link.importCsv",
-        "bdl.link.syncCurrent",
         "bdl.link.syncModules",
         "bdl.link.syncAll",
         "bdl.link.status",
-        "bdl.links.resync",
         // W3：链接资料视图的「从数据库更新」
         "bdl.link.updateFromDb",
         // W5：本地编译/链接/预览（4GL 与 Form 各三种）
@@ -133,6 +130,15 @@ async function run() {
         "bdl.migrateLinkDir",
       ]) {
         assert.ok(commands.includes(id), `缺少命令 ${id}`);
+      }
+      // 清理项 C1/C2/C5：这些命令已删除（合并到单一入口）
+      for (const gone of [
+        "bdl.showOutput",
+        "bdl.link.syncCurrent",
+        "bdl.links.resync",
+        "bdl.schema.syncFiltered",
+      ]) {
+        assert.ok(!commands.includes(gone), `${gone} 应已删除（清理项 C1/C2/C5）`);
       }
     });
 
@@ -1031,7 +1037,9 @@ async function run() {
       assert.ok(all["bdl.prod.oracle.service"], "缺少 bdl.prod.oracle.service");
       assert.ok(all["bdl.prod.deploy.host"], "缺少 bdl.prod.deploy.host");
       assert.ok(all["bdl.build.4gl.link.command"], "缺少 bdl.build.4gl.link.command");
-      assert.ok(all["bdl.build.4gl.link.enable"], "缺少 bdl.build.4gl.link.enable");
+      // 清理项 C10：去掉 6 个 per-command enable，只留 build.enable 总开关
+      assert.ok(!all["bdl.build.4gl.link.enable"], "bdl.build.4gl.link.enable 应已删除（C10）");
+      assert.strictEqual(all["bdl.build.enable"].default, false, "build.enable 默认 false");
       // 运行时的实际取值也必须一致（代码里显式传默认值的地方别写反）
       const cfg = vscode.workspace.getConfiguration("bdl");
       assert.strictEqual(cfg.get("deploy.enable"), false, "deploy.enable 实际值应为 false");
@@ -1153,7 +1161,7 @@ async function run() {
       try {
         await new Promise((r) => setTimeout(r, 300));
         const commands = await vscode.commands.getCommands(true);
-        for (const id of ["bdl.link.status", "bdl.link.syncCurrent"]) {
+        for (const id of ["bdl.link.status", "bdl.link.updateFromDb"]) {
           assert.ok(commands.includes(id), `命令应仍然注册：${id}`);
         }
         // 没有 tiptop 二进制 / 没有工作区时也不该抛错（内部只提示）
@@ -1429,8 +1437,9 @@ async function run() {
           "扫描源码 400/7600",
         );
 
-        // 「同步当前筛选结果」：按当前列表批量（命令不抛错）
-        fireAndForget("bdl.schema.syncFiltered");
+        // C2：筛选后走「全选当前列表 + 同步已选中的表」（命令不抛错）
+        fireAndForget("bdl.schema.selectAll");
+        fireAndForget("bdl.schema.syncSelected");
         await new Promise((r) => setTimeout(r, 300));
 
         // 没配数据库时执行「从数据库同步」：只提示，不抛错（同样不能 await）
@@ -1681,7 +1690,8 @@ async function run() {
       );
       for (const id of ids) {
         assert.ok(props.includes(`${id}.command`), `设置应包含 ${id}.command`);
-        assert.ok(props.includes(`${id}.enable`), `设置应包含 ${id}.enable`);
+        // C10：不再有 per-command enable
+        assert.ok(!props.includes(`${id}.enable`), `${id}.enable 应已删除（C10）`);
       }
       // §0d：编译图标改成运行形状，视图按钮图标化
       const cmds = pkg.contributes.commands;
@@ -1701,7 +1711,6 @@ async function run() {
         "bdl.schema.filter",
         "bdl.schema.refresh",
         "bdl.schema.import",
-        "bdl.links.resync",
         "bdl.link.updateFromDb",
       ]) {
         assert.ok(iconOf(id), `${id} 应有图标（标题栏不再显示长文字）`);

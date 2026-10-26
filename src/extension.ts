@@ -25,6 +25,7 @@ import {
   refreshDataContexts,
   registerDataContextWatcher,
 } from "./dbctx";
+import { disposeOutput, serverChannel } from "./output";
 import {
   buildEnabled,
   linkMode,
@@ -33,23 +34,21 @@ import {
   uploadEnabled,
 } from "./settings";
 import { describeBinary, resolveBinary } from "./server/binary";
-import { disposeDeploy, registerDeployCommands } from "./deploy";
+import { registerDeployCommands } from "./deploy";
 import { registerLinks } from "./links";
 import { ensureDeployConfig, readDeployValues } from "./deployconfig";
 import {
-  disposeLinkTools,
+  registerLinkToolCommands,
   humanizeProgress,
   parseAffectedJobs,
   parseProgressLine,
-  registerLinkToolCommands,
   toolsPath,
 } from "./linktools";
 import {
-  disposeSchemaView,
+  registerSchemaView,
   parseSchemaSummary,
   querySchemaColumns,
   querySchemaTables,
-  registerSchemaView,
   type SchemaProviderApi,
 } from "./schema";
 
@@ -186,13 +185,12 @@ export async function deactivate(): Promise<void> {
   disposeBuild();
   parseDoneSub?.dispose();
   parseDoneSub = undefined;
-  disposeDeploy();
-  disposeLinkTools();
-  disposeSchemaView();
   await stopClient(false);
+  // C6：服务器与任务两个通道统一在 output.ts 里创建/释放。
+  disposeOutput();
 }
 
-/** 注册三条命令：重启、信息、输出。 */
+/** 注册三条命令：重启、显示语言服务器信息（含打开日志）、强制解析。 */
 function registerCommands(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand("bdl.restartServer", async () => {
@@ -262,12 +260,14 @@ function registerCommands(context: vscode.ExtensionContext): void {
         language: "plaintext",
       });
       await vscode.window.showTextDocument(doc, { preview: true });
-    }),
-
-    vscode.commands.registerCommand("bdl.showOutput", async () => {
-      await vscode.commands.executeCommand(
-        "workbench.action.output.showChannel",
-      );
+      // C5：原来的「显示输出」已并入本命令——这里给一个直达日志的动作。
+      void vscode.window
+        .showInformationMessage("语言服务器信息已打开。", "打开日志")
+        .then((pick) => {
+          if (pick === "打开日志") {
+            serverChannel().show(true);
+          }
+        });
     }),
 
     vscode.commands.registerCommand("bdl.forceParseCurrentFile", async () => {
