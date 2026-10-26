@@ -1,242 +1,31 @@
-# 待办清单（唯一实时清单）
+# 待办清单（只放未完成项）
 
 > 维护位置：vscode-bdl 仓库（本文件）。新会话入口。
-> 维护规则：待办完成时 → ①把新功能写进对应项目的 docs/FEATURES.md；
-> ②若是用户可见的新功能，同步更新 README.md 用户引导；③在本文移除该条。
+> **规则：本文件只保留未完成条目。功能做完了 → 写进 [`FEATURES.md`](FEATURES.md)
+> （用户可见的再同步 [`README.md`](../README.md)），然后从本文件删除该条——不留历史、不勾选留存。**
+> 待拍板项放 [`OPEN-ITEMS.md`](OPEN-ITEMS.md)。操作入口总表见 [`COMMANDS.md`](COMMANDS.md)。
 > 状态基线：bdl-lsp 0.3.13 / tiptop 0.1.8 / vscode-bdl 0.6.2（生成于 2026-10-24）
-
-> 本文件由 bdl-lsp 仓库里散落的待办（原 `NEXT.md` / `PENDING.md` / `PLUGIN-PLAN.md` /
-> `WINDOWS-CHECKLIST.md`）合并而成，**只保留仍未完成的条目**；已完成项在附录 C 用一行汇总。
-> 需要翻历史证据时：已实现能力看 [`FEATURES.md`](FEATURES.md)；待拍板/开放问题看
-> [`OPEN-ITEMS.md`](OPEN-ITEMS.md)（本清单也内联了关键口径）。
 
 ---
 
 ## 0. 一句话开场（复制给新会话）
 
 ```text
-读 vscode-extension/docs/TODO.md，先做 §0d「设置重构 V2 + 远程编译/链接/预览」：
-按已确认的方案重构设置分组、新增 tiptop 远程执行与单文件上传、插件命令随之调整。
+读 vscode-extension/docs/TODO.md，先做 §1「发布闭环」：
+按附录 A 做 Windows 实机验收（C0，含 §2b 的上传/生产端执行与 W7 全量同步复测），
+然后打 tag（C1）、给 bundle-vsix.yml 加 release job（C2）。
 ```
 
 ```text
-（已完成的）§0c 字段资料同步、§0b Windows 反馈 W1–W6 见各自小节与附录 E。
+真机才能验的项见 §2 / §2b；代码层遗留见 §3；Zed 追平见 §3.5（先做 Z-A6）。
+已完成的功能不在本文件：看 vscode-bdl/docs/FEATURES.md 与 docs/COMMANDS.md。
 ```
-
-```text
-然后做 §1「发布闭环」：按附录 A 做 Windows 实机验收（C0，其中务必按附录 E 复测 W1–W6）、
-打 tag（C1）、给 bundle-vsix.yml 加 release job（C2）。
-```
-
-```text
-做 Zed 追平：读本文件 §3.5，先做 Z-A6（Code Lens 实机验证），再做 Z-B1 → Z-B2。
-```
-
-## 0b. Windows 实机反馈 W1–W6（**已完成**，见 附录 E）
-
-> 2026-10-24 实机反馈的 6 组问题已全部实现（2026-10-26，第 1–4 轮；e2e 49/49、三仓库全绿）。
-> 实现摘要与**真机复测要点**见 [附录 E](#附录-ew1w6-实现摘要与真机复测要点)。
-> 这批改动尚未在 Windows 实机复测——**C0 验收时按附录 E 逐条复测**，有问题就新开待办。
-
----
-
-## 0c. 字段资料全量同步失败排查（2026-10-26 反馈，下一轮先做）
-
-**现象**：`数据库字段：从数据库同步` 报「失败（退出码 1）」。输出其实写进了**「Genero BDL 链接资料」**通道
-（不是"空面板"），错误原文：
-
-```text
-tiptop schema sync: 查询失败: ORA-01013: user requested cancel of current operation
- error occur at position: 182
-```
-
-**根因（已确认）**：`ORA-01013` 是 Oracle 的"语句被取消"。用户选定方案：**分批查询**——先取表清单，再每 200 张表查一批，跑完一批继续下一批（而不是单纯加大超时）。
-
-| # | 事实 | 位置 |
-|---|---|---|
-| a | `schema sync` 给全量查询的**总超时只有 120 秒**（`link sync` 是 60 秒） | `tiptop/internal/schemacli/sync.go:133`、`tiptop/internal/linksync/db.go:36` |
-| b | 这个超时是**整段查询 + 逐行读取**的总时限（`context.WithTimeout`），不是"无进展才取消" | `tiptop/internal/oradb/oradb.go:88-91`、`QueryContext` |
-| c | 超时后 context 取消传到 go-ora → Oracle 中断语句 → `ORA-01013`，被包成「查询失败」退出 1 | `oradb.go:103-105` |
-| d | 全量查 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`（几千表/几万列）在慢链路超过 120s 很正常；等待期间能看到「已收到 N 行」进度 | `docs/FEATURES.md` 里的 2.4 s 是本机快库口径 |
-
-**第二个问题（W6 回归）**：`secrets.json` 路径不一致——schema 读 `.project/secrets.json`，
-link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入目录找 secrets，
-而 W6 把 link 资料目录改成 `.project/link` 后，`linksync` 把 link 目录当成了 secrets 目录
-（`linksync/db.go:36` ← `source.go:138` ← `sync.go:51-56`）。**统一为 `.project/secrets.json`。**
-
-**第三个问题（可见性）**：schema 的输出被写进「链接资料」通道，失败提示却让用户看「数据库字段」通道。
-
-**关于空的 `.tmp-#T28_SID`**：`writeFileAtomic` 正常错误返回会 `defer` 删除临时文件；**空**文件更像
-**上一次运行被取消/被杀**（插件取消会 `child.kill()`，defer 来不及跑）或删除时被 Windows 占用
-（`_ = os.Remove(tmp)` 静默吞掉）。不是本次失败的直接原因，但仍要清理＋告警（W7.8）。
-
-**状态（2026-10-26，已修复）**：W7.1–W7.10 全部实现；tiptop 全量测试、`npm run typecheck`、e2e 49/49 通过。
-**待你在 Windows 慢链路上复跑一次全量同步验证**（正是要验的场景：能否跑完、失败时能否看到原因）。
-
-| # | 要做的事 | 验收 |
-|---|---|---|
-| ✅ W7.1 | **查询超时改为「空闲超时 + 总上限」**：每收到一行就重置空闲计时（默认 120s），另设总上限（默认 30min）；`schema sync` / `link sync` 共用；CLI 加 `-timeout`；插件加设置（策略见 OPEN-ITEMS `W-i`） | 慢链路上的全量查询不再 120s 到点被取消 |
-| ✅ W7.2 | `ORA-01013` 人话化：识别该码 → 「查询被超时取消（空闲超过 Ns）：可加大 `-timeout`/设置，或改用 CSV 导入」 | 报错一眼能懂并给出下一步 |
-| ✅ W7.3 | **secrets 路径统一**：`oradb` 参数语义改为"secrets 目录"；`linksync` 传**项目目录**（`.project`）而非 link 资料目录；schema 保持 `.project` | 同一个 `.project/secrets.json` 对 link/schema 都生效；`link sync` 不再去 `.project/link/` 找密码 |
-| ✅ W7.4 | 回归测试：`link sync -source golang` 的 secrets 只在 `.project/secrets.json` 生效（`.project/link/secrets.json` 不再被读）；`schema sync` 同理；文档口径一致 | 单测 + 文档 |
-| ✅ W7.5 | **输出通道修正**：进度执行器支持指定通道；schema 写「数据库字段」、link 写「链接资料」 | 两个通道各自只出现本功能输出 |
-| ✅ W7.6 | 失败可见性：错误对话框带 stderr 末尾若干行（去空行、限长）；"详见…"指向的通道保证有内容 | 只看通知就知道原因 |
-| ✅ W7.7 | 每次 tiptop 运行**落盘完整日志**（扩展 globalStorage，带时间戳）；失败提示给出文件路径 | 通道被清/编辑器重启后仍可回看，便于远程报错 |
-| ✅ W7.8 | 临时文件：`schema import/sync` 启动时清理 `tables/` 下遗留的 `.tmp-*`（link 目录同理）；删除失败记警告 | 复跑后不再残留；失败有记录 |
-| ✅ W7.9 | 表名安全校验：`tableFileName` 对 `\ / : * ? " < > \|` 与超长名给明确报错（带表名） | 遇到非法表名能看出是哪张表 |
-| ✅ W7.10 | 排障文档：通道/日志/`-timeout`/`ORA-01013`/权限与 `-owner` 自检 SQL 写进 README FAQ + tiptop 文档 | 用户可自助定位 |
-
-**顺序**：W7.1–W7.3（根因）→ W7.5–W7.7（可见性）→ W7.8–W7.10（清理与文档）。
-做完请你在 Windows 复跑一次全量同步验证（慢链路正是要验的场景）。
-
----
-
-## 0d. 设置重构 V2 + 远程编译/链接/预览（2026-10-26 已确认，执行中）
-
-**已确认的决策**（用户 2026-10-26 确认）
-
-| # | 决策 |
-|---|---|
-| D1 | 设置分 **3 组**：**基本设置** / **账号、生产环境、配置** / **上传编译链接**（把"键少的"生产环境+链接资料+数据库字段合并；基础与编译链接各独立一组） |
-| D2 | 数据库配置加 **`service`**（连接必需）；**不加 `owner`**；密码**不进设置**（`<项目>/.project/secrets.json` 或 `BDL_ORA_PASSWORD`） |
-| D3 | 生产服务器填 host/port/user（默认示例 `erp`/`22`/`tiptop`）；**SSH 密钥登录，不支持密码**；保留 `strictHostKey` |
-| D4 | 上传**只允许单文件**（当前打开文件，按"项目根目录 → 生产根目录"映射路径）；**删除整包/批量同步** |
-| D5 | **编译/链接/预览在生产服务器上执行（ssh）**；**不自动上传**——用户自己决定先点「上传当前文件」再点编译/链接/预览 |
-| D6 | link/schema 做**三态** `bdl.link.mode` / `bdl.schema.mode` = `off|file|db`（`file`=只用 CSV 导入，`db`=可连库）。**不保留旧键兼容**（未发布，用户 2026-10-26 决定删除全部旧值兼容） |
-| D7 | 删除：整包部署命令、`bdl.deploy.target`、「列出部署目标」、`include/exclude/delete`、`prod.deploy.compile4gl/compilePer`（由新的编译命令取代） |
-| D8 | 保留：上传方式 `transport`（`off|rsync|scp`，rsync 主 scp 备）、`localRoot`（项目根目录，默认 `.`）、`remoteRoot`（生产根目录，示例 `/u1/toppord`）、`link.moduleRoots`/`globalModules`、schema `batchSize`/`timeoutSec` |
-| D9 | 基本设置（现有 22 键：server/tools 路径、日志、trace、generoVersion、diagnostics、format、index、globals/perRoots、builtins、ignore、limits）**维持不变** |
-| D10 | 上传方式枚举 `transport = off\|rsync\|scp`（`off` 时隐藏上传命令；`rsync` = 主 rsync、备 scp） |
-| D11 | **只有 4GL「链接」弹 `${name}` 输入框**；4GL 编译、Form 预演编译/编译/预览都不弹，直接用默认名 |
-| D12 | Form「预览画面」默认命令**按原文加 `2 p`**：`cd ${path} && r.gf ${name} 2 p`（不是笔误，字面照录；确切写法见 OPEN-ITEMS S-j） |
-| D13 | 远程执行会自行调起本地 GUI（`r.gf` 等）；我们只按命令执行、回传输出，不做特殊处理 |
-| D14 | 视图/工具栏图标化：「数据库字段」的正则过滤/刷新/CSV 导入，「链接资料」的重新同步/从数据库更新；**编译 4gl / 编译 per 的图标从齿轮改为运行形状**（`$(play)`） |
-| D15 | 字段说明 SQL：默认查询就用你的 TiTop 字典 SQL，`zta02='ds'` **固定**；你临时加的 `zta01='ima_file'` **去掉**（分批时自动变成 `zta01 IN (...)`） |
-| D16 | 连接账号 = **应用 schema 账号**（自己拥有表 + 对 `ds.zta_file`/`ds.gaq_file` 有读权限），故用 `user_tab_columns`，`owner` 不需要 |
-| D17 | 本版本**只用 TiTop 专用字典 SQL**；若 `DS.ZTA_FILE`/`DS.GAQ_FILE` 不存在（ORA-00942）→ 明确提示「TiTop 字典表不存在，请改用 CSV 导入」 |
-| D18 | 列名**全部小写**（SQL 里 `lower(column_name)`）；Form 预览命令是**三个参数**：`cd ${path} && r.gf ${name} 2 p`（`${name}`、`2`、`p`） |
-
-**目标键位（3 组，约 55 键）**
-
-| 组 | 键 |
-|---|---|
-| 基本设置（22） | 现有「基础」原样 |
-| 账号、生产环境、配置（16） | `prod.oracle.host/port/service/user`；`prod.deploy.host/port/user/strictHostKey`；`link.mode`/`link.dataDir`/`link.moduleRoots`/`link.globalModules`；`schema.mode`/`schema.dataDir`/`schema.batchSize`/`schema.timeoutSec` |
-| 上传编译链接（11） | `deploy.enable`（组总开关）、`prod.deploy.transport`、`prod.deploy.localRoot`、`prod.deploy.remoteRoot`；`build.enable`（编译/链接/预览总开关）；6 个 `<lang>.<mode>.command`（4gl：preview/compile/link，per：preview/compile/form）。清理项 C10 去掉了 6 个 per-command `enable` |
-
-**要做的**
-
-**状态（2026-10-26，已实现并全绿）**：**T1–T9 全部完成**。
-
-- 设置重构为 **3 组 49 键**（基本设置 22 / 账号、生产环境、配置 16 / 上传编译链接 11；清理项 C10 又去掉 6 个 per-command enable）；新增 `bdl.prod.oracle.service`、`bdl.link.mode`/`bdl.schema.mode`（off/file/db）、`bdl.prod.deploy.transport`（off/rsync/scp）、`bdl.build.enable` + 6 个 `command`（C10 去掉了各自的 `enable`）；删除整包部署、`deploy.target`、列出目标、`include`/`exclude`/`delete`/`compile4gl|Per`。**不保留任何旧键兼容**：`link.enable`/`schema.enable`、旧 6 个 build 键、`deploy.target` 等一律不再读取（未发布）。
-- **bdl-lsp 也认 `mode`**（`SchemaSettings.Mode`/`LinkSettings.Mode`；服务端另有 `enable` 布尔入口，供 Zed 等直接配置 LSP 的客户端使用，`mode` 非空时优先），并加了单测。
-- 插件：命令 37 → **31**（V2 删整包部署/列出目标 2 条，清理项 C1/C2/C5 再删 4 条），上传只剩「上传当前文件 / 预演上传」（单文件）；编译/链接/预览改走 `tiptop exec`（生产端 ssh，不自动上传）；**只有 4GL 链接弹 `${name}`**；视图按钮图标化 + 编译图标 `$(play)`；`dbctx` 新增 `bdl.link.enabled`/`modeDb`/`schema.enabled`/`schema.modeDb`/`upload.enabled`/`build.enabled` 门控。
-- 验证：bdl-lsp 全量测试、tiptop 全量测试、`npm run typecheck`、**e2e 49/49** 全绿；`tiptop upload/exec -dry-run` 实跑验证。
-- **剩余**：真机连生产服务器验证上传/编译/链接/预览（本地无法连）——建议按下面清单在 Windows 上过一遍。
-
-| # | 真机验证清单 | 预期 |
-|---|---|---|
-| V1 | 填好生产服务器 + 生产根 + transport=rsync，点「预演上传」 | 输出里给出 本地路径 → `user@host:/生产根/相对路径`，不连接 |
-| V2 | 点「上传当前文件」 | 文件出现在生产根同路径；失败时通知带 stderr 首行 + 「打开日志」 |
-| V3 | 点「4GL：编译」 | 在服务器对应目录执行 `cd ${path} && r.c2 ${name}`，输出进「Genero BDL 编译」 |
-| V4 | 4GL「链接」按钮（无 MAIN 的文件） | 按钮禁用/本地直接报错，不发 ssh |
-| V5 | Form「预览画面」 | 远程执行 `cd ${path} && r.gf ${name} 2 p`（会调起本地 GUI） |
-
-> 旧键兼容已**全部删除**（未发布，用户 2026-10-26 决定）：插件只读 3 组 55 键里的当前键。
-> 服务器侧仍保留 `enable` 布尔入口，因为 Zed 扩展是把 `lsp.bdl-lsp.settings` 原样透传的，
-> 其文档用的是 `enable`；是否也统一成 `mode` 待你决定。
-
-| # | 事项 | 验收 |
-|---|---|---|
-| ✅ T1 | 设置重构：`package.json` 改成 3 组；新增/删除键；`bdl.link.mode`/`bdl.schema.mode` 三态；build 6 键拆成 `command`（C10 又去掉 6 个 `enable`）；**不留旧键兼容**（未发布） | 设置面板 3 组、49 键；键数/文档一致 |
-| ✅ T2 | tiptop 新增远程执行：`tiptop exec`——读 deploy 配置 → `ssh` 在**生产根目录**执行命令（模板里的 `cd ${path}` 由此生效）→ stdout/stderr 流式回传 + 退出码；`-dry-run`/`-json`。**不自动上传**（用户自己决定先上传） | 本地无法测真机，需 Windows/生产服务器复测；单测覆盖配置解析、路径映射、缺配置报错 |
-| ✅ T3 | 单文件上传：`tiptop upload -file <相对路径>`（当前文件 → `remoteRoot/<相对路径>`），rsync 主/scp 备（scp 前先 `mkdir -p`）；无整包、无 include/exclude/delete | 单文件落到正确远端路径；不传其它文件 |
-| ✅ T4 | 插件：删除 `bdl.deploy`（整包）、`bdl.deploy.target`、`bdl.deployListTargets`；改名/保留「上传当前文件」「预演上传」；6 条编译/链接/预览命令改调 `tiptop exec`（**不再本地 spawn**，占位符仍在插件侧展开，输出仍进「Genero BDL 编译」） | 命令面板与工具栏只剩单文件上传 + 6 条远程命令；输出完整 |
-| ✅ T5 | 旧值的处理：**全部删除、不做兼容**（未发布）；README/FEATURES 只写当前键 | 文档里不再出现旧键 |
-| ✅ T6 | 测试：tiptop exec/upload 单测（dry-run、路径映射、缺配置）；插件 e2e（命令注册、3 组设置、门控、上传预演） | 全绿 |
-| ✅ T7 | 文档：README（三档/设置/命令/FAQ）、三份 `FEATURES.md`、本文件、`OPEN-ITEMS.md` | 无死链、口径一致 |
-| ✅ T8 | 图标化：`bdl.schema.filter` / `bdl.schema.refresh` / `bdl.schema.import` / `bdl.links.resync` / `bdl.link.updateFromDb` 加 `icon`；`bdl.build.4gl.compile`、`bdl.build.per.compile` 改 `$(play)`（具体 codicon 见 OPEN-ITEMS S-k） | 视图标题栏只显示图标；编译按钮是运行形状 |
-| ✅ T9 | `${name}` 弹框规则改为**只有 4GL 链接弹**（D11）：`build.ts` 里 4gl.compile / per.preview / per.compile / per.form 的 `promptName` 置 false | 点编译/预览不再弹框；点 4GL 链接仍弹 |
-
-**说明**：D5 与现有 W5 实现（本机执行）冲突，T2/T4 完成后 W5 的"本地执行"描述要一并改掉；「预演编译」仍是远程执行同一条命令（不写盘效果由脚本自身保证）。
-
----
-
-## 0e. 字段说明来源：改用 TiTop 字典（DS.ZTA_FILE + DS.GAQ_FILE）（2026-10-26 待确认）
-
-**现状（已核实）**：`tiptop schema sync` 的默认 SQL 是
-`ALL_TAB_COLUMNS c LEFT JOIN ALL_COL_COMMENTS cc ...`（`internal/schemacli/sync.go` 的 `DefaultSchemaQuery`）——
-说明列取的是 **Oracle 自己的备注（column comments）**。你们环境里 Oracle 备注基本不维护，所以只有少数列有说明。
-
-**目标 SQL（用户 2026-10-26 提供）**：
-
-```sql
-select zta01 table_name,
-       lower(column_name) column_name,
-       gaq03 column_desc,
-       data_type, data_length, char_length, data_precision, data_scale, nullable, default_length
-  from ds.zta_file, user_tab_columns
-  left join ds.gaq_file
-    on column_name = upper(gaq01)
-   and gaq02 = '2'
- where zta02 = 'ds'
-   and table_name = upper(zta01)
-   -- 默认查询到此结束；分批时由工具追加：and zta01 in ('ima_file', …)
- order by table_name, column_name
-```
-
-**要点（对照现有实现）**
-
-| # | 变化 | 影响 |
-|---|---|---|
-| a | 说明来源从 `ALL_COL_COMMENTS.comments` 换成 **`DS.GAQ_FILE.gaq03`**（`gaq02='2'`） | 列说明终于来自你们真正维护的字典档 |
-| b | 表清单从 `all_tab_columns` 换成 **`DS.ZTA_FILE`（`zta02='ds'`）**，明细用 `user_tab_columns` | 需要连接账号**自己是表 owner**（`user_tab_columns` 才有行），且能读 `ds.zta_file`/`ds.gaq_file` |
-| c | 列名按 SQL 的 **`lower(column_name)`** 存小写（现在是大写） | 悬停/补全显示的列名变成小写；不想要就去掉 `lower()` |
-| d | CSV 列名与现有解析器**完全一致**（`table_name/column_name/column_desc/data_type/data_length/char_length/data_precision/data_scale/nullable/default_length`） | **解析器不用改**；只换默认查询 |
-| e | 分批：表清单查 `SELECT DISTINCT zta01 FROM ds.zta_file WHERE zta02='ds'`，批次条件 `AND zta01 IN (...)`（用 ZTA_FILE 里的原名） | W7 的分批逻辑保留，只把 SQL/条件换掉 |
-| f | `-query` 自定义 SQL 仍保留；`-owner` 在默认查询下不再需要（保留参数，仅自定义 SQL 用）。字典表不存在时按 T13 提示改用 CSV 导入 | 非 TiTop 环境用 `-query`；权限/表缺失有明确提示 |
-
-**待确认**：`zta02='ds'` 是否固定；连接账号是否即表 owner；是否需要保留一套"通用（Oracle 注释）"预设；列名是否接受小写（见 OPEN-ITEMS S-g/S-h/S-i/S-j）。
-
-**状态（2026-10-26，已实现）**：默认 SQL 已换成 TiTop 字典；生成的 SQL 与用户给的完全一致（多 `NVL(gaq03,'')` 与分批 `zta01 IN (...)`）；`go test ./...` 全绿；**待真库复跑**（用 schema 账号）。另：用户决定**中间文件不落盘**（维持现状、只保存结果），原 §0f 作废。
-
-| # | 要做的事 | 验收 |
-|---|---|---|
-| ✅ T10 | 默认查询换成上面的 TiTop 字典 SQL（含分批与表清单） | 导入后 `ima_file` 等表的列说明来自 `ds.gaq_file`，覆盖率明显提高 |
-| ✅ T11 | 保留 `-query` 覆盖；`-owner` 语义在文档里标注"仅自定义/通用 SQL" | 非 TiTop 环境不被破坏 |
-| ✅ T12 | 文档：tiptop README/FEATURES + 插件 README/FEATURES 写清"说明来自 DS.GAQ_FILE"、需要的权限与账号 | 用户能自查权限；命令都在文档里 |
-| ✅ T13 | 字典表缺失的友好报错：识别 ORA-00942 并提示「TiTop 字典表（DS.ZTA_FILE/DS.GAQ_FILE）不存在，请改用 CSV 导入」 | 非 TiTop 库/权限不足时不会只抛原始 ORA 码 |
-
----
-
-## 0g. 命令清理（C1–C10 已执行，2026-10-26）
-
-**操作清单**见 [docs/COMMANDS.md](COMMANDS.md)（命令面板 / 编辑器按钮 / 视图按钮 / 右键 / 后台任务）。
-清理后：命令 **31** 条（面板可见 26、隐藏 5）、编辑器按钮 7、视图标题栏 8、视图项 4、
-输出通道 **2**、上下文键 11、激活事件 26；设置 **3 组 49 键**。
-
-| # | 结论 | 落点 |
-|---|---|---|
-| C1 | 链接「更新」只留一个入口 | 删 `bdl.link.syncCurrent` / `bdl.links.resync`；保留 `bdl.link.updateFromDb`（视图标题栏 + 面板） |
-| C2 | 字段同步合并 | 删 `bdl.schema.syncFiltered`；保留 `syncAll`/`syncSelected`（面板）+ `syncTable`（右键）；筛选后走「全选 → 同步已选中」 |
-| C3 | 反查引用去重 | 视图按钮/视图项保留；面板条目加 `editorLangId == 4gl` |
-| C4 | 强制解析面板常显 | 面板条目加 `when: bdl.parseSkipped` |
-| C5 | 显示输出合并 | 删 `bdl.showOutput`；`bdl.showServerInfo` 通知里加「打开日志」 |
-| C6 | 输出通道 6 → 2 | 新增 `src/output.ts`：`Genero BDL`（服务器+追踪）与 `Genero BDL 任务`（链接/字段/上传/编译） |
-| C7 | `migrateLinkDir` 保持隐藏 | 通知按钮触发；README 写明手动迁移路径 |
-| C8 | 复制列定义 / 打开表资料 | 只走右键/内联（面板 `when: false`） |
-| C9 | 显示更多反查结果 | 保持隐藏（内部） |
-| C10 | 6 个 build enable | 删除，只留 `bdl.build.enable` 总开关 + 6 个命令模板 |
-
-验证：`npm run typecheck` 通过、e2e **49/49** 全绿；文档（README/FEATURES/COMMANDS/本文件）同步。
-
----
 
 ## 1. 发布闭环（按顺序）
 
 | # | 事项 | 现状 | 要做的事 | 验收门槛 |
 |---|---|---|---|---|
-| **C0** | 真机验证（Windows） | 从未有人在真机上装过插件；CI 只覆盖"构建 + 单测 + 单测级二进制自检 + VSIX 内容自检"（bdl-lsp/tiptop 已 Linux+Windows 双绿） | 按**附录 A**（71 项）逐条勾选，并按**附录 E**复测 W1–W6：装包 → 内置二进制 → 语言服务 UI → ⭐路径/迁移/大文件 → 链接资料命令 → 数据库字段（视图/悬停/多选/直连库同步/进度）→ 部署（scp 回退）。命令默认在 PowerShell 跑，详见附录 A | 71 项全绿；失败项保持未勾、把现象写进附录 A「记录」并在 §9 汇总登记（或开 issue） |
+| **C0** | 真机验证（Windows） | 从未有人在真机上装过插件；CI 只覆盖"构建 + 单测 + 单测级二进制自检 + VSIX 内容自检"（bdl-lsp/tiptop 已 Linux+Windows 双绿） | 按**附录 A** 逐条勾选，并按 **§2b** 复测本轮新增（上传配置 → 单文件上传 → 生产端编译/链接/预览 → 链接资料命令 → 字段资料含 W7 分批全量同步）。命令默认在 PowerShell 跑，详见附录 A | 附录 A 全绿；失败项保持未勾、把现象写进附录 A「记录」并在 §9 汇总登记（或开 issue） |
 | **C0b** | 真机验证（macOS） | CI 有 `darwin-x64` / `darwin-arm64` 两个包，但没在真机装过（风险 F6：macOS 延后带来的构建差异，CI 能构建但无人验证过产物） | 在至少一台 Intel 或 Apple Silicon 上装包并做 C0 的抽样（可借附录 A 的 §1/§2 节）：语言服务能起、跳转/诊断可用、VSIX 不夹带仓库文件 | 两台架构至少各跑通一次装包 + 打开 `.4gl` + 跳转/诊断；`darwin-arm64` 不能在 Intel 机上装（会回退外部二进制） |
 | **C1** | 打 tag | `bdl-lsp` 至今**没有 tag**；`tiptop/go.mod` 用 `replace ../bdl-lsp`，CI 只能追 `main` → 版本漂移（见 §3.1 F1/F9） | 打 `bdl-lsp v0.3.13`、`tiptop v0.1.8`、`vscode-bdl v0.6.2`；之后 `bundle-vsix.yml` 用 `bdl_lsp_ref=v0.3.13` / `tiptop_ref=v0.1.8` 出包。命令：`git tag v0.3.13 && git push origin v0.3.13`（三个仓库各一次） | 三个 tag 都存在；用 tag ref 出包成功、产物可复现；`tiptop go.mod` 可去掉 `replace` 指版本号（见 §3.1 F1/F9） |
 | **C2** | GitHub Release | `bundle-vsix.yml` 只有 `workflow_dispatch` 的 `bdl_lsp_ref` / `tiptop_ref` 输入，**没有 release job**；现在只有 Actions artifact（90 天过期） | 给 `bundle-vsix.yml` 加 `release` job（或新 workflow）：4 个平台 VSIX（`win32-x64` / `linux-x64` / `darwin-x64` / `darwin-arm64`）一起挂 Release，附 `BUILD-INFO.json` 内容与 sha256 校验和；触发方式建议"tag push 或手动输入 release_tag"。打包与校验口径见 附录 D §1/§4 | Release 页面同时有 4 个 VSIX + `BUILD-INFO.json` 内容 + sha256；tag 推送能自动触发 |
@@ -251,15 +40,17 @@ select zta01 table_name,
 
 | # | 事项 | 为什么没验 | 怎么验 |
 |---|---|---|---|
-| **D1** | `tiptop schema sync -source golang`（直连 Oracle 采集表字段） | 沙箱没有 Oracle；只验证了 SQL 生成、`-source file` 全链路、密码来源与参数校验的单元测试 | 真库里跑一次：`export BDL_ORA_PASSWORD=...; tiptop schema sync -root . -host … -service … -user …`（应用 schema 与账号不同时加 `-owner`）。核对：表数/列数与 DBA 导出一致、中文说明来自 `ALL_COL_COMMENTS`、`nullable` 与 `default_length` 映射正确；随后在 VSCode 里点 `数据库字段：从数据库同步` 看进度与结果（附录 A 的 5.1d.10） |
+| **D1** | `tiptop schema sync -source golang`（直连 Oracle 采集表字段） | 沙箱没有 Oracle；只验证了 SQL 生成、`-source file` 全链路、密码来源与参数校验的单元测试 | 真库里跑一次：`export BDL_ORA_PASSWORD=...; tiptop schema sync -root . -host … -service … -user …`（**应用 schema 账号**：默认 SQL 走 `USER_TAB_COLUMNS` + 字典 `DS.ZTA_FILE`/`DS.GAQ_FILE`，`-owner` 只对自定义 `-query` 有意义）。核对：表数/列数与 DBA 导出一致、**中文说明来自 `DS.GAQ_FILE.gaq03`（不是 Oracle 备注）**、`nullable` 与 `default_length` 映射正确、分批进度能跑完（附录 A 5.4.8/5.4.9）；随后在 VSCode 里点 `数据库字段：从数据库同步` 看进度与结果 |
 | **D2** | `tiptop link sync -source golang`（直连 Oracle 采集链接资料） | 同上（这条早就在，但同样没在真库跑过） | `tiptop link sync -root . -host … -service … -user …`，与"导出 CSV 再 `link import`"的结果对比（链数/文件数应一致）。CLI 参数与密码来源见 `bdl-lsp/docs/FEATURES.md` 与附录 A 的 3.4 节 |
 
 ### 2b. 其它需要真实环境的验证缺口
 
 | # | 事项 | 现状 | 要做什么 |
 |---|---|---|---|
-| **B3** | 真实 Genero 服务器 | 无本机 `fglcomp`/`fglform`，远程编译整链路没实跑过 | `ssh` 通、`fglcomp -M` 可用；单文件部署 + 远程编译实跑一次（配置合成与部署实跑见 [`README.md`](../README.md) 附录 A） |
+| **B3** | 真实 Genero 服务器 | 无本机 `fglcomp`/`fglform`，远程编译整链路没实跑过 | `ssh` 通、`fglcomp`/`fglform` 可用；`tiptop upload` + `tiptop exec` 实跑一次（配置合成见 [`README.md`](../README.md) 附录 A；逐条清单见本文件附录 A §5） |
 | **B4** | Zed dev extension 手工加载 | 无图形界面 | `zed: install dev extension` 能加载、LSP 起来、大纲层级正确（与 §3.5 的 Zed 追平一起做） |
+| **D3** | 上传 + 生产端编译/链接/预览 | 沙箱没有可达的生产服务器 | 按附录 A §5.0–§5.2 逐条：预演上传的路径映射、**只传单文件**、**不自动上传**、4GL 链接弹 `${name}`、无 MAIN 时置灰、Form 预览 `r.gf ${name} 2 p`、失败时 `last-run-exec.log` |
+| **D4** | 全量 schema sync（慢链路，分批） | 沙箱没有 Oracle | 慢链路上跑一次全量：进度要有 `共 N 张表，按每批 200 张分 M 批`、`批次 i/M`，**不再出现 `ORA-01013`**；列说明来自 TiTop 字典（附录 A 5.4.8/5.4.9） |
 
 ---
 
@@ -281,12 +72,12 @@ select zta01 table_name,
 
 | # | 事项 | 现状 | 要做的事 | 验收 |
 |---|---|---|---|---|
-| **S1** | 语言服务器异常退出兜底 | `显示输出` 里对**非 0 退出码**没有明确日志、不自动重启、不通知用户 | 插件侧：异常退出时写明确日志 + **自动重启一次** + 通知用户（配合 P0-1 已修好的崩溃） | 手工 kill 服务器后能看到日志与通知，并自动重启一次；日志进「Genero BDL: 显示输出」 |
+| **S1** | 语言服务器异常退出兜底 | 「Genero BDL」通道里对**非 0 退出码**没有明确日志、不自动重启、不通知用户 | 插件侧：异常退出时写明确日志 + **自动重启一次** + 通知用户（配合 P0-1 已修好的崩溃） | 手工 kill 服务器后能看到日志与通知，并自动重启一次；日志进「Genero BDL」通道（或「显示语言服务器信息」→「打开日志」） |
 | **S2** | `parseMu` 同类异步路径审计 | 只有链接预热回调这一条"从外部改文档树"的路径已纳入纪律；结论只在文档里 | 把审计结论写进代码注释（`parseMu` 的说明）：后续新增任何"后台 → 文档树"的路径都必须走 `requestRediagnose()` 一类入口（`internal/server`） | 注释落地；新增异步路径有 lock 纪律单测（参考 `internal/server/lock_test.go`） |
 | **S3** | 工作区索引是否跳过超大文件 | 工作区索引现在解析一切，包括 `bdl.limits.*` 已排除诊断的文件 | 评估让索引跳过超大文件（性能优化，**不是**崩溃原因） | 大项目索引耗时下降且跳转/符号搜索不明显变差 |
 | **F3** | 扩展与 LSP/tiptop 版本错配的回退策略 | 三个二进制版本独立递增，没有兼容矩阵 | 定义兼容矩阵与错配时的回退/提示策略（`BUILD-INFO.json` 已有 `target`，可扩展记录所需版本） | 文档 + `BUILD-INFO.json` 校验；错配时给出可操作的提示 |
 | **F2** | ABI 15 ↔ Zed tree-sitter 运行时兼容 | 未在 Zed 实机验证 | 与 §3.5 的 Z-A6 一起在 Zed 真机上确认（必要时固定 tree-sitter 运行时要求） | Zed 真机能加载语法/高亮，不报 ABI 错 |
-| **F4** | Windows 无 rsync → scp 回退 | 回退是显式打印的（设计如此），但稳定性/性能未实测 | 用大文件/多文件在真机上实测 scp 回退（附录 A 5.2.1），有问题再评估 | 回退日志可见、传输成功；把结论记进本文件 |
+| **F4** | Windows 无 rsync → scp 回退 | 回退是显式打印的（设计如此），但稳定性/性能未实测 | 用大文件/多文件在真机上实测 scp 回退（附录 A 5.1.4），有问题再评估 | 回退日志可见、传输成功；把结论记进本文件 |
 | **F5** | 沙箱 `HOME`/`GOPROXY` 对文档/CI 的影响 | 本地构建需 `source scripts/dev-env.sh`，文档/CI 里散落此前提 | 把 `dev-env.sh` 的前提写清（写进 [`README.md`](../README.md) 附录 C 与 CI 注释），避免新会话反复踩 | 新会话按文档能一次构建成功 |
 
 ### 3.3 诊断质量核实（小项）
@@ -315,8 +106,8 @@ select zta01 table_name,
 
 | # | 事项 | 要做的事 | 验收 |
 |---|---|---|---|
-| Z-A1 | 文档纠错（9 条） | `bdl-lsp link/deploy` → `tiptop link/deploy`（这两个子命令 0.3.2 已移除）；删 `link.maxAgeDays` 与整块 `link.sync.*`；`link.dataDir` 默认 `.project`；`link.enable`/`schema.enable` 默认 **false**；诊断码表同步 14 个码；补 `prod.*` 说明；修「Zed 不支持任意命令」「不消费语义 token」两处错误结论；版本号 0.3.0→0.3.13 | `zed-extension/README.md` + 本仓库 `README.md`；全文 grep 无过期命令名 |
-| Z-A2 | **补轻量档默认**（真实行为差异） | VSCode 客户端在 `client.ts` 显式下发 `link/schema.enable=false`；Zed 侧原样透传，服务端兜底返回 `true` → Zed 用户开箱即用时链接资料与 schema **是开着的**。修法：在 `language_server_workspace_configuration` 返回前把缺失的三开关补成 `false` | Zed 开箱即轻量档；与服务端兜底逻辑一致（兜底仍"开"，是无客户端设置时的安全兜底） |
+| Z-A1 | 文档纠错（9 条） | `bdl-lsp link/deploy` → `tiptop link/deploy`（这两个子命令 0.3.2 已移除）；删 `link.maxAgeDays` 与整块 `link.sync.*`；`link.dataDir` 默认 `.project/link`；VSCode 侧已改成 `link.mode`/`schema.mode` 三态（Zed 侧仍用布尔 `link.enable`/`schema.enable`，需补默认 **false**）；诊断码表同步 14 个码；补 `prod.*` 说明；修「Zed 不支持任意命令」「不消费语义 token」两处错误结论；版本号 0.3.0→0.3.13 | `zed-extension/README.md` + 本仓库 `README.md`；全文 grep 无过期命令名 |
+| Z-A2 | **补轻量档默认**（真实行为差异） | VSCode 客户端现在下发 `link/schema.mode = off`；Zed 侧原样透传用户设置，服务端在两者都缺时兜底返回 `true` → Zed 开箱即用时链接资料与 schema **是开着的**。修法：在 `language_server_workspace_configuration` 返回前把缺失的三开关补成 `false` | Zed 开箱即轻量档；与服务端兜底逻辑一致（兜底仍"开"，是无客户端设置时的安全兜底） |
 | Z-A3 | 语义高亮落地 | 加 `languages/bdl/semantic_token_rules.json`（+ `per/`）；文档教用户开 `{"languages":{"Genero BDL":{"semantic_tokens":"combined"}}}`（**默认 off**，写清）；`verify-manifest.py` 加校验防误删 | 开 `semantic_tokens` 后自定义符号着色；`verify-manifest.py` 全绿 |
 | Z-A4 | slash command 入口 | 实现 `run_slash_command` + `extension.toml` 声明 `[slash_commands.*]`；4 条：`/bdl-link-status`、`/bdl-deploy-dry-run`、`/bdl-deploy-list`、`/bdl-force-parse`；走 `zed::process::Command` 调 tiptop（需新增「定位 tiptop」四级查找）；**采集/导入类（会写盘）不进 slash command**，只给 task | 命令面板/Agent 面板可用；新增校验：`extension.toml` 声明与 Rust `match` 分支一一对应（写错名不编译错、只会静默不响应） |
 | Z-A5 | task 模板更新 | 命令名改 `tiptop`；补 `deploy -list`；补 4 条链接资料 task | `zed-extension/README.md` 的 task 模板 + 本仓库 `README.md` |
@@ -354,19 +145,19 @@ select zta01 table_name,
 
 1. **唯一性**：本文件是三个仓库共同的唯一实时待办清单。新会话从这里开始；不要在别处（旧 `NEXT` / `PENDING` / `PLAN`）新增待办。
 2. **完成即移出**：待办做完时 → ①把新功能写进对应项目的 `docs/FEATURES.md`（`bdl-lsp` / `tiptop` / 本仓库各一份，总表在本仓库 [`FEATURES.md`](FEATURES.md)）；②若是用户可见的新功能，同步更新本仓库 [`README.md`](../README.md) 用户引导（唯一用户引导，已含全部细节）；③在本文**移除**该条（不要只勾选、不要留长篇历史）。
-3. **已完成只留一行**：被移除的条目最多在附录 C 加一行汇总。
+3. **完成即移出、不留历史**：能力写进 `docs/FEATURES.md`（用户可见的再同步 `README.md`），本文件删掉该条；不再保留「已完成汇总」附录。
 4. **不写死链**：引用文档时只指向仍然存在的文件（本仓库 `docs/FEATURES.md`、`README.md`、`docs/OPEN-ITEMS.md`；`bdl-lsp/docs/DIAGNOSTICS.md`、`bdl-lsp/docs/FEATURES.md`、`tiptop/docs/FEATURES.md`、`zed-extension/docs/PLAN.md`）。历史归档类内容要么内联，要么进 `docs/OPEN-ITEMS.md`。
 5. **待拍板项**：需要用户决定的（如 §3.1 P0-2b、§3.6 N1）留在本文件并显式标注"待确认"，把证据与口径写进 `docs/OPEN-ITEMS.md`。
-6. **Windows 清单**：附录 A 的 71 项**整份搬入、不再单独维护**；勾选状态与「记录」直接写在本文件里（失败项也要如实保留未勾 + 记录现象）。
+6. **Windows 清单**：附录 A **整份内联、不再单独维护**；勾选状态与「记录」直接写在本文件里（失败项也要如实保留未勾 + 记录现象）。
 
 ---
 
-## 附录 A：Windows 实机验收清单（71 项，全文）
+## 附录 A：Windows 实机验收清单（全文）
 
-> 本附录由 bdl-lsp 仓库的 Windows 实机验收清单**原样搬入**（分节与 71 个勾选框完整保留），
-> 作为 §1 的 **C0** 执行清单；勾选状态与记录直接写在这里。
+> 本附录由 bdl-lsp 仓库的 Windows 实机验收清单搬入，作为 §1 的 **C0** 执行清单；
+> 勾选状态与记录直接写在这里（§5 已按 2026-10-26 的上传/生产端执行改造更新）。
 
-> 用途：本文件 §1 的 **C0（Windows 实机验收）执行清单**（71 项，从 bdl-lsp 原样搬入）。CI 自 2026-10-23 起 Linux + Windows 双绿，
+> 用途：本文件 §1 的 **C0（Windows 实机验收）执行清单**。CI 自 2026-10-23 起 Linux + Windows 双绿，
 > 但**从来没有人在这两个平台上装过包**——"CI 绿"只证明能编译、单元测试能过，
 > 不证明 VSIX 能装上、语言服务器能在 VSCode 里跑起来、scp 部署能接通。
 >
@@ -756,113 +547,87 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Check
 
 ---
 
-### 5. 链接资料与部署 **[需服务器]**
+### 5. 上传 / 生产端执行 / 资料采集 **[需服务器]**
 
-> 需要：真实 SSH 可达的 Genero 机器（`fglcomp`/`fglform` 可用）。没有就跳过并标注"未测"。
+> 需要：真实 SSH 可达的 Genero 机器（`fglcomp`/`fglform`/`r.*` 脚本可用）与只读 Oracle 账号。
+> 没有就跳过并标注「未测」。变量：`$ws` = 测试工作区根，`$ext` = 解包后的扩展目录。
 
-### 5.1 准备部署配置
+#### 5.0 上传配置（不用手写 JSON）
 
-**不用手写**：打开「部署」总开关（默认关），并在「生产环境」一组填主机 / 端口 /
-账号 / 远程根 —— 插件会在部署前把它合成为 `$ws\.project\deploy.json`（带 `createdBy` 标记）。
-手写仍然支持（`tiptop deploy -config <文件>`）。
+打开「上传编译链接」组的总开关（`bdl.deploy.enable`，默认关），上传方式选 `rsync`（或 `scp`），
+在「账号、生产环境、配置」填生产服务器主机/端口/账号，并把「生产根目录」填成生产路径（如 `/u1/toppord`）。
+插件会在上传/执行前合成为 `$ws\.project\deploy\deploy.json`（带 `createdBy`）。
 
-- [ ] 6.0 填一半（例如只填主机）时执行部署：弹出的提示要**说清缺哪一项**
-      （"部署需要先配置：… remoteRoot"），而不是含糊失败
-- [ ] 6.0b 合成出来的 `$ws\.project\deploy.json` 里 `createdBy` 是 `vscode-bdl <版本>`；
-      把该文件手改一下（删掉 `createdBy`）再部署一次 → 原文件被备份成 `deploy.json.bak`
+- [ ] 5.0.1 只填一半（例如不填生产根）→ 提示要说清缺哪一项（"上传需要先配置：… 生产根目录（remoteRoot）"）
+- [ ] 5.0.2 合成文件里 `createdBy = vscode-bdl <版本>`；手改删掉 `createdBy` 再上传一次 → 原文件被备份成 `deploy.json.bak`
+- [ ] 5.0.3 上传方式选「不上传」（`transport = off`）→ 命令面板里上传命令消失，直接调用只提示
+- [ ] 5.0.4 设置面板只有 **3 组**：基本设置 / 账号、生产环境、配置 / 上传编译链接；Oracle 连接含 `service`
 
-- [ ] 5.1.1 `deploy -list` 列出目标
+#### 5.1 单文件上传（预演 + 实传）
+
+- [ ] 5.1.1 `预演上传`：输出给出 `本地路径 → user@host:/生产根/相对路径`，**不连接服务器**
+- [ ] 5.1.2 `上传当前文件`：文件出现在生产根同路径；**只传这一个文件**（不做批量同步）
+- [ ] 5.1.3 命令行等价：
   ```powershell
-  & "$ext\bin\tiptop.exe" deploy -list -workspace "$ws"
+  & "$ext\bin\tiptop.exe" upload -workspace "$ws" -file topcust\aap\4gl\globals_main.4gl -dry-run
   ```
+- [ ] 5.1.4 Windows 上无 rsync → 输出里出现**显式回退**（`rsync 失败，回退 scp：…`），不是静默降级
+  - 记录（贴出那几行）：____
+
+#### 5.2 编译 / 链接 / 预览（在生产服务器上执行）
+
+> 前置：`bdl.build.enable` 打开（默认关）。命令通过 `tiptop exec` 在**生产根目录**下执行，
+> stdout/stderr 原样进「Genero BDL 任务」通道。**编译前不会自动上传**。
+
+- [ ] 5.2.1 `4GL：预演编译` / `4GL：编译`：远端执行 `cd ${path} && r.c2 ${name}`，输出完整（含命令回显与退出码）
+- [ ] 5.2.2 `4GL：链接`：弹 `${name}` 确认框（**只有这条弹**）；**没有 MAIN 的文件按钮置灰、不发 ssh**
+- [ ] 5.2.3 `Form：预演编译` / `Form：编译`：`fglform` + `gsform` 按模板执行，产物按模板落到 `../42f/`、`../4fd/`
+- [ ] 5.2.4 `Form：预览画面`：远端执行 `cd ${path} && r.gf ${name} 2 p`（三个参数，会调起本地 GUI）
+- [ ] 5.2.5 改完文件**不点上传**直接编译 → 服务器上仍是旧代码（确认这与文档一致：上传是独立动作）
+- [ ] 5.2.6 失败时通知带 stderr 首行；点「打开日志」打开 `last-run-exec.log`
+- [ ] 5.2.7 输出通道只有两个：`Genero BDL`（服务器 + 追踪）与 `Genero BDL 任务`（上传/编译/链接/字段）
+- [ ] 5.2.8 无生产配置时点编译 → 提示缺哪一项，而不是抛栈
+
+#### 5.3 链接资料命令（在 VSCode 里，不用开终端）
+
+> **前置**：`bdl.link.mode` 设为 `db`（连库）或 `file`（只用 CSV）；默认 `off` 时视图与命令都不出现。
+
+- [ ] 5.3.1 没配数据库时执行 `链接资料：全量更新`：弹出明确提示（含「打开设置」「改用 CSV 导入」），不是静默失败
+- [ ] 5.3.2 `链接资料：从 CSV 导入`：选 CSV → 复制到 `.project\link\gal_file.csv` → 全量导入，输出有进度
+- [ ] 5.3.3 `从数据库更新`（**唯一**的更新入口，视图标题栏同一条）：只更新当前文件涉及的作业，**没有预演对话框**（W2），其它链保留
+- [ ] 5.3.4 确认旧命令已删除：`链接资料：更新当前文件`、`重新同步` 在命令面板里搜不到（清理项 C1）
+- [ ] 5.3.5 关闭 `bdl.link.mode`（设 `off`）：视图、命令、诊断一起消失
+- [ ] 5.3.6 CLI 仍保留预演能力：
+  ```powershell
+  & "$ext\bin\tiptop.exe" link import -csv .project\link\gal_file.csv -root "$ws" -files topcust/aap/4gl/globals_main.4gl -dry-run
+  ```
+  → 输出「受影响作业 N 个（…）」，且没有写盘
   - 记录：____
-- [ ] 5.1.2 `deploy -dry-run` 打印"要传什么、要编译什么"，且**不上传**
-  - 记录：____
 
-### 5.1b ⭐ link 局部同步（`-modules` / `-files`）
+#### 5.4 数据库字段资料
 
-> **前置**：`bdl.link.enable` 现在**默认关**（轻量档）。先在设置界面
-> 「链接资料」一组里把总开关打开，否则界面里看不到链接视图/命令。
-
-> 只重算受影响作业的链，其余链保留——改一两个程序不用整份重跑（全量 10–20 秒）。
+> **前置**：`bdl.schema.mode` = `db`（连库）或 `file`（CSV）；默认 `off`。
 
 ```powershell
-# 先看"会影响几个作业"（不写盘）
-& "$ext\bin\tiptop.exe" link import -csv .project\gal_file.csv -root "$ws" -files topcust/aap/4gl/globals_main.4gl -dry-run
-# 按模组更新
-& "$ext\bin\tiptop.exe" link sync -root "$ws" -modules lib,sub,qry -dry-run
-```
-
-- [ ] 5.1b.1 `-dry-run` 输出里有 **"受影响作业 N 个（程序名…）"**，且没有写盘
-- [ ] 5.1b.2 去掉 `-dry-run` 执行后：`link status -root "$ws"` 出现 **"局部更新 … 作业 N 个 / 重算链 M 条"**，
-      且**其他作业的链仍在**（对比更新前后 `links.jsonl` 的程序列表）
-  - 记录：____
-
-### 5.1c ⭐ 链接资料命令（在 VSCode 里，不用开终端）
-
-> **前置**：`bdl.link.enable` **默认关**，先打开它，命令面板里才会出现
-> `Genero BDL: 链接资料：…` 系列命令。
-
-命令面板 `Ctrl+Shift+P` → 输入 `Genero BDL: 链接资料`：
-
-- [ ] 5.1c.1 设置里有 **「Genero BDL: 生产环境」** 一节（主机/端口/服务名/只读账号），
-      描述里写明"只写 Workspace、`settings.json` 不要进 git、密码用 `BDL_ORA_PASSWORD`
-      或 `.project/secrets.json`"
-- [ ] 5.1c.2 **没配数据库**时执行 `链接资料：全量更新`：弹出明确提示，带
-      「打开设置」「改用 CSV 导入」两个按钮（不是静默失败、不是看不懂的报错）
-- [ ] 5.1c.3 `链接资料：从 CSV 导入`：选一个 CSV → 提示已复制到 `.project/gal_file.csv`
-      → 选"全量导入" → 输出通道能看到 tiptop 的进度与统计
-- [ ] 5.1c.4 打开一个公共 `.4gl`（被多个作业引用）执行 `链接资料：更新当前文件`：
-      预演对话框里显示 **"将更新 N 个作业：…"**；取消不会写盘；确认后其他作业的链仍在
-      （用 `链接资料：查看状态` 看"局部更新"行）
-- [ ] 5.1c.5 链接资料视图里「反查引用程序」那一行有 **重新同步** 按钮，点它等同 5.1c.4
-- [ ] 5.1c.6 关掉 `bdl.link.enable`：命令面板里这些命令消失，视图按钮也消失
-  - 记录：____
-
-### 5.1d ⭐ 数据库字段资料（P2-1）
-
-> **前置**：`bdl.schema.enable` **默认关**，先打开它，侧边栏才会出现「数据库字段」视图。
-
-```powershell
-# 从 Oracle 导出 CSV 生成资料（也可以走命令面板「数据库字段：从 CSV 导入」）
 & "$ext\bin\tiptop.exe" schema import -csv .\gal_schema.csv -root "$ws"
 & "$ext\bin\tiptop.exe" schema status -root "$ws"
 ```
 
-- [ ] 5.1d.1 侧边栏出现 **「数据库字段」** 视图，第一条显示"共 N 张表"（点 tooltip 能看到资料目录/导入时间/来源）
-- [ ] 5.1d.2 顶部 **正则查询框**：输入 `^IMA_` 只剩匹配的表（总数仍显示全部）；输入 `(ima`（半截正则）→ 显示**全部**并有一行"正则无效"
-- [ ] 5.1d.3 展开一张表 → 列出现（显示 `列名 · 类型(长度) · 中文说明`）；**第一次展开才加载**（表多时不卡）
-- [ ] 5.1d.4 在 `.4gl` 里写 `DEFINE r RECORD LIKE ima_file.*`，悬停 `r`：列出该表字段（超过 20 行显示"其余 N 个字段…"）
-- [ ] 5.1d.5 写 `DEFINE f LIKE ima_file.ima01`，悬停 `f`：多出一段 `字段资料：ima_file.ima01 · VARCHAR2(40) · 料件编号`
-- [ ] 5.1d.6 表上右键 →「复制列定义」得到 `LIKE ima_file.ima01`；「打开表资料文件」打开 `.project\.schema\tables\IMA_FILE.json`
-- [ ] 5.1d.7 关掉 `bdl.schema.enable`：视图与命令面板里的「数据库字段：…」命令都消失
-- [ ] 5.1d.8 **多选批量**：勾选两张表（复选框）→ 标题栏出现"已勾选 2 张"→ 命令「同步已选中的表」
-      弹预演确认并只处理这两张（输出里 `表 2（…保留 N）`）；「清除勾选」后恢复正常
-- [ ] 5.1d.9 **筛选批量**：正则过滤 （如 `^IMA_`）后执行「同步当前筛选结果」：
-      只同步列表里的表（表多时自动走 `-tables-file`）
-- [ ] 5.1d.10 **直连数据库**：配好「生产环境」的 Oracle 连接后执行「从数据库同步」：
-      进度通知依次显示 `采集：连接 …`、`采集：已收到 N 行`、`解析表 x（i/n）`、`写入完成`；
-      点**取消**能中断（状态栏提示"已取消"）
-- [ ] 5.1d.11 **link 与 schema 进度一致**：执行「链接资料：全量更新」或「更新当前文件」，
-      进度通知显示 `采集 / 扫描源码 i/n / 成链 i/n / 写入完成`（与大表字段同步同一套文案）
-  - 记录：____
-
-### 5.2 真实单文件部署 + scp 回退
-
-- [ ] 5.2.1 Windows 无 rsync → 输出里出现**显式回退**：
-  `↪ 回退到 scp（请在输出中确认，这不是静默降级）`
-  - 记录（贴出那几行）：____
-- [ ] 5.2.2 单文件部署成功：
-  ```powershell
-  & "$ext\bin\tiptop.exe" deploy -workspace "$ws" "$ws\topcust\aap\4gl\globals_main.4gl"
-  ```
-  - 记录：____
-- [ ] 5.2.3 故意把源码改坏（删一个分号/写错标识符）再部署 → 远程 `fglcomp` 的错误**按行号映射回本地文件**，出现在输出里
-  - 记录（贴出错误行与其对应的本地行号）：____
-- [ ] 5.2.4 通过 VSCode 命令 `Genero BDL: 部署当前文件并编译` 走一遍（编辑器内路径，与命令行同一配置）
-  - 记录：____
-- [ ] 5.2.5 `Genero BDL: 部署预演（不上传）` 与 `Genero BDL: 列出部署目标` 两个命令可用
-  - 记录：____
+- [ ] 5.4.1 侧边栏出现「数据库字段」视图，首行显示"共 N 张表"（tooltip 有资料目录/导入时间/来源）
+- [ ] 5.4.2 顶部正则查询框：`^IMA_` 只剩匹配表；半截正则 `(ima` → 退回全部并提示"正则无效"
+- [ ] 5.4.3 展开一张表才加载列；列显示 `列名 · 类型(长度) · 中文说明`
+- [ ] 5.4.4 `.4gl` 里 `DEFINE r RECORD LIKE ima_file.*` 悬停列字段；`DEFINE f LIKE ima_file.ima01` 悬停多出`字段资料：…`
+- [ ] 5.4.5 表上右键「复制列定义」得到 `LIKE ima_file.ima01`；「打开表资料文件」打开 `.project\schema\tables\IMA_FILE.json`
+- [ ] 5.4.6 多选批量：勾选两张 → 标题栏"已勾选 2 张" → `同步已选中的表` 只处理这两张
+- [ ] 5.4.7 筛选批量：正则过滤后 → `全选当前列表` → `同步已选中的表`（确认旧的「同步当前筛选结果」已删除，C2）
+- [ ] 5.4.8 ⭐ **W7 全量同步（慢链路）**：配好 Oracle 后执行 `从数据库同步` → 进度出现
+      `共 N 张表，按每批 200 张分 M 批`、`批次 i/M：…`，**能跑完**、不再出现 `ORA-01013`
+      - 记录（批次数与总耗时）：____
+- [ ] 5.4.9 ⭐ **说明来自 TiTop 字典**：抽查 `ima_file` 等常用表，列说明来自 `DS.GAQ_FILE.gaq03`（不是 Oracle 备注），覆盖率明显高于旧行为
+- [ ] 5.4.10 字典表缺失/无权限（ORA-00942）→ 提示「TiTop 字典表不存在，请改用 CSV 导入」
+- [ ] 5.4.11 失败时点「打开日志」拿到 `last-run-schema.log`；输出在「Genero BDL 任务」通道
+- [ ] 5.4.12 门控（W4）：未配库或无资料时，右键「同步选中的表」与批量按钮**不出现**
+- [ ] 5.4.13 关闭 `bdl.schema.mode`：视图与命令消失
 
 ---
 
@@ -922,10 +687,11 @@ powershell -ExecutionPolicy Bypass -File scripts\e2e-vscode.ps1
 | 3.9–3.10 | ⭐ secrets.json | ⬜ | |
 | 3.11 | ⭐ gofmt / CRLF | ⬜ | |
 | 4.1–4.5 | 源码构建 + 单测 | ⬜ | |
-| 5.1b | ⭐ link 局部同步（CLI） | ⬜ | |
-| 5.1c | ⭐ 链接资料命令（VSCode 内） | ⬜ | |
-| 5.1d | ⭐ 数据库字段资料（P2-1：视图/悬停/请求） | ⬜ | |
-| 5.1.1–5.2.5 | 部署（需服务器） | ⬜ | |
+| 5.0 | ⭐ 上传配置（合成 deploy.json / 缺项提示） | ⬜ | |
+| 5.1 | ⭐ 单文件上传（预演 + 实传 + scp 回退） | ⬜ | |
+| 5.2 | ⭐ 编译/链接/预览（生产端执行） | ⬜ | |
+| 5.3 | ⭐ 链接资料命令（VSCode 内） | ⬜ | |
+| 5.4 | ⭐ 数据库字段资料（含 W7 分批全量同步） | ⬜ | |
 | 6.1 | e2e 45/45 | ⬜ | |
 
 **失败项汇总**（每条写：编号 / 期望 / 实际 / 日志或截图路径）：
@@ -938,7 +704,7 @@ powershell -ExecutionPolicy Bypass -File scripts\e2e-vscode.ps1
 - 被测版本：`bdl-lsp 0.3.13` / `tiptop 0.1.8` / `4gl-full 0.6.2`
 - 机器与架构：
 - 失败项与最小复现：
-- 语言服务器输出（`Genero BDL: 显示输出` 整段）：
+- 语言服务器/任务输出（「Genero BDL」与「Genero BDL 任务」通道整段，或 globalStorage 的 `last-run-*.log`）：
 ---
 
 ## 附录 B：已决定不做 / 已取消（不计入待办，仅防重新纠结）
@@ -955,17 +721,6 @@ powershell -ExecutionPolicy Bypass -File scripts\e2e-vscode.ps1
 | Zed-D5 | slash command 里做**会写盘**的采集/导入 | 误触成本高；这类操作只给 task（显式确认） |
 
 > 注：`zed-extension/extension.toml` 的 `language_servers.bdl-lsp` 仍指向 `bdl-lsp`——这一层**不需要改**（语言服务器职责没变），只有"采集/部署"的命令名要改。
-
----
-
-## 附录 C：已完成（一行汇总，不再追踪）
-
-- **VSCode 插件改版**：P0-1（链接预热回调崩溃，复现脚本 8/8 → 20/20 OK）、P0-2（表单侧名字误报 T5，全语料 24284 → 19580，−19.4%）、P0-3（超限/超时提示 + 强制解析按钮）、P1-1（6 条链接资料命令入口 + 影响面预演确认）、P1-2（`.link` → `.project` + 读兼容 + 迁移命令与提示）、P1-3（`-modules`/`-files` 局部同步与合并）、P1-4（默认轻量档：三开关默认 false + 命令门控 + 不写工作区）、P1-5（设置五组 + `prod.deploy.*` + 插件合成 `.project/deploy.json`）、P1-6（去掉 7 天过期与后台自动同步死代码）、P2-1（数据库字段资料全链路：CSV 导入 / 直连 Oracle / 视图 / 正则 / 悬停 / 补全 / 多选 / 进度，真实数据 2648 表 2.4 s）、P1-7（首页三档引导；用户引导已合并为单一 `README.md`，去重收尾完成）。
-- **分离收尾残留（§A A1–A8）**：命令名与归属更正、`fetch-gal-file.sh` 迁到 tiptop、`link.sync` 配置清理、Zed/编辑器文档命令名更新、tiptop 自建 CI（Linux 全绿）。
-- **Windows CI 修复**：B8（服务端手写 path→URI 在 Windows 产出非法 `file://C:/…`，链接诊断挂不上文件）、B9（Windows `go test`、`build.ps1` grammar 检查、CRLF + `gofmt`）、F7（Windows `secrets.json` 权限误判）、F8 —— bdl-lsp 与 tiptop **Linux + Windows 双绿**。
-- **文档清理**：旧 `TODO.md`、`PLAN*.md`、`DEPLOY-ZED.md` 等阶段记录已删除，有效决策抢救保留。
-- **改代码前先看的历史教训**：手写 path→URI 的坑（用 `internal/server` 现成工具，不要 `"file://"+路径`）；CRLF 与 `gofmt`；`parseMu` 锁纪律（后台 → 文档树必须走 `requestRediagnose()` 一类入口）；每个 query pattern 的字段顺序必须与 grammar 一致（写错会"Impossible pattern"**静默禁用整条 query**）；改 `scanner.c` 后必须 `go build -a ./internal/parser`。细节与证据见 [`FEATURES.md`](FEATURES.md) 与代码注释。
-
 
 ---
 
@@ -1049,16 +804,3 @@ npx vsce publish --target darwin-arm64 --packagePath dist-vsix/4gl-full-<version
 - **覆盖内置二进制**：用户可用 `bdl.server.path` / `BDL_LSP_PATH` / 工作区 `.bdl-lsp/bin/`，见 [`README.md`](../README.md) 安装一节。
 
 ---
-
-## 附录 E：W1–W6 实现摘要与真机复测要点
-
-> 代码层已完成并在 Linux 验证（三仓库测试 + e2e 49/49）。**C0 Windows 实机验收时逐条复测。**
-
-| # | 问题 | 实现（2026-10-26） | 真机复测要点 |
-|---|---|---|---|
-| **W1** | 强制解析仍超时、大纲空 | `bdl/forceParse` 改后台执行且**不限时**（`Timeout 0`），完成发 `bdl/parseDone`（含耗时/字节/版本）；提示键名修回 `bdl.limits.parseTimeoutMs`；客户端收到回执后自动刷新大纲并显示耗时 | 打开 `saapt310`：点标题栏「强制解析」→ 状态栏出现「强制解析完成：N ms」，大纲**出现** MAIN/函数；设备慢时耗时合理（几十秒内） |
-| **W2** | 预演导致全量跑两遍（约 5 分钟） | link/schema 不再 `-dry-run` 预演，直接执行（全量前仅一次不重新扫描的确认）；耗时文案统一「通常几分钟，也可能更长，请在 Output 查看进度」；只有编译保留预演 | 全量 link 只跑一遍（对比改前总耗时明显下降）；Output 有阶段进度；提示里不再写秒数 |
-| **W6** | `.project` 目录零散 | 新布局 `.project/{link,schema,deploy}/`，根只留 `secrets.json`；旧布局只读兼容；命令「迁移项目资料目录」一键搬 | 查看 `.project` 下目录结构；旧工程能读、出现迁移提示；迁移后 LSP/视图正常 |
-| **W3** | 链接视图缺"从数据库更新" | 视图标题栏新增 `bdl.link.updateFromDb`，门控 `bdl.db.configured && bdl.link.hasData` | 未配库/无资料时**不显示**；配库且全量过后显示，点击能更新当前文件 |
-| **W4** | 字段视图局部更新未门控 | 局部/批量同步需 `bdl.db.configured && bdl.schema.hasData`；全量「从数据库同步」需配库；CSV 导入/刷新/过滤不受限 | 未配库或无资料时，右键「同步选中的表」与批量按钮**不出现** |
-| **W5** | 缺本地编译/链接 | 命令面板 + 右上角按钮：4GL 预演编译/编译/链接、Form 预演编译/编译/预览画面；六键模板（`bdl.build.*`）可改；占位符 `${path}/${fullpath}/${name}/${fullname}`（分隔符恒 `/`）；无 MAIN 时「链接」禁用且本地报错；输出原样进「Genero BDL 编译」 | 用你们的 `r.c2`/`r.l2`/`r.gf`/`fglform`/`gsform` 各跑一遍；确认 `${path}`/`${fullpath}` 指向正确目录、Output 有完整 stdout/stderr；无 MAIN 的文件「链接」按钮为灰 |
