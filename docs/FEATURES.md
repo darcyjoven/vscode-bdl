@@ -210,14 +210,14 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | G10 | 字段悬停扩展 | LSP | `DEFINE x LIKE t.col` → 追加 `t.col · 类型(长度) · 中文说明`；`RECORD LIKE t.*` → 列出该表字段（超 20 行折叠）；直接悬停表名 → 表摘要 |
 | G11 | 记录成员校验 | LSP | `record-member-unknown`（默认 off）；`RECORD LIKE t.*` 用字段资料展开成员 |
 | G12 | 列补全 | LSP | `r.` 补全带每列类型与中文说明 |
-| G13 | 字段资料数据服务 | LSP | 自定义请求 `bdl/schemaTables`（服务端正则过滤 + `total/matched/returned`）、`bdl/schemaColumns`（展开才取） |
+| G13 | 字段资料数据服务 | LSP | 自定义请求 `bdl/schemaTables`（服务端正则过滤：**大小写不敏感**、非法正则退回全部并回 `filterError`、`total/matched/returned`）、`bdl/schemaColumns`（展开才取） |
 | G14 | 字段资料配置 | LSP | `bdl.schema.mode`（off/file/db）/ `bdl.schema.dataDir`（默认 `.project/schema`） |
 
 ### 7.3 界面与操作（VSC）
 
 | # | 功能 | 归属 | 说明 / 入口 |
 |---|---|---|---|
-| G15 | 数据库字段视图 | VSC | 侧边栏「数据库字段」TreeView；顶部**正则**查询框（`^APF`、`(apg\|aph)0`）；表展开才加载列 |
+| G15 | 数据库字段视图 | VSC | 侧边栏「数据库字段」TreeView；**正则**过滤（`^APF`、`(apg\|aph)0`，大小写不敏感；非法正则退回全部并提示；无匹配显示「没有匹配的表」）；表展开才加载列。过滤器变更会**清缓存重新拉列表**（历史 bug：只改过滤串不重新拉取，视图看起来「筛选没反应」，已修 + e2e 回归） |
 | G16 | 多选批量 | VSC | 树视图原生不能多选 → 用**复选框**勾选；标题栏显示「已勾选 N 张」；`全选当前列表`（可先过滤）/ `清除勾选` |
 | G17 | 同步命令 | VSC | 单表右键「同步选中的表」（`-tables <表>`）；「同步已选中的表」（表多时自动走 `-tables-file`）；「从数据库同步」/「从 CSV 导入」全量（库同步顺带 `-prune`）。删掉单独的「同步当前筛选结果」——筛选后先「全选当前列表」再「同步已选中的表」。**不再预演**。**W4 门控**：局部/批量需 `bdl.db.configured && bdl.schema.hasData`；「从数据库同步」需 `bdl.db.configured`；CSV 导入/刷新/过滤不受限 |
 | G18 | 表/列右键菜单 | VSC | 表：同步选中的表 / 打开表资料文件；列：复制列定义（得到 `LIKE 表.列`） |

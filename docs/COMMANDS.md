@@ -46,8 +46,8 @@
 |---|---|---|---|
 | `bdl.schema.import` | 数据库字段：从 CSV 导入 | `bdl.schema.enabled` | `file`/`db` 都可用 |
 | `bdl.schema.refresh` | 数据库字段：刷新 | `bdl.schema.enabled` | |
-| `bdl.schema.filter` | 数据库字段：正则过滤表名 | `bdl.schema.enabled` | 视图查询框 |
-| `bdl.schema.clearFilter` | 数据库字段：清除过滤 | `bdl.schema.enabled` | |
+| `bdl.schema.filter` | 数据库字段：正则过滤表名 | `bdl.schema.enabled` | 弹输入框（`^APF`、`(apg\|aph)0`）；**大小写不敏感**；非法正则退回全部并提示；过滤变更会重新拉列表 |
+| `bdl.schema.clearFilter` | 数据库字段：清除过滤 | `bdl.schema.enabled` | 清空恢复全部 |
 | `bdl.schema.syncAll` | 数据库字段：从数据库同步 | `bdl.schema.modeDb && bdl.db.configured` | 全量（含 `-prune`） |
 | `bdl.schema.syncSelected` | 数据库字段：同步已选中的表 | `…modeDb && configured && hasData` | 复选框多选；**筛选后先「全选当前列表」再点它**（C2 删掉了单独的「同步筛选结果」） |
 | `bdl.schema.selectAll` | 数据库字段：全选当前列表 | 同上 | |

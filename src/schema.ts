@@ -258,6 +258,8 @@ export interface SchemaProviderApi {
   selectedTables(): string[];
   selection: Set<string>;
   currentFilter(): string;
+  /** 设置正则过滤并重新拉列表（返回过滤后的表名）。 */
+  setFilter(pattern: string): Promise<string[]>;
   refresh(): void;
   getChildren(node?: unknown): Promise<unknown[]>;
   getTreeItem(node: unknown): vscode.TreeItem;
@@ -415,6 +417,21 @@ class SchemaProvider implements vscode.TreeDataProvider<Node> {
       out.push({ kind: "table", name: t.name, desc: t.desc, columns: t.columns });
     }
     return out;
+  }
+
+  /**
+   * 设置正则过滤并**重新拉取**表列表，返回过滤后的表名。
+   *
+   * 历史 bug：只改 `filter` 再 `refresh()` 是不够的——`roots()` 会命中
+   * `this.tables` 缓存，视图看起来"筛选没反应"。所以这里必须清缓存并重新 load。
+   */
+  async setFilter(pattern: string): Promise<string[]> {
+    this.filter = pattern.trim();
+    this.tables = undefined;
+    this.columns.clear();
+    this.changed.fire(undefined);
+    await this.load();
+    return this.listedTables();
   }
 
   /** 当前过滤串（供 e2e 与状态展示）。 */
@@ -654,8 +671,7 @@ async function filterTables(provider: SchemaProvider): Promise<void> {
   if (value === undefined) {
     return;
   }
-  provider.filter = value.trim();
-  provider.refresh();
+  await provider.setFilter(value);
 }
 
 /** 同步勾选的一张或多张表。 */
@@ -732,8 +748,7 @@ export function registerSchemaView(context: vscode.ExtensionContext): SchemaProv
     }),
     vscode.commands.registerCommand("bdl.schema.filter", () => filterTables(provider)),
     vscode.commands.registerCommand("bdl.schema.clearFilter", async () => {
-      provider.filter = "";
-      provider.refresh();
+      await provider.setFilter("");
     }),
     vscode.commands.registerCommand("bdl.schema.import", () => importSchema(provider)),
     // 单表右键（等价于只勾选这一张）

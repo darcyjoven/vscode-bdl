@@ -1338,6 +1338,65 @@ async function run() {
     });
 
     // 37c. P2-1 补：勾选一个或多个表批量同步（树视图原生不能多选，用复选框）
+    // 回归：正则筛选走**视图路径**（曾因缓存 this.tables 导致"筛选没反应"）。
+    await test("数据库字段：正则筛选（视图路径，大小写不敏感）", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const api = await ext.activate();
+      assert.ok(api.schemaFilter, "应导出 schemaFilter（视图路径）");
+
+      writeSchemaFixture(root);
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      await cfg.update("schema.mode", "db", vscode.ConfigurationTarget.Global);
+      try {
+        await new Promise((r) => setTimeout(r, 600)); // 等配置下发 + 服务端重载
+
+        // 命令存在（命令面板入口）
+        const commands = await vscode.commands.getCommands(true);
+        assert.ok(commands.includes("bdl.schema.filter"), "缺少 bdl.schema.filter");
+        assert.ok(commands.includes("bdl.schema.clearFilter"), "缺少 bdl.schema.clearFilter");
+
+        // 大写正则
+        assert.deepStrictEqual(
+          await api.schemaFilter("^APA"),
+          ["apa_file"],
+          "^APA 应只剩 apa_file",
+        );
+        // 小写也要匹配（服务端 (?i)，用户习惯输小写表名）
+        assert.deepStrictEqual(
+          await api.schemaFilter("ima"),
+          ["ima_file"],
+          "小写 ima 也应匹配 ima_file（大小写不敏感）",
+        );
+        // 分组正则
+        assert.deepStrictEqual(
+          await api.schemaFilter("(ima|apa)_file"),
+          ["apa_file", "ima_file"],
+          "分组正则应匹配两张表",
+        );
+        // 非法正则：退回全部（不是"没有结果"）
+        assert.deepStrictEqual(
+          await api.schemaFilter("(ima"),
+          ["apa_file", "ima_file"],
+          "非法正则应退回全部",
+        );
+        // 无匹配
+        assert.deepStrictEqual(await api.schemaFilter("NOSUCH"), [], "无匹配应为空");
+        // 清空恢复
+        assert.deepStrictEqual(
+          await api.schemaFilter(""),
+          ["apa_file", "ima_file"],
+          "清空过滤应恢复全部",
+        );
+      } finally {
+        await api.schemaFilter("");
+        await cfg.update("schema.mode", undefined, vscode.ConfigurationTarget.Global);
+        removeSchemaFixture(root);
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    });
+
     await test("数据库字段：勾选多张表批量同步（P2-1 补）", async () => {
       const root = process.env.BDL_E2E_WORKSPACE;
       assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
