@@ -50,7 +50,7 @@
 | C-03 | schema 列语义校准时点与口径 | 正式导入数据时按**前 1000 行**校准列语义，尤其 `data_length` / `char_length` 在 `VARCHAR2` / `NUMBER` 上的取舍；历史设计归档当时标注"发布后一版再定，不阻塞发布" | 中：直接影响悬停与补全里显示的列类型/长度是否可信 | 长度按什么口径取（`char_length` 优先？`data_length` 优先？按类型分支）？何时校准？【建议】后一版做，暂定 `char_length` 优先、缺失回落 `data_length` |
 | C-04 | 旧 `.sch` 资料的重建/迁移路径 | P2-1 已把"扫各模组 `sch/*.sch`"与 `schema.paths` **整包下线**（`bdl-lsp/docs/FEATURES.md` #38f）；只有 `.sch` 的老工作区必须重新导出 CSV 或直连库 | 中：老项目需要重建字段资料，步骤只在文档里 | 是否提供 `.sch → .schema` 转换工具？还是只文档化"重新导出 CSV"？【建议】先文档化重建步骤，确有需求再做转换器 |
 | C-05 | schema 增量采集（P2-1+）是否排期 | 现在是"全量查询 → 逐表逐字节比较，只写变化的表"；可加"按表 diff（只查变化的表）"或 `-since` 时间戳过滤；实测 2648 表 2.4 s | 低：当前性能已够用 | 是否排期做增量？【建议】暂不做，等表规模或库变慢再开 |
-| C-07 | 表字段 CSV 的导出 SQL 模板 | README §2.1 说表字段资料"由 DBA 导出 `ALL_TAB_COLUMNS` + `ALL_COL_COMMENTS`（见 tiptop 仓库文档）"，但未确认是否已有可直接交给 DBA 的导出 SQL | 低-中：DBA 侧自助导出的成本与出错误的概率 | 是否提供一份正式的导出 SQL 模板进 tiptop 文档/脚本？【建议】提供模板，并在 README §2.1 直接链接 |
+| C-07 | 表字段 CSV 的导出 SQL 模板 | README 第 2 章说表字段资料可以"由 DBA 导出 CSV（含 `column_desc`）"或直连数据库同步（默认 SQL 走 TiTop 字典 `DS.ZTA_FILE`/`DS.GAQ_FILE`），但未确认是否已有可直接交给 DBA 的导出 SQL | 低-中：DBA 侧自助导出的成本与出错误的概率 | 是否提供一份正式的导出 SQL 模板进 tiptop 文档/脚本？【建议】提供模板，并在 README 第 2 章直接链接 |
 
 ## 5. Windows 实机反馈（已按建议实现，无待确认项）
 

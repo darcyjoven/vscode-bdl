@@ -5,32 +5,278 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法
 
 > 适用扩展 `0.6.x`（扩展 id `darcyjoven.4gl-full`，市场里的名字是 `Genero BDL (4GL)`），
 > 语言服务器 `bdl-lsp 0.3.x`、工具 `tiptop 0.1.x`。
-> 本文是**唯一一份面向使用者的引导文档**，把"三档用法 + 完整操作手册 + 从生产端搭建工作区"合成一篇：
-> 安装、功能详解、诊断码表、全部设置、常见问题、排错步骤，以及附录里的完整建工作区流程、一键脚本、命令速查与目录结构速查。
-> 命令都可以直接复制执行，方括号 `<>` 里的内容按实际替换。遇到问题先看[常见问题](#11-常见问题)，
+> 本文是**唯一一份面向使用者的引导文档**，**按使用顺序组织**：
+> **第 1 章**从生产服务器初始化项目（VSCode 里跑 / 终端里跑两种方式）→ **第 2 章**初始化链接资料与数据库字段 →
+> **第 3 章**上传、编译、链接、测试程序；**第 4 章起**才是功能详解、全部设置、常见问题与附录。
+> 命令都可以直接复制执行，方括号 `<>` 里的内容按实际替换。遇到问题先看[常见问题](#14-常见问题)，
 > 再用「显示语言服务器信息」收集日志（信息打开后可点「打开日志」）。
 
 ## 目录
 
-1. [这是什么扩展](#1-这是什么扩展)
-2. [安装](#2-安装)
-3. [三种用法：三档模型](#3-三种用法三档模型)
-4. [快速开始与 30 秒自检](#4-快速开始与-30-秒自检)
-5. [功能详解](#5-功能详解)
-6. [诊断与检查](#6-诊断与检查)
-7. [表单 .per、GLOBALS 与数据库字段资料](#7-表单-perglobals-与数据库字段资料)
-8. [链接资料](#8-链接资料)
-9. [部署](#9-部署)
-10. [配置说明（3 组 49 键）](#10-配置说明3-组-49-键)
-11. [常见问题](#11-常见问题)
-12. [附录 A：从生产端搭建工作区](#附录-a从生产端搭建工作区)
-13. [附录 B：配图与录屏清单](#附录-b配图与录屏清单)
-14. [附录 C：本地开发与许可](#附录-c本地开发与许可)
-15. [更多文档](#更多文档)
+1. [初始化项目（从生产服务器拉取代码）](#1-初始化项目从生产服务器拉取代码)
+2. [初始化资料：链接资料 + 数据库字段](#2-初始化资料链接资料--数据库字段)
+3. [上传、编译、链接与测试程序](#3-上传编译链接与测试程序)
+4. [这是什么扩展](#4-这是什么扩展)
+5. [安装](#5-安装)
+6. [三种用法：三档模型](#6-三种用法三档模型)
+7. [快速开始与 30 秒自检](#7-快速开始与-30-秒自检)
+8. [功能详解](#8-功能详解)
+9. [诊断与检查](#9-诊断与检查)
+10. [表单 .per、GLOBALS 与数据库字段资料](#10-表单-perglobals-与数据库字段资料)
+11. [链接资料](#11-链接资料)
+12. [部署](#12-部署)
+13. [配置说明（3 组 49 键）](#13-配置说明3-组-49-键)
+14. [常见问题](#14-常见问题)
+15. [附录 A：从生产端搭建工作区](#附录-a从生产端搭建工作区)
+16. [附录 B：配图与录屏清单](#附录-b配图与录屏清单)
+17. [附录 C：本地开发与许可](#附录-c本地开发与许可)
+18. [更多文档](#更多文档)
+---
+
+## 1. 初始化项目（从生产服务器拉取代码）
+
+**目标**：把生产端 `/u1/topprod` 下的 `*.4gl` / `*.per` / `*.global` 拉到本地，变成一个带 git 的工程。
+
+**前置条件**
+
+| # | 条件 | 说明 |
+|---|---|---|
+| 1 | 能 SSH 到生产服务器 | **有密钥最好**；本阶段没配密钥也可以，过程中会提示输入密码（见 [§1.3](#13-没配密钥可以过程中输入密码)） |
+| 2 | 本地工具 | VSCode 方式需要先装扩展（见 [§5 安装](#5-安装)）；终端方式需要 `git` + `ssh`（Linux/WSL 还要 `rsync`；Windows 自带 `ssh`/`scp`/`tar`） |
+| 3 | 生产根路径 | 默认 `/u1/topprod`；只取它下面的 `*.4gl` / `*.per` / `*.global` |
+
+支持两种运行方式，二选一即可。
+
+### 1.1 方式一：在 VSCode 里运行（推荐）
+
+命令面板（`Ctrl/Cmd+Shift+P`）→ **`Genero BDL: 初始化项目（从生产服务器拉取代码）`**，然后按向导走：
+
+| 步骤 | 要填什么 |
+|---|---|
+| 1/4 用哪个脚本 | **自动**（Windows → PowerShell 脚本；Linux/WSL/**Remote-WSL** → bash 脚本），也可强制选某一个 |
+| 2/4 SSH 目标 | `user@host`，或 `~/.ssh/config` 里的**别名**（端口/密钥写在 ssh config 里最省事） |
+| 3/4 生产根目录 | 默认 `/u1/topprod` |
+| 4/4 目标目录 | 默认**当前工作区**，也可以选别的文件夹 |
+| 选项（多选） | 增量更新、删除本地多余、不自动提交、只预演；**允许在过程中输入密码**（默认勾选） |
+| 源编码 | 自动（按服务器样本检测并在终端里问你）/ GBK / BIG5 / 不转码 |
+
+确认后命令会**打开集成终端执行**脚本：进度、编码报告、删除确认都在终端里完成；命令行同时写进「Genero BDL 任务」输出通道，方便复制重跑。
+上次填过的 SSH 目标/生产根/目标目录会**自动预填**（只存在本机 workspaceState，不含密码）。
+
+### 1.2 方式二：在终端里运行
+
+**Linux / WSL（rsync 拉取，增量最快）**
+
+```bash
+# 在 vscode-bdl 仓库里（或把 scripts/init-project/ 拷到任意位置）
+scripts/init-project/init-project.sh \
+  -t tiptop@erp.example.com \
+  -r /u1/topprod \
+  -d ~/projects/topprod \
+  --update --from-encoding gbk
+```
+
+**Windows（生产端 tar 打包 → scp 回本地 → 解压 → 清理两端中间文件）**
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\init-project\init-project.ps1 `
+  -Target tiptop@erp.example.com -RemoteRoot /u1/topprod -Dest C:\projects\topprod `
+  -Update -FromEncoding gbk
+```
+
+常用参数（两端同名）：
+
+| 用途 | Linux / WSL | Windows |
+|---|---|---|
+| 先空跑看计划（不写盘） | `--dry-run` | `-DryRun` |
+| 只看服务器上会执行什么（审计） | `--print-remote` | `-PrintRemote` |
+| 增量更新（目标已存在时必须给） | `--update` | `-Update` |
+| 删除本地多余的源文件（默认**不删**，会先列清单确认） | `--delete` | `-Delete` |
+| 只取某些模组 | `--module topcust,other` | `-Module topcust,other` |
+| 跳过编码询问 | `--from-encoding gbk` | `-FromEncoding gbk` |
+| 没配密钥时用密码登录 | `--ask-password` | `-AskPassword` |
+
+> 对生产端只做**只读**操作：Linux 是"只读 find + rsync 拉取"；Windows 是"只读 find + 一次 tar 打包到 `/u1/out`（用完即删）"。
+> 两者都不会调用上传/部署，也不修改生产端项目树。用 `--print-remote` 可以逐条审计。
+
+### 1.3 没配密钥？可以过程中输入密码
+
+- **有密钥**：优先用密钥/agent，不会提示密码。
+- **没配密钥**：脚本先试一次密钥；失败且在终端里时会问
+  `密钥登录失败。改用密码登录？（只有本初始化脚本允许；上传/编译仍需密钥）`，答 `y` 即可；
+  加 `--ask-password`（Windows `-AskPassword`）可跳过这次询问。
+- 密码**由 ssh 自己在终端提示**输入：不保存、不写日志、不进命令行；密码模式下每步远端操作都会再提示一次。
+- ⚠️ **上传/编译仍然只支持密钥**（按既定决定）：没密钥时可以先初始化项目，但用不了上传/编译。
+
+### 1.4 拉下来之后（脚本已经替你做好）
+
+- 目录结构与生产端一致（`<模组>/4gl/xxx.4gl`、`<模组>/per/xxx.per`…）；
+- `git init -b main` + 自动提交（`chore: 从 <host>:<root> 初始化/更新生产代码镜像`）；
+- 生成 `.gitignore`、`.gitattributes`、`.editorconfig`、`.vscode/settings.example.json`、`README-PROJECT.md`（来源说明 + 重新初始化命令）；
+- **换行固定为 LF**：`*.4gl/*.per/*.global` 全部 `text eol=lf`，仓库配置 `core.autocrlf=false` + `core.eol=lf`，所以在 Windows 上改完**不会**产生空白符差异；
+- 跑完会打印校验：`git ls-files --eol` 应全是 `i/lf w/lf`，`git diff --check` 无告警。
+
+接下来：
+
+```bash
+cd ~/projects/topprod
+git log --oneline -1                     # 看初始化提交
+cp .vscode/settings.example.json .vscode/settings.json   # 填 Oracle / 生产服务器（见第 2、3 章）
+```
+
+### 1.5 初始化常见问题
+
+| 现象 | 处理 |
+|---|---|
+| `no matching host key type / kex`（老服务器） | 脚本会自动按 `ssh-rsa`/SHA-1 兼容重试；也可显式 `--legacy-ssh` / `-LegacySsh` |
+| `Permission denied (publickey)` | 没配密钥：脚本会问是否改用密码登录（或加 `--ask-password`）；上传/编译必须先配密钥 |
+| 中文乱码 | 先用 `--dry-run`/`-DryRun` 看编码报告（含候选与预览），再用 `--from-encoding big5` 重跑 |
+| 提示"目标已存在" | 二次拉取要加 `--update`/`-Update` |
+| 远端 `/u1/out` 里有残留包 | 上次被强杀（清理没跑到），删掉即可；脚本每次用唯一名，不会冲突 |
+| Windows 组策略禁止脚本 | 改用终端：把命令面板写进输出通道的那行命令复制到终端执行 |
 
 ---
 
-## 1. 这是什么扩展
+## 2. 初始化资料：链接资料 + 数据库字段
+
+**目标**：让"跨模块函数跳转/链接资料视图/反查引用"与"字段中文说明 / `LIKE t.*` 成员校验 / 列补全"可用。
+两份资料互相独立，可以只做一份，建议两份都做。
+
+### 2.1 先打开两个模式（默认都是关的）
+
+设置面板「**账号、生产环境、配置**」里：
+
+| 设置 | 取值 | 含义 |
+|---|---|---|
+| `bdl.link.mode` | `file` / `db` | `file`=只用 CSV 导入；`db`=可以连数据库同步/更新；`off`=不启用（默认） |
+| `bdl.schema.mode` | `file` / `db` | 同上，作用于数据库字段 |
+
+打开后侧边栏才会出现「链接资料」「数据库字段」视图，命令面板里也才会出现对应命令（见 [§13.2](#132-模式与总开关)）。
+
+### 2.2 方式 A：CSV 导入（不连数据库，建议先走这条）
+
+1. 找 DBA 导出两份 CSV：链接资料（`DS.GAL_FILE`）与表字段（含 `column_desc` 中文说明）；
+2. VSCode 命令：
+   - **`链接资料：从 CSV 导入`** → 选 CSV → 复制到 `<项目>/.project/link/gal_file.csv` → 全量导入；
+   - **`数据库字段：从 CSV 导入`** → 选表字段 CSV → 导入到 `<项目>/.project/schema`；
+3. 终端等价命令：
+
+```bash
+tiptop link import   -csv gal_file.csv   -root .
+tiptop schema import -csv gal_schema.csv -root .
+```
+
+### 2.3 方式 B：直连数据库同步
+
+1. 在「**账号、生产环境、配置**」里填 Oracle：`host` / `port`(1521) / `service` / `user`；
+   - `user` 用**应用 schema 账号**（字段资料的默认 SQL 走 `USER_TAB_COLUMNS` + TiTop 字典 `DS.ZTA_FILE`/`DS.GAQ_FILE`，需要账号自己拥有这些表并能读字典表）；
+   - **密码不写进设置**：放 `<项目>/.project/secrets.json`（`chmod 600`），或用环境变量 `BDL_ORA_PASSWORD`（见 [§11.5](#115-直连数据库采集生产环境设置与密码)）。
+2. VSCode 命令：
+   - **`链接资料：全量更新`**（第一次）/ **`链接资料：从数据库更新`**（以后只改了几个文件）；
+   - **`数据库字段：从数据库同步`**（全量，顺带 `-prune` 清理本地多出的表）。
+3. 终端等价命令：
+
+```bash
+BDL_ORA_PASSWORD=... tiptop link   sync -root . -source golang -host <主机> -service <服务名> -user <账号>
+BDL_ORA_PASSWORD=... tiptop schema sync -root . -host <主机> -service <服务名> -user <账号> \
+  -batch-size 200 -timeout 120
+```
+
+> 字段同步是**分批查询**的（默认每批 200 张表、单批超时 120 秒），慢链路上不会因为"一条大查询超时"失败。
+> 要调：设置 `bdl.schema.batchSize` / `bdl.schema.timeoutSec`。列说明来自 TiTop 字典 `DS.GAQ_FILE.gaq03`，
+> **不是** Oracle 备注；字典表不存在时会提示改用 CSV 导入。
+
+### 2.4 自检（30 秒）
+
+```bash
+tiptop link   status -root .    # 链数 / 文件数 / 生成时间
+tiptop schema status -root .    # 表数 / 列数 / 导入时间
+```
+
+- 侧边栏「链接资料」能展开出 程序 → 链 → 文件；
+- 侧边栏「数据库字段」首行显示"共 N 张表"，展开某表能看到 `列名 · 类型(长度) · 中文说明`；
+- 编辑器里：跨模块函数能跳转；悬停 `LIKE 表.列` 会多出一段"字段资料：…"。
+
+### 2.5 资料常见问题
+
+| 现象 | 处理 |
+|---|---|
+| 视图/命令不出现 | 两个 `mode` 还是 `off`；改成 `file` 或 `db` |
+| `tiptop link status` 显示"链 0" | CSV 选错了或表头不对；重新导出/导入 |
+| 字段几乎没有中文说明 | 说明来自 TiTop 字典：确认账号是应用 schema 账号且能读 `DS.ZTA_FILE` / `DS.GAQ_FILE` |
+| 同步报 `ORA-01013`（查询被取消） | 单批超时：调小 `bdl.schema.batchSize` 或加大 `bdl.schema.timeoutSec` |
+| 提示缺少密码 | 配 `.project/secrets.json` 或 `BDL_ORA_PASSWORD`（见 [§11.5](#115-直连数据库采集生产环境设置与密码)） |
+
+---
+
+## 3. 上传、编译、链接与测试程序
+
+**目标**：改完代码 → 传到生产服务器 → 在生产端编译/链接/预览，验证改动没把程序改坏。
+
+> 关键点：**编译/链接/预览不在本机执行**（开发机没有 Genero 环境），而是由 `tiptop exec` 通过 ssh 在**生产服务器**上跑；
+> 而**上传不会自动发生**——要先上传，再编译。
+
+### 3.1 三个开关与配置
+
+| 设置位置 | 设置 | 值 |
+|---|---|---|
+| 上传编译链接 | `bdl.deploy.enable` | `true`（总开关，默认关） |
+| 上传编译链接 | `bdl.prod.deploy.transport` | `rsync`（主，失败退 scp）或 `scp` |
+| 上传编译链接 | `bdl.prod.deploy.remoteRoot` | 生产根目录，如 `/u1/topprod` |
+| 账号、生产环境、配置 | `bdl.prod.deploy.host` / `port` / `user` | 生产服务器 SSH（**只支持密钥，不支持密码**） |
+| 上传编译链接 | `bdl.build.enable` | `true`（六条编译/链接/预览命令） |
+
+还有六个命令模板（`bdl.build.<lang>.<mode>.command`）默认已按 TiTop 惯例填好，需要时再改，
+占位符与默认值见 [§8.10](#810-编译--链接--预览在生产服务器上执行)。
+
+### 3.2 上传当前文件
+
+命令面板 → **`预演上传`**：只打印计划（`本地路径 → user@host:/生产根/相对路径`），不连接服务器。
+确认无误后再 → **`上传当前文件`**：**只传当前打开的那一个文件**，不做批量同步。
+
+⚠️ 编译/链接/预览**不会**替你上传：改完必须先「上传当前文件」，否则编译的是服务器上的旧代码。
+
+### 3.3 编译 / 链接 / 预览（都在生产端执行）
+
+编辑器右上角按钮（`.4gl` / `.per` 打开时出现）：
+
+| 文件 | 命令 | 默认模板 |
+|---|---|---|
+| `.4gl` | `4GL：预演编译` / `4GL：编译` | `cd ${path} && r.c2 ${name}` |
+| `.4gl` | `4GL：链接` | `r.l2 ${name}` |
+| `.per` | `Form：预演编译` | `cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f` |
+| `.per` | `Form：编译` | `cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/` |
+| `.per` | `Form：预览画面` | `cd ${path} && r.gf ${name} 2 p` |
+
+- 占位符：`${path}` 两层目录（`axc/4gl`）、`${fullpath}` 三层（`tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`；
+- **只有 4GL「链接」会弹 `${name}` 确认框**；其余命令直接用文件名，不打断；
+- 没有 `MAIN` 的文件：4GL「链接」按钮**置灰**（不会发出 ssh）；
+- 输出原样进「**Genero BDL 任务**」输出通道；失败时通知里带 stderr 首行 + 「打开日志」。
+
+### 3.4 完整走一遍（测试程序）
+
+1. 打开要改的生产文件（如 `topcust/aap/4gl/xxx.4gl`），确认它就是生产版本；
+2. 改一行 → 保存；
+3. `预演上传`（可选，看路径对吗）→ `上传当前文件`；
+4. `4GL：编译` → 输出里应能看到远端命令、输出与退出码；
+5. `4GL：链接`（有 `MAIN` 的文件；会弹 `${name}` 确认）；
+6. 表单 `.per`：`Form：编译` → `Form：预览画面`；
+7. 验证没问题再 `git commit`（脚本的自动提交只在初始化/更新时发生，日常编辑由你自己提交）。
+
+### 3.5 上传/编译常见问题
+
+| 现象 | 处理 |
+|---|---|
+| 命令都看不到 | `bdl.deploy.enable` 或 `bdl.build.enable` 还是 `false`；`transport` 是 `off` |
+| 提示缺配置 | 按提示补「生产服务器 host/user」与「生产根目录」；没填全时命令会说清缺哪一项 |
+| 连不上（密钥） | **上传/编译不支持密码**：`ssh-copy-id` 装好公钥，或用 ssh-agent |
+| 编译报错看不到细节 | 点失败通知里的**「打开日志」**（`last-run-exec.log`），或看「Genero BDL 任务」通道 |
+| 改了代码但服务器上没变 | 忘了「上传当前文件」——编译前必须先上传 |
+| 编译/链接命令要改脚本 | 改 `bdl.build.<lang>.<mode>.command`（模板），见 [§8.10](#810-编译--链接--预览在生产服务器上执行) |
+
+---
+
+## 4. 这是什么扩展
 
 这是一个 VSCode 扩展，给 Genero BDL（4GL）与 Genero Form 项目提供**日常开发需要的语言能力**：
 
@@ -52,9 +298,9 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法
 
 ---
 
-## 2. 安装
+## 5. 安装
 
-### 2.1 安装扩展
+### 5.1 安装扩展
 
 两种方式任选：
 
@@ -73,7 +319,7 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法
 > 📷 **截图位**：`docs/images/vscode/01-install.png`
 > 建议内容：扩展市场里的安装页，能看清扩展名和"安装"按钮。
 
-### 2.2 平台与内置语言服务器
+### 5.2 平台与内置语言服务器
 
 **平台安装包已经内置 `bdl-lsp`，不需要另外安装语言服务器。** 支持：
 
@@ -94,7 +340,7 @@ code --list-extensions | grep -i 4gl
 从源码运行扩展（未打包）没有内置二进制，先在 `bdl-lsp` 执行 `make build`，
 或用下面的方式指定路径。
 
-### 2.3 语言服务器查找顺序
+### 5.3 语言服务器查找顺序
 
 扩展查找服务器的顺序：
 
@@ -111,7 +357,7 @@ code --list-extensions | grep -i 4gl
 
 ---
 
-## 3. 三种用法：三档模型
+## 6. 三种用法：三档模型
 
 | | ③ **轻量（默认，装完即用）** | ② **本地文件解析** | ① **全功能（账号密码）** |
 |---|---|---|---|
@@ -136,9 +382,9 @@ code --list-extensions | grep -i 4gl
 
 ---
 
-## 4. 快速开始与 30 秒自检
+## 7. 快速开始与 30 秒自检
 
-### 4.1 打开项目
+### 7.1 打开项目
 
 用 VSCode 打开**项目根目录**（通常是含 `.4gl` / `.per` 和 `.bdl-lsp/` 的那一层），不要只打开单个文件。
 工作区根决定：
@@ -153,10 +399,10 @@ code --list-extensions | grep -i 4gl
 > 📷 **截图位**：`docs/images/vscode/02-first-open.png`
 > 建议内容：打开项目后的 Problems 面板 + 状态栏语言模式。
 
-### 4.2 30 秒自检
+### 7.2 30 秒自检
 
 命令面板（`Ctrl/Cmd+Shift+P`）运行 **`Genero BDL: 显示语言服务器信息`**：确认二进制路径、版本、当前设置。
-如果这里解析失败，先解决二进制路径，后面的功能都不会工作（查找顺序见 §2.3）。
+如果这里解析失败，先解决二进制路径，后面的功能都不会工作（查找顺序见 §5.3）。
 
 - 打开一个 `.4gl`，`Ctrl+Shift+P` 执行 **`Genero BDL: 显示语言服务器信息`**，
   能看到版本、二进制来源、当前设置 → 说明语言服务器在跑；
@@ -170,31 +416,31 @@ code --list-extensions | grep -i 4gl
 > 看服务器日志：`Genero BDL: 显示语言服务器信息` 打开信息后点通知上的**「打开日志」**，
 > 或直接看「Genero BDL」输出通道（原来的「显示输出」命令已合并进来）。
 
-### 4.3 轻量档（默认）直接可用
+### 7.3 轻量档（默认）直接可用
 
 装完不改任何设置，就能用：语法高亮、语义高亮、大纲/面包屑、定义跳转、引用查找、悬停、补全、
-格式化、语法诊断、表单字段校验、GLOBALS 跨文件、快速修复。逐项用法见 [§5 功能详解](#5-功能详解)。
+格式化、语法诊断、表单字段校验、GLOBALS 跨文件、快速修复。逐项用法见 [§8 功能详解](#8-功能详解)。
 
-### 4.4 轻量档**不会**做的事（有意为之）
+### 7.4 轻量档**不会**做的事（有意为之）
 
 - **不连数据库、不连网**；没有任何后台任务、没有定时器；
 - **不往你的项目里写文件**（连日志都写在 VSCode 的全局日志目录）；
 - **不弹"请先配置 XXX"**：没配好之前，相关命令和视图**直接隐藏**，而不是点了再报错。
 
 这就是默认行为。所以你装上之后看到"没有链接资料视图""没有那些命令"是正常的——
-按 [§7](#7-表单-perglobals-与数据库字段资料) / [§8](#8-链接资料) / [§9](#9-部署) 打开对应开关，它们才会出现。
+按 [§10](#10-表单-perglobals-与数据库字段资料) / [§11](#11-链接资料) / [§12](#12-部署) 打开对应开关，它们才会出现。
 
 ---
 
-## 5. 功能详解
+## 8. 功能详解
 
-### 5.1 能力总览
+### 8.1 能力总览
 
 | 能力 | 触发方式 | 说明 | 档 |
 |---|---|---|---|
 | 语法高亮 | 打开文件 | `.4gl` / `.global` / `.per` 静态高亮 | ③ |
 | 语义高亮 | 自动 | 变量、函数、参数按语义着色（VSCode 专属） | ③ |
-| 语法/语义诊断 | 打开、编辑、保存 | Problems 面板显示；见 [§6](#6-诊断与检查) | ③ |
+| 语法/语义诊断 | 打开、编辑、保存 | Problems 面板显示；见 [§9](#9-诊断与检查) | ③ |
 | 悬停 | 鼠标停留 | 变量来源、定义位置、函数信息 | ③ |
 | 跳转定义 | `F12` / `Ctrl+Click` | 当前文件、GLOBALS、链接资料 | ③ |
 | 查找引用 | `Shift+F12` | 当前工作区可解析的引用（自动排除注释与字符串） | ③ |
@@ -208,24 +454,24 @@ code --list-extensions | grep -i 4gl
 | 链接资料视图 | 侧边栏"链接资料" | 查看程序引用关系、反查引用程序（VSCode 专属） | ②① |
 | 数据库字段 | 侧边栏"数据库字段" | 悬停字段中文说明、`RECORD LIKE t.*` 成员校验 | ②① |
 | 编译/链接/预览 | 编辑器右上角按钮 / 命令面板 | `.4gl` 预演编译/编译/链接、`.per` 预演编译/编译/预览画面；命令在**生产服务器**上执行，模板可自定义（需先上传文件） | ③ |
-| 部署 | 命令面板 | 上传 + 远程编译；见 [§9](#9-部署) | ① |
+| 部署 | 命令面板 | 上传 + 远程编译；见 [§12](#12-部署) | ① |
 
 > 说明：扩展**不做类型检查、不做赋值兼容性检查，也不做跨文件重命名**。
 > 变量检查只回答"这个名字有没有来源"，函数检查只回答"这个名字有没有定义"。
 
-### 5.2 语法高亮与语义高亮
+### 8.2 语法高亮与语义高亮
 
 - 语法高亮：打开 `.4gl` / `.global` / `.per` 就有；关键字、函数名、字段访问、注释、字符串都有区分。
 - 语义高亮：变量、函数、参数按语义着色（VSCode 专属），自动生效，不需要配置。
 
-### 5.3 大纲与面包屑
+### 8.3 大纲与面包屑
 
 左侧"大纲"面板或 `Ctrl+Shift+O` 可以列出：MAIN / FUNCTION / REPORT / DEFINE / RECORD / SCREEN RECORD。
 
 > 📷 **配图位 G4**：`docs/images/guide/04-outline.png`
 > 拍什么：大纲面板展开一个 `.4gl`（能看到 MAIN / FUNCTION / DEFINE 层级）。
 
-### 5.4 悬停与跳转
+### 8.4 悬停与跳转
 
 把鼠标放在变量、函数、GLOBALS 符号或表单字段上：
 
@@ -241,12 +487,12 @@ code --list-extensions | grep -i 4gl
 > 🎬 **录屏位**：`docs/images/vscode/03-hover.gif`
 > 建议内容：悬停一个来自 GLOBALS 的变量，显示来源，再按 F12 跳过去。
 
-### 5.5 查找引用
+### 8.5 查找引用
 
 `Shift+F12` 列出当前工作区可解析的引用（自动排除注释与字符串）。
-配置了链接资料后，还可以从当前符号**反查调用方**（见 [§8](#8-链接资料)）。
+配置了链接资料后，还可以从当前符号**反查调用方**（见 [§11](#11-链接资料)）。
 
-### 5.6 补全
+### 8.6 补全
 
 在语句位置输入关键字、变量名或函数名，或按 `Ctrl+Space` 手动触发。
 补全会结合当前文件符号、GLOBALS、内置符号表、表单字段与关键字；配置了链接资料后，
@@ -255,17 +501,17 @@ code --list-extensions | grep -i 4gl
 > 🎬 **录屏位**：`docs/images/vscode/04-completion.gif`
 > 建议内容：输入 `DIS` 后出现 `DISPLAY`，再输入一个函数名前缀。
 
-### 5.7 重命名
+### 8.7 重命名
 
 `F2` 重命名**当前文件内**的符号；不会改其他文件，也不会改字符串里的名字。
 重命名会同时改调用处，但**不跨文件**。
 
-### 5.8 快速修复
+### 8.8 快速修复
 
 `Ctrl+.` 打开快速修复。目前只对"字段不在表单里"提供改名字段之类的建议：
 字段拼错 → 一键改成表单里的正确字段。
 
-### 5.9 格式化
+### 8.9 格式化
 
 `Shift+Alt+F` 或"格式化文档"。可用设置：
 
@@ -282,7 +528,8 @@ code --list-extensions | grep -i 4gl
 > 🎬 **录屏位**：`docs/images/vscode/05-format.gif`
 > 建议内容：选中一段缩进混乱的 4GL，执行格式化，展示前后对比。
 
-### 5.10 编译 / 链接 / 预览（在生产服务器上执行）
+> 操作流程见第 3 章；这里只列模板与占位符细节。
+### 8.10 编译 / 链接 / 预览（在生产服务器上执行）
 
 编辑器**右上角有 3 个按钮**（命令面板里同名命令也能用）。这些命令
 **不在本机执行**——开发机没有 Genero 环境，插件把命令交给 `tiptop exec`，
@@ -315,17 +562,17 @@ code --list-extensions | grep -i 4gl
 规则：
 
 - 命令在**生产服务器**上执行（`tiptop exec`，工作目录 = 生产根）；stdout / stderr **原样**进「Genero BDL 任务」输出通道（含命令回显、耗时与退出码）；
-- 六种模板都能在设置里改（[§10.5](#105-设置键总表3-组-49-键) 组 3「上传编译链接」）；
+- 六种模板都能在设置里改（[§13.5](#135-设置键总表3-组-49-键) 组 3「上传编译链接」）；
 - `.4gl`「链接」**每次**弹出 `${name}` 输入框（预填文件名去扩展名，可改）；「编译」同样会弹；「预演编译」不弹、直接用默认名；
 - **没有 `MAIN` 程序块**的 `.4gl`：右上角「链接」按钮是**不可用**（灰）状态；直接执行命令也会本地报错"没有 MAIN 函数，不允许链接"，不会跑脚本；
 - 运行前若文件有未保存修改会**先保存**（脚本读的是磁盘文件）；编译中可点进度通知上的**取消**结束进程；
-- 这是**本机脚本**，与 [§9 远程部署](#9-部署) 的 `tiptop deploy` 并存、互不影响。
+- 这是**本机脚本**，与 [§12 远程部署](#12-部署) 的 `tiptop deploy` 并存、互不影响。
 
 ---
 
-## 6. 诊断与检查
+## 9. 诊断与检查
 
-### 6.1 能看到哪些检查（14 个诊断码）
+### 9.1 能看到哪些检查（14 个诊断码）
 
 | 检查 | 诊断码 | 默认级别 | 依赖 |
 |---|---|---|---|
@@ -354,7 +601,7 @@ code --list-extensions | grep -i 4gl
   这个文件确实没被检查，点编辑器标题栏的"强制解析"（**后台不限时**解析，完成后自动刷新大纲并显示耗时）或调大 `bdl.limits.*` 即可；
 - 资料**旧**不会有任何提示（P1-6 去掉了 7 天过期告警）。
 
-### 6.2 调整级别：按码调级
+### 9.2 调整级别：按码调级
 
 所有诊断级别只有一个入口：`bdl.diagnostics`。键是诊断码，值是
 `off` / `error` / `warning` / `information` / `hint`。
@@ -400,7 +647,7 @@ code --list-extensions | grep -i 4gl
 > 建议内容：`INPUT ... FROM` 引用不存在的字段，Problems 里有
 > `field-not-in-form`，光标处出现 Quick Fix。
 
-### 6.3 忽略文件、字段、表单
+### 9.3 忽略文件、字段、表单
 
 ```jsonc
 {
@@ -416,16 +663,17 @@ code --list-extensions | grep -i 4gl
 
 glob 写错不会让服务器崩，但那条规则不会匹配；日志里会有警告。
 
-### 6.4 报告上限
+### 9.4 报告上限
 
 `bdl.limits.maxIssues` 默认 200。单文件诊断太多时会截断，避免 Problems
 面板卡死。确实需要看全部时可以临时调大，但不建议长期设得很大。
 
 ---
 
-## 7. 表单 .per、GLOBALS 与数据库字段资料
+> 操作路径见第 2 章；本章是资料相关的细节。
+## 10. 表单 .per、GLOBALS 与数据库字段资料
 
-### 7.1 表单 `.per`
+### 10.1 表单 `.per`
 
 打开 `.per` 会做单文件内部一致性检查：
 
@@ -443,7 +691,7 @@ glob 写错不会让服务器崩，但那条规则不会匹配；日志里会有
 一个常见现象：表单字段明明有，却报 `field-not-in-form` —— 表单不在 `<模组>/per/` 下时配
 `bdl.perRoots`；并确认打开的是最新 `.per`（改完 `.per` 会自动刷新引用方）。
 
-### 7.2 GLOBALS
+### 10.2 GLOBALS
 
 `GLOBALS "path"` 默认相对当前文件解析。仓库层级特殊、相对路径解析不到时，
 用 `bdl.globals.searchPaths` 增加候选根：
@@ -456,7 +704,7 @@ GLOBALS 文件找不到时默认 warning（`globals-file-not-found`）；确认�
 可以把该码关掉或加进 `ignore.files`。
 变量跳转不到时，先确认 `searchPaths` 覆盖了实际的 config 目录，再确认工作区根没选错。
 
-### 7.3 数据库字段资料（schema）
+### 10.3 数据库字段资料（schema）
 
 `RECORD LIKE table.*` 的成员、`LIKE table.col` 的类型与中文说明，都不在源码里——
 它们来自 **TiTop 字典**（`DS.ZTA_FILE` + `DS.GAQ_FILE.gaq03`，或 DBA 导出的同格式 CSV，含
@@ -495,7 +743,7 @@ tiptop schema status -root .          # 看表数/列数/导入时间
 > （`.project/schema/tables.json` 存在）时才会出现；「从数据库同步」只需要配了数据库连接；
 > 「从 CSV 导入」「刷新」「过滤」始终可用。
 
-**直连数据库**：先按 [§8.5](#85-直连数据库采集生产环境设置与密码) 用「生产环境」填好 Oracle
+**直连数据库**：先按 [§11.5](#115-直连数据库采集生产环境设置与密码) 用「生产环境」填好 Oracle
 主机/服务名/只读账号（密码走环境变量 `BDL_ORA_PASSWORD` 或 `<项目>/.project/secrets.json`
 ——link 与 schema **共用这一份**），然后：
 
@@ -530,7 +778,8 @@ tiptop schema status -root .          # 看表数/列数/导入时间
 
 ---
 
-## 8. 链接资料
+> 操作路径见第 2 章；本章是链接资料的细节（采集方式、配置、退化行为）。
+## 11. 链接资料
 
 链接资料是程序/函数/全局变量的跨模块索引，保存在项目的 `.project/link/` 下。
 迁移前它放在 `.link/`：语言服务器**仍会读取旧目录**并发一条提示（`link-data-legacy-dir`），
@@ -555,19 +804,19 @@ tiptop schema status -root .          # 看表数/列数/导入时间
 > **不会有"资料已过期"的提示**——什么时候更新完全由你决定。资料按 mtime 热加载（2 秒节流），
 > 导入/同步完不需要重启。
 
-### 8.1 资料从哪来：两份 CSV
+### 11.1 资料从哪来：两份 CSV
 
 | 文件 | 从哪来 | 用来做什么 |
 |---|---|---|
 | **程序链接资料**（DS.GAL_FILE 导出，列 `GAL01..GAL04`） | DBA/生产环境执行一条 SQL 导出，或用脚本 [`fetch-gal-file.sh`](https://github.com/darcyjoven/tiptop/blob/main/scripts/fetch-gal-file.sh) 在生产机上跑 | 跨模块**函数可见性**：`function-not-found` 不再乱报；侧边栏"链接资料"树与**反查引用程序** |
 | **表字段资料**（表名/列名/中文说明/类型/长度…） | 直连时查 TiTop 字典 `DS.ZTA_FILE` + `DS.GAQ_FILE`；也可由 DBA 导出同格式 CSV | 悬停 `LIKE t.col` 显示**中文说明**；`RECORD LIKE t.*` 的成员校验；`rec.` 补全带说明 |
 
-表字段 CSV 的导入与使用见 [§7.3](#73-数据库字段资料schema)；本节下面的内容针对链接资料。
+表字段 CSV 的导入与使用见 [§10.3](#103-数据库字段资料schema)；本节下面的内容针对链接资料。
 
 > 📷 **配图位 G5**：`docs/images/guide/05-export-csv.png`
 > 拍什么：生产端导出得到两个 CSV 的样子（文件列表即可；不要露真实库名/主机名/账号）。
 
-### 8.2 生成链接资料（终端）
+### 11.2 生成链接资料（终端）
 
 链接资料来自 DS.GAL_FILE 导出，或直接从数据库/命令/文件采集：
 
@@ -611,7 +860,7 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
 上传/编译用的二进制在 `bdl-lsp/artifacts/bin/`、`tiptop/artifacts/bin/`；
 插件里也可以用 `bdl.tools.path` 指到你自己的 `tiptop`。
 
-### 8.3 从 CSV 导入（推荐，不用开终端）
+### 11.3 从 CSV 导入（推荐，不用开终端）
 
 1. 命令面板 → **`Genero BDL: 链接资料：从 CSV 导入`** → 选 `GAL_FILE` 的 CSV；
    扩展会把它复制成 `<项目>/.project/link/gal_file.csv`，然后问你：
@@ -636,7 +885,7 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
 > 📷 **配图位 G6**：`docs/images/guide/06-import-csv.png`
 > 拍什么：执行"链接资料：从 CSV 导入"后的确认对话框（显示"受影响作业 N 个"或统计），加一条进度通知。
 
-### 8.4 在 VSCode 里使用
+### 11.4 在 VSCode 里使用
 
 - 侧边栏"链接资料"树显示当前程序的引用关系：当前程序属于哪条链、链内文件（点击跳转）、全局模组；
   程序被谁引用（**反查引用程序**，结果多时分页）；
@@ -668,7 +917,7 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
 > 🎬 **录屏位**：`docs/images/vscode/08-link-reverse.gif`
 > 建议内容：在一个函数上执行反查，Quick Open 列表里选一个 `.4gl` 并跳转。
 
-### 8.5 直连数据库采集：生产环境设置与密码
+### 11.5 直连数据库采集：生产环境设置与密码
 
 设置里搜 **`Genero BDL: 生产环境`**，填四项：
 
@@ -731,7 +980,7 @@ chmod 600 <项目>/.project/secrets.json
 Windows 上提示 `secrets.json` 权限问题属正常：Windows 没有 unix 权限位，
 扩展在那边**跳过**权限校验（安全性由文件 ACL 决定）。
 
-### 8.6 链接资料配置
+### 11.6 链接资料配置
 
 ```jsonc
 {
@@ -768,15 +1017,15 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 > 没有"过期"相关的键：资料旧不旧由你决定，插件不会自动提示（P1-6）。
 
-### 8.7 没有链接资料时的退化行为
+### 11.7 没有链接资料时的退化行为
 
 - **`function-not-found`**：调用一个函数，若在本文件/GLOBALS/链接文件/全局模组（`sub`/`lib`/`qry`）里
   都找不到才报；没有链接资料时这项**完全不产生诊断**（宁可漏报，不可误报）。
 - **链接资料视图**：无资料时为空。
 - **记录成员校验**（可选）：把 `bdl.diagnostics.record-member-unknown` 设为 `warning`，
-  就能查出 `rec.bad_member` 这类拼错的成员（需要字段资料，见 [§7.3](#73-数据库字段资料schema)）。
+  就能查出 `rec.bad_member` 这类拼错的成员（需要字段资料，见 [§10.3](#103-数据库字段资料schema)）。
 
-### 8.8 链接资料常见问题
+### 11.8 链接资料常见问题
 
 | 现象 | 先查 |
 |---|---|
@@ -787,7 +1036,8 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 ---
 
-## 9. 部署
+> 操作路径见第 3 章；本章是上传/页面部署的细节与排查。
+## 12. 部署
 
 部署 = 上传源码到远程服务器 + 远程编译。配置在 `<项目>/.project/deploy/deploy.json`，
 示例见 tiptop 仓库 `examples/deploy.json`。
@@ -795,14 +1045,14 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 不需要部署的机器可以把 `bdl.deploy.enable` 关掉：命令面板里的四条部署
 命令会消失，命令即使被直接调用也不会执行。
 
-### 9.1 配置
+### 12.1 配置
 
 1. 打开总开关 `bdl.deploy.enable`（默认关）；
 2. 在 **`Genero BDL: 生产环境`** 里填部署目标：`bdl.prod.deploy.host` / `port`(默认 22) / `user` / `remoteRoot`
    （生产根，如 `/u1/toppord`），可选：`localRoot`、`transport`(off/rsync/scp)、`strictHostKey`；
 3. **不用手写 JSON**：每次上传前插件会把上述设置合成为 `<项目>/.project/deploy/deploy.json`（文件里带 `createdBy` 标记），
    再交给 `tiptop upload` / `tiptop exec`；如果你之前手写过一个 `deploy.json`，第一次覆盖前会备份成 `deploy.json.bak`；
-4. 然后用命令：`预演上传` → 看计划 → `上传当前文件`；编译/链接/预览用 [§5.10](#510-编译--链接--预览在生产服务器上执行) 的按钮。
+4. 然后用命令：`预演上传` → 看计划 → `上传当前文件`；编译/链接/预览用 [§8.10](#810-编译--链接--预览在生产服务器上执行) 的按钮。
    **只上传当前文件，不做批量同步。**
 
 手写仍然支持（`tiptop deploy -config <文件>`）；如果不是插件生成的文件，第一次被覆盖前会备份成 `deploy.json.bak`。
@@ -862,7 +1112,7 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 > 这样单文件上传后远程编译用的就是生产环境的那套依赖。
 > 认证使用 SSH key / ssh-agent，**不支持在设置或配置里存密码**。
 
-### 9.2 命令
+### 12.2 命令
 
 | 命令 | 作用 |
 |---|---|
@@ -877,7 +1127,7 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 > 📷 **截图位**：`docs/images/vscode/09-deploy.png`
 > 建议内容：执行"部署预演"后的输出，包含目标、上传列表、编译命令。
 
-### 9.3 部署排查
+### 12.3 部署排查
 
 - 先跑"部署预演"，确认文件列表和编译命令；
 - SSH 失败先手动 `ssh user@host`，确认 key/agent；
@@ -896,9 +1146,9 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 ---
 
-## 10. 配置说明（3 组 49 键）
+## 13. 配置说明（3 组 49 键）
 
-### 10.1 设置界面分三组
+### 13.1 设置界面分三组
 
 设置界面按用途分成六组（和 CSS 语言插件一样的多层次设置）。
 **默认是轻量档**：零配置开箱即用，不连库、不后台跑任务、不往项目里写文件。
@@ -909,7 +1159,7 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 | **账号、生产环境、配置** | Oracle 连接、生产服务器、链接资料模式、字段资料模式（**密码不放这里**） | 空 / **关** | 要采集资料、或要连库同步时 |
 | **上传编译链接** | 单文件上传方式与目录、编译/链接/预览命令（在生产服务器上执行） | **关** | 需要上传当前文件、或用编辑器右上角编译按钮时 |
 
-### 10.2 模式与总开关
+### 13.2 模式与总开关
 
 - `bdl.link.mode`（**默认 `off`**）——链接资料三态：`off` 不加载资料、不发
   `function-not-found` / `link-data-*` 诊断、隐藏视图与命令；`file` 只用 CSV 导入；
@@ -922,9 +1172,9 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 需要这些能力时，**只在这个设置面板里改**，不用手写 JSON、不用找命令行。
 
 > **生产环境这组只写 Workspace 设置，并且不要让 `settings.json` 进 git 管理**；
-> 密码/密钥一律不放在设置里（见 [§8.5](#85-直连数据库采集生产环境设置与密码)）。
+> 密码/密钥一律不放在设置里（见 [§11.5](#115-直连数据库采集生产环境设置与密码)）。
 
-### 10.3 配置优先级
+### 13.3 配置优先级
 
 配置有三层，优先级从高到低：
 
@@ -935,9 +1185,9 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 `bdl.diagnostics` 的逐码值覆盖项目文件里的同码值；项目文件适合团队共享，
 VSCode 设置适合个人临时调整。
 
-### 10.4 按"要不要改"分类
+### 13.4 按"要不要改"分类
 
-（这里按"要不要改"分成三类，是**文档的阅读顺序**；设置界面本身按用途分成三组，见 [§10.1](#101-设置界面分三组)。）
+（这里按"要不要改"分成三类，是**文档的阅读顺序**；设置界面本身按用途分成三组，见 [§13.1](#131-设置界面分三组)。）
 
 **第一类：默认即可，基本不用动**
 
@@ -946,7 +1196,7 @@ VSCode 设置适合个人临时调整。
 - 格式化：`format.keywords=unchanged`、`indentStyle=auto`、`indentSize=0`；
 - 资源限制：大文件、行数、诊断条数、解析超时都有安全默认值；
 - 项目解析：`index.enable=true`、`builtins.enable=true`、
-  `schema.enable=false`（要用 `LIKE t.*` 成员校验/字段说明时打开，资料见 [§7.3](#73-数据库字段资料schema)）。
+  `schema.enable=false`（要用 `LIKE t.*` 成员校验/字段说明时打开，资料见 [§10.3](#103-数据库字段资料schema)）。
 
 **第二类：不配置就用不了**
 
@@ -962,7 +1212,7 @@ VSCode 设置适合个人临时调整。
 - `limits.*`：超大型文件或诊断特别多的项目；
 - `server.path` / `tools.path` / `logLevel` / `trace.server`：安装与排障。
 
-### 10.5 设置键总表（3 组 49 键）
+### 13.5 设置键总表（3 组 49 键）
 
 #### 组 1：基础（22 键）
 
@@ -1072,7 +1322,7 @@ VSCode 设置适合个人临时调整。
 > 密码不在设置里。链接/字段同步用 `BDL_ORA_PASSWORD` 或
 > `.project/secrets.json`；上传/执行用 SSH key / agent。
 
-### 10.6 项目级配置 `.bdl-lsp/config.json`
+### 13.6 项目级配置 `.bdl-lsp/config.json`
 
 项目文件可以提交，供团队共享（不含敏感信息）。完整示例：
 
@@ -1136,7 +1386,7 @@ VSCode 设置适合个人临时调整。
 
 改完项目文件后执行 `Genero BDL: 重启语言服务器`，或等设置热更新生效。
 
-### 10.7 最常用片段
+### 13.7 最常用片段
 
 ```jsonc
 {
@@ -1157,9 +1407,9 @@ VSCode 设置适合个人临时调整。
 
 ---
 
-## 11. 常见问题
+## 14. 常见问题
 
-### 11.1 快速对照表
+### 14.1 快速对照表
 
 | 现象 | 原因 / 怎么办 |
 |---|---|
@@ -1168,7 +1418,7 @@ VSCode 设置适合个人临时调整。
 | 诊断太多/太吵 | 这是**你的选择**：`bdl.diagnostics` 按码调级（`off`/`error`/`warning`/`information`/`hint`），也可以 `bdl.ignore.files` 忽略生成代码目录 |
 | 打开大文件没有大纲、没有诊断 | Problems 里有 `file-too-large` / `parse-timeout` 警告 → 点**编辑器标题栏的"强制解析"**，或调大 `bdl.limits.maxFileBytes` / `maxFileLines` / `parseTimeoutMs`。强制解析会**后台不限时**解析并在完成后自动刷新大纲（状态栏显示耗时），**到文件关闭为止有效** |
 | 表单字段明明有，却报 `field-not-in-form` | 表单不在 `<模组>/per/` 下时配 `bdl.perRoots`；确认打开的是最新 `.per`（改完 `.per` 会自动刷新引用方） |
-| `RECORD LIKE t.*` 的成员校验不生效 | 需要字段资料 + 把 `bdl.diagnostics.record-member-unknown` 打开（默认 `off`），见 [§7.3](#73-数据库字段资料schema) |
+| `RECORD LIKE t.*` 的成员校验不生效 | 需要字段资料 + 把 `bdl.diagnostics.record-member-unknown` 打开（默认 `off`），见 [§10.3](#103-数据库字段资料schema) |
 | 资料旧了要重启吗 | 不用：资料按 mtime 热加载（2 秒节流）。而且**不会有"过期"提示**——想更新就再执行一次同步 |
 | 连接数据库报"缺少密码" | 设 `BDL_ORA_PASSWORD`，或写 `<项目>/.project/secrets.json`（`chmod 600`）。**link 与 schema 都只读这一份**（不要放进 `.project/link/`） |
 | 编译/链接/预览报错（没有配置 / 连不上） | 这些命令**在生产服务器上执行**：先在「上传编译链接」打开 `bdl.deploy.enable`、把 `bdl.prod.deploy.transport` 设为 rsync/scp、填好生产根目录，并在「账号、生产环境、配置」填生产服务器主机/账号（SSH 密钥）；再打开 `bdl.build.enable`。报错通知里可点「打开日志」看完整输出 |
@@ -1183,10 +1433,10 @@ VSCode 设置适合个人临时调整。
 | 链接资料有，但 `function-not-found` 还是报 | 确认 `bdl.link.mode` 不是 `off`、`bdl.link.dataDir` 与实际目录一致（默认 `.project/link`） |
 | GLOBALS 变量跳转不到 | 确认 `bdl.globals.searchPaths` 覆盖实际的 config 目录；确认工作区根没选错 |
 | 第一次索引很慢 | 工作区索引要扫全部文件（通常几分钟、也可能更长，进度见输出）；用 `bdl.ignore.files` 排除生成代码与备份目录，必要时调大 `bdl.limits.maxFileBytes` |
-| 升级后旧诊断设置不生效 | 旧专用键已删除，把旧值迁到 `bdl.diagnostics`，见 [§11.7](#117-升级后旧诊断设置不生效) |
+| 升级后旧诊断设置不生效 | 旧专用键已删除，把旧值迁到 `bdl.diagnostics`，见 [§14.7](#147-升级后旧诊断设置不生效) |
 | 找不到 `tiptop` | 用平台包内置的那份，或填 `bdl.tools.path` |
 
-### 11.2 打开文件没有任何诊断
+### 14.2 打开文件没有任何诊断
 
 按顺序检查：
 
@@ -1196,35 +1446,35 @@ VSCode 设置适合个人临时调整。
 4. 文件是否被 `bdl.ignore.files` 或 `.bdl-lsp/config.json` 忽略；
 5. 是否超过 `limits.maxFileBytes` / `maxFileLines`（会显示 `file-too-large`）。
 
-### 11.3 变量或函数全是波浪线
+### 14.3 变量或函数全是波浪线
 
 - 变量：先确认 GLOBALS 路径是否正确，必要时加 `globals.searchPaths`；
 - 函数：先确认链接资料是否生成；没有 `.project` 时函数检查不会启用；
 - 内置函数被误报：确认 `builtins.enable=true`，版本是否匹配 `generoVersion`。
 
-### 11.4 跳转 / 补全不工作
+### 14.4 跳转 / 补全不工作
 
 - 当前文件是否解析成功（有语法错误时索引可能不完整）；
 - 目标是否在 GLOBALS、链接资料或当前工作区内；
 - 多根工作区里，项目是否在正确的根下；
 - 大项目索引是否还在进行中。
 
-### 11.5 链接资料视图空 / 反查不到
+### 14.5 链接资料视图空 / 反查不到
 
 - 先跑 `tiptop link status -root .`；
 - 确认 `.project/link/links.jsonl` 存在且不是空文件；
 - 重新 `tiptop link import` 后点"刷新"；
 - 反查只对已索引的程序有效，确认当前文件在 `moduleRoots` 内。
 
-### 11.6 部署失败
+### 14.6 部署失败
 
 - 先"部署预演"；
 - 手动 `ssh` 验证 key/agent；
 - 检查 `remoteRoot` 是否存在、是否有写权限；
 - 检查远程编译命令是否在登录 shell 的 `PATH` 里。
-- 更细的现象对照见 [§9.3 部署排查](#93-部署排查)。
+- 更细的现象对照见 [§12.3 部署排查](#123-部署排查)。
 
-### 11.7 升级后旧诊断设置不生效
+### 14.7 升级后旧诊断设置不生效
 
 旧专用键已删除。把旧值迁到 `bdl.diagnostics`：
 
@@ -1233,9 +1483,9 @@ VSCode 设置适合个人临时调整。
 { "bdl.diagnostics": { "field-not-in-form": "off" } }
 ```
 
-完整码表见 [§6.1](#61-能看到哪些检查14-个诊断码)。
+完整码表见 [§9.1](#91-能看到哪些检查14-个诊断码)。
 
-### 11.8 密码相关
+### 14.8 密码相关
 
 - **不要**把 Oracle 密码写进 `settings.json` 或提交进仓库；
 - 用 `BDL_ORA_PASSWORD` 环境变量，或 `.project/secrets.json`（`chmod 600`，
@@ -1243,6 +1493,7 @@ VSCode 设置适合个人临时调整。
 
 ---
 
+> **快速路径见第 1–3 章**；本附录保留详细命令、排错与目录速查（一键脚本已由 `scripts/init-project/` 取代）。
 ## 附录 A：从生产端搭建工作区
 
 > 面向"把生产端 `/u1/toppord` 拉成本地工作区，并在 VSCode 里完整用起来"的全流程：
@@ -1356,7 +1607,7 @@ tar tzf toppord-src.tar.gz | grep -c '/4gl/.*\.global$'
 ```
 
 > 表字段资料**不在源码包里**：它来自 DBA 导出的 CSV，`tiptop schema import` 生成到
-> `.project/schema/`（见 [A.6](#a6-第-4-步配置项目) 与 [§7.3](#73-数据库字段资料schema)）。
+> `.project/schema/`（见 [A.6](#a6-第-4-步配置项目) 与 [§10.3](#103-数据库字段资料schema)）。
 
 三个计数应与生产端一致（生产端可先跑同样的 `find | wc -l` 对照）。
 
@@ -1553,7 +1804,7 @@ TIPTOP=$(ls ~/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop | head -1)
 
 #### A.6.1 `.bdl-lsp/config.json`（项目级配置，可提交）
 
-完整示例见 [§10.6](#106-项目级配置bdl-lspconfigjson)。生产环境的典型写法：
+完整示例见 [§13.6](#136-项目级配置-bdl-lspconfigjson)。生产环境的典型写法：
 
 ```jsonc
 {
@@ -1754,7 +2005,7 @@ tiptop deploy -workspace "$WORKSPACE" -target prod -no-upload <文件>
 | 3 | 悬停一个 GLOBALS 引入的变量 | 弹出"来源（GLOBALS 引入）"，只列一次来源文件 |
 | 4 | `F12` 跳转到定义 | 跳到 `.global` 文件里的定义处 |
 | 5 | 侧边栏"链接资料" | 展开当前程序 → 链内的 4gl 文件列表（需要第 3 步已生成资料） |
-| 6 | 命令面板 → `部署预演（不上传）` | 输出面板列出将上传的文件与编译命令 |
+| 6 | 命令面板 → `预演上传` → `上传当前文件` | 先看路径映射，再只传当前文件 |
 
 侧边栏"链接资料"为空，说明第 3 步的链接资料没生成或路径不对：
 
@@ -1847,99 +2098,12 @@ head -1 .project/link/gal_file.csv
 - 用 `BDL_ORA_PASSWORD` 环境变量，或 `.project/secrets.json`（`chmod 600`，
   且 `.project/` 已在 `.gitignore` 里）。
 
-### A.10 一键脚本 `setup-workspace.sh`
+### A.10 一键脚本（已由 `scripts/init-project/` 取代）
 
-把下面保存为 `setup-workspace.sh`，按需改顶部的变量后执行：
-
-```bash
-#!/usr/bin/env bash
-# 从生产端拉源码 → 建工作区 → 出链接资料 → 部署测试。
-# 用法：bash setup-workspace.sh
-set -euo pipefail
-
-# ===== 需要按环境修改的变量 =====
-PROD_HOST="${PROD_HOST:?请设置 PROD_HOST}"
-PROD_USER="${PROD_USER:?请设置 PROD_USER}"
-WORKSPACE="${WORKSPACE:-$HOME/work/toppord}"
-
-# Oracle（只读账号）
-ORA_HOST="${ORA_HOST:?请设置 ORA_HOST}"
-ORA_SERVICE="${ORA_SERVICE:?请设置 ORA_SERVICE}"
-ORA_USER="${ORA_USER:?请设置 ORA_USER}"
-
-# 部署目标里的本地示例文件（换成你自己的）
-SAMPLE_FILE="${SAMPLE_FILE:-tiptop/aap/4gl/aapi202.4gl}"
-
-# ===== 找到 bdl-lsp 与 tiptop =====
-if command -v bdl-lsp >/dev/null 2>&1; then
-  BDL_LSP=bdl-lsp
-else
-  BDL_LSP="$(ls "$HOME"/.vscode/extensions/darcyjoven.4gl-full-*/bin/bdl-lsp 2>/dev/null | head -1 || true)"
-  [ -n "$BDL_LSP" ] || { echo "找不到 bdl-lsp：装好 VSCode 扩展，或把它放进 PATH" >&2; exit 2; }
-fi
-# 链接资料与部署由 tiptop 负责（0.3.2 从 bdl-lsp 分离）
-if command -v tiptop >/dev/null 2>&1; then
-  TIPTOP=tiptop
-else
-  TIPTOP="$(ls "$HOME"/.vscode/extensions/darcyjoven.4gl-full-*/bin/tiptop 2>/dev/null | head -1 || true)"
-  [ -n "$TIPTOP" ] || { echo "找不到 tiptop：装好 VSCode 扩展，或把它放进 PATH" >&2; exit 2; }
-fi
-echo "==> 使用 $BDL_LSP / $TIPTOP"
-
-# ===== ① 生产端打包 =====
-echo "==> [1/6] 生产端打包"
-ssh "$PROD_USER@$PROD_HOST" 'cd /u1/toppord && \
-  find . -mindepth 3 -maxdepth 3 -type d \( -name 4gl -o -name per -o -name sch \) -print \
-  | tar czf /tmp/toppord-src.tar.gz \
-      --exclude=".git" --exclude="*.o" --exclude="*.err" \
-      --exclude="*.form" --exclude="build" -T -'
-
-# ===== ② 拉回并解压 =====
-echo "==> [2/6] 拉回并解压"
-mkdir -p "$WORKSPACE"
-scp "$PROD_USER@$PROD_HOST":/tmp/toppord-src.tar.gz "$WORKSPACE/"
-cd "$WORKSPACE"
-tar xzf toppord-src.tar.gz
-
-# ===== ③ Git 初始化 =====
-echo "==> [3/6] 初始化 Git 仓库"
-if [ ! -d .git ]; then
-  git init -b main
-  cat > .gitignore <<'EOF'
-.project/
-.project/deploy/deploy.json
-*.o
-*.err
-*.form
-EOF
-  git add -A
-  git commit -m "从生产端导入源码"
-else
-  echo "    （已有 .git，跳过）"
-fi
-
-# ===== ④ 链接资料 =====
-echo "==> [4/6] 导出链接资料"
-mkdir -p .link
-"$TIPTOP" link sync -root "$WORKSPACE" -source golang \
-  -host "$ORA_HOST" -service "$ORA_SERVICE" -user "$ORA_USER"
-"$TIPTOP" link status -root "$WORKSPACE"
-
-# ===== ⑤ 部署测试 =====
-echo "==> [5/6] 部署预演 + 单文件测试"
-"$TIPTOP" deploy -workspace "$WORKSPACE" -dry-run
-"$TIPTOP" deploy -workspace "$WORKSPACE" -dry-run "$SAMPLE_FILE"
-
-# ===== ⑥ 打开 =====
-echo "==> [6/6] 打开 VSCode"
-code "$WORKSPACE"
-```
-
-> 密码通过环境变量 `BDL_ORA_PASSWORD` 传入，不要写进脚本：
-> ```bash
-> export BDL_ORA_PASSWORD='<密码>'
-> bash setup-workspace.sh
-> ```
+初始化项目不再需要手写脚本：用 VSCode 命令 **`Genero BDL: 初始化项目（从生产服务器拉取代码）`**
+或直接跑 `scripts/init-project/init-project.sh`（Linux/WSL）/ `init-project.ps1`（Windows），
+用法见 [第 1 章](#1-初始化项目从生产服务器拉取代码)；参数对照表在
+[`scripts/init-project/README.md`](scripts/init-project/README.md)。
 
 ### A.11 完整命令速查
 
@@ -1959,8 +2123,8 @@ code "$WORKSPACE"
 | `数据库字段：同步选中的表` / `同步已选中的表` / `全选当前列表` / `清除勾选` | ①② | 一张 / 多张；筛选后先「全选」再「同步已选中」 |
 | `数据库字段：正则过滤表名` / `清除过滤` / `刷新` | ①② | 正则、大小写不敏感；非法正则退回全部；清除过滤恢复全部 |
 | `数据库字段：复制列定义` / `打开表资料文件` | ①② | 得到 `LIKE 表.列` / 打开该表 JSON |
-| `4GL：预演编译` / `4GL：编译` / `4GL：链接` | ③ | 编辑器右上角按钮（`.4gl`）；**在生产服务器上执行**；无 MAIN 时「链接」不可用。模板见 [§5.10](#510-编译--链接--预览在生产服务器上执行) |
-| `Form：预演编译` / `Form：编译` / `Form：预览画面` | ③ | 编辑器右上角按钮（`.per`）；**在生产服务器上执行**。模板见 [§5.10](#510-编译--链接--预览在生产服务器上执行) |
+| `4GL：预演编译` / `4GL：编译` / `4GL：链接` | ③ | 编辑器右上角按钮（`.4gl`）；**在生产服务器上执行**；无 MAIN 时「链接」不可用。模板见 [§8.10](#810-编译--链接--预览在生产服务器上执行) |
+| `Form：预演编译` / `Form：编译` / `Form：预览画面` | ③ | 编辑器右上角按钮（`.per`）；**在生产服务器上执行**。模板见 [§8.10](#810-编译--链接--预览在生产服务器上执行) |
 | `上传当前文件` / `预演上传` | ①（`bdl.deploy.enable` + `transport ≠ off`） | 由 `tiptop upload` 执行；只传当前文件 |
 
 #### A.11.2 `tiptop` / `bdl-lsp` 命令行
@@ -1979,7 +2143,12 @@ tiptop schema import -csv gal_schema.csv -root .                # 从 CSV 导入
 tiptop schema sync   -root . -host <主机> -service <服务名> -user <应用schema账号>
 tiptop schema status -root .                                    # 表数/列数/导入时间
 
-# ===== 部署 =====
+# ===== 单文件上传 / 生产端执行（插件用的就是这两条）=====
+tiptop upload -workspace . -file topcust/aap/4gl/globals_main.4gl           # 只传这一个文件
+tiptop upload -workspace . -file topcust/aap/4gl/globals_main.4gl -dry-run  # 只打印计划
+tiptop exec   -workspace . -command 'cd aap/4gl && r.c2 globals_main'       # 生产端执行（工作目录=生产根）
+
+# ===== 部署（整包/多文件，命令行）=====
 tiptop deploy -workspace "$WORKSPACE" -list                     # 列出 targets
 tiptop deploy -workspace "$WORKSPACE" -target prod -dry-run     # 预演
 tiptop deploy -workspace "$WORKSPACE" -target prod <文件>        # 上传 + 编译
@@ -2077,17 +2246,17 @@ $WORKSPACE/
 
 | 编号 | 文件 | 拍什么 | 用在哪 |
 |---|---|---|---|
-| G1 | `01-three-modes.png` | 三档总览（可用本节表格改图） | §3 |
-| G2 | `02-install.png` | 扩展面板安装 `Genero BDL (4GL)` | §2.1 |
-| G3 | `03-jump-hover.gif` | 跳转定义 + 悬停看来源 | §5.4 |
-| G4 | `04-outline.png` | 大纲面板 | §5.3 |
-| G5 | `05-export-csv.png` | 生产端导出的两份 CSV | §8.1 |
-| G6 | `06-import-csv.png` | "从 CSV 导入"的确认框 | §8.3 |
-| G7 | `07-schema-view.png` | 「数据库字段」视图 + 字段中文说明 | §7.3 |
-| G8 | `08-oracle-settings.png` | 「生产环境」四项设置（打码） | §8.5 |
-| G9 | `09-sync-progress.png` | 同步进度通知（解析表 i/N） | §7.3 |
-| G10 | `10-schema-multi-select.png` | 勾选多张表 + 批量同步 | §7.3 |
-| G11 | `11-deploy.png` | 部署预演与结果 | §9 |
+| G1 | `01-three-modes.png` | 三档总览（可用本节表格改图） | §6 |
+| G2 | `02-install.png` | 扩展面板安装 `Genero BDL (4GL)` | §5.1 |
+| G3 | `03-jump-hover.gif` | 跳转定义 + 悬停看来源 | §8.4 |
+| G4 | `04-outline.png` | 大纲面板 | §8.3 |
+| G5 | `05-export-csv.png` | 生产端导出的两份 CSV | §11.1 |
+| G6 | `06-import-csv.png` | "从 CSV 导入"的确认框 | §11.3 |
+| G7 | `07-schema-view.png` | 「数据库字段」视图 + 字段中文说明 | §10.3 |
+| G8 | `08-oracle-settings.png` | 「生产环境」四项设置（打码） | §11.5 |
+| G9 | `09-sync-progress.png` | 同步进度通知（解析表 i/N） | §10.3 |
+| G10 | `10-schema-multi-select.png` | 勾选多张表 + 批量同步 | §10.3 |
+| G11 | `11-deploy.png` | 部署预演与结果 | §12 |
 
 ### B.2 截图/录屏（`docs/images/vscode/`）
 
@@ -2095,16 +2264,16 @@ $WORKSPACE/
 
 | 编号 | 文件 | 用在哪 |
 |---|---|---|
-| 01 | `docs/images/vscode/01-install.png` | §2.1 安装 |
-| 02 | `docs/images/vscode/02-first-open.png` | §4.1 第一次打开 |
-| 03 | `docs/images/vscode/03-hover.gif` | §5.4 悬停/跳转 |
-| 04 | `docs/images/vscode/04-completion.gif` | §5.6 补全 |
-| 05 | `docs/images/vscode/05-format.gif` | §5.9 格式化 |
-| 06 | `docs/images/vscode/06-field-fix.png` | §6.2 字段诊断 |
-| 07 | `docs/images/vscode/07-link-view.png` | §8.4 链接视图 |
-| 08 | `docs/images/vscode/08-link-reverse.gif` | §8.4 反查 |
-| 09 | `docs/images/vscode/09-deploy.png` | §9.2 部署 |
-| 10 | `docs/images/vscode/10-settings.png` | §10.1 设置页 |
+| 01 | `docs/images/vscode/01-install.png` | §5.1 安装 |
+| 02 | `docs/images/vscode/02-first-open.png` | §7.1 第一次打开 |
+| 03 | `docs/images/vscode/03-hover.gif` | §8.4 悬停/跳转 |
+| 04 | `docs/images/vscode/04-completion.gif` | §8.6 补全 |
+| 05 | `docs/images/vscode/05-format.gif` | §8.9 格式化 |
+| 06 | `docs/images/vscode/06-field-fix.png` | §9.2 字段诊断 |
+| 07 | `docs/images/vscode/07-link-view.png` | §11.4 链接视图 |
+| 08 | `docs/images/vscode/08-link-reverse.gif` | §11.4 反查 |
+| 09 | `docs/images/vscode/09-deploy.png` | §12.2 部署 |
+| 10 | `docs/images/vscode/10-settings.png` | §13.1 设置页 |
 
 ---
 

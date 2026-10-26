@@ -335,7 +335,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | 账号、生产环境、配置 | `bdl.link.mode` / `dataDir` / `moduleRoots` / `globalModules` | **`off`** / `.project/link` / `[]` / `["sub","lib","qry"]` | 链接资料三态（off/file/db）与跨模块可见性 |
 | 上传编译链接 | `bdl.deploy.enable` / `bdl.prod.deploy.transport` / `localRoot` / `remoteRoot` | **`false`** / **`off`** / `.` / 空 | 单文件上传：总开关 + 方式 + 目录映射 |
 | 账号、生产环境、配置 | `bdl.schema.mode` / `dataDir` / `batchSize` / `timeoutSec` | **`off`** / `.project/schema` / `200` / `120` | 字段资料三态；后两者是 W7 分批同步参数 |
-| 上传编译链接 | `bdl.build.enable` + `bdl.build.<lang>.<mode>.command`（6 个） | `false` + 命令见 README §5.10 | 编译/链接/预览命令模板（**生产服务器执行**，不自动上传）；去掉了 6 个 per-command enable；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}` |
+| 上传编译链接 | `bdl.build.enable` + `bdl.build.<lang>.<mode>.command`（6 个） | `false` + 命令见 README §8.10 | 编译/链接/预览命令模板（**生产服务器执行**，不自动上传）；去掉了 6 个 per-command enable；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}` |
 
 > 密码**不放在设置里**：`BDL_ORA_PASSWORD` 环境变量，或 `<项目>/.project/secrets.json`（`chmod 600`）。
 > 「生产环境」只写 Workspace，`settings.json` 不要进 git。
