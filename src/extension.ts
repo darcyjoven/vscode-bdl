@@ -25,6 +25,11 @@ import {
   refreshDataContexts,
   registerDataContextWatcher,
 } from "./dbctx";
+import {
+  buildInitProjectCommandLine,
+  registerInitProject,
+  scriptFlavorFor,
+} from "./initproject";
 import { disposeOutput, serverChannel } from "./output";
 import {
   buildEnabled,
@@ -113,6 +118,10 @@ interface ExtensionApi {
   relativePathFor: typeof relativePathFor;
   /** 数据库字段：直接设置正则过滤（不弹输入框；e2e 验证视图路径）。 */
   schemaFilter: (pattern: string) => Promise<string[]>;
+  /** 初始化项目：按宿主平台选脚本（e2e 断言分派）。 */
+  scriptFlavorFor: typeof scriptFlavorFor;
+  /** 初始化项目：组装终端命令（e2e 断言引号与参数映射）。 */
+  buildInitProjectCommandLine: typeof buildInitProjectCommandLine;
   /** §0d：设置三态与开关（e2e 断言模式/开关语义）。 */
   linkMode: typeof linkMode;
   schemaMode: typeof schemaMode;
@@ -135,6 +144,8 @@ export async function activate(
   registerDataContextWatcher(context);
   // W5：本地编译/链接/预览（4GL 与 Form 各三种方式）。
   registerBuild(context);
+  // 从生产服务器初始化/更新项目仓库（按平台选 bash / PowerShell 脚本，在终端里跑）。
+  registerInitProject(context);
   registerConfigWatcher(context);
 
   // 激活事件是 onLanguage:bdl / onLanguage:per，此时已经有目标文件了。
@@ -160,6 +171,8 @@ export async function activate(
   return {
     // 数据库字段：视图路径的正则过滤（命令 bdl.schema.filter 内部也走它）
     schemaFilter: (pattern: string) => schemaProvider.setFilter(pattern),
+    scriptFlavorFor,
+    buildInitProjectCommandLine,
     parseAffectedJobs,
     toolsPath,
     ensureDeployConfig,

@@ -20,6 +20,9 @@
 last-run-*.log
 *.tmp
 *.temp
+
+# ── 初始化脚本的中间产物（Windows 流程的本地临时包等）
+.pack/
 .project-init/
 
 # ── 编辑器 / 系统

@@ -8,25 +8,26 @@
 
 | 入口 | 数量 | 说明 |
 |---|---|---|
-| 命令（`contributes.commands`） | **31** | 命令面板可见 26 条，隐藏 5 条（内部或只走右键） |
+| 命令（`contributes.commands`） | **32** | 命令面板可见 27 条（打开工作区时），隐藏 5 条（内部或只走右键） |
 | 编辑器右上角按钮（`editor/title`） | **7** | 强制解析（按需）+ 6 条编译/链接/预览 |
 | 视图标题栏按钮（`view/title`） | **8** | 链接资料 2 + 数据库字段 6 |
 | 视图项按钮/右键（`view/item/context`） | **4** | 链接反查 1 + 字段表/列 3 |
 | 输出通道 | **2** | `Genero BDL`（服务器+追踪）与 `Genero BDL 任务`（链接/字段/上传/编译） |
-| 激活事件（`activationEvents`） | **26** | 2 条 `onLanguage` + 24 条 `onCommand` |
+| 激活事件（`activationEvents`） | **27** | 2 条 `onLanguage` + 25 条 `onCommand` |
 | 上下文键（`when` 依据） | **11** | 见 §6 |
 
 `when` 为空 = 命令面板始终可见；`config.*` 是设置值，`bdl.*` 是扩展维护的上下文键。
 
-## 1. 命令面板（26 条可见）
+## 1. 命令面板（27 条可见）
 
-### 1.1 服务器与排障（3 条）
+### 1.1 服务器与排障 / 项目初始化（4 条）
 
 | id | 标题 | `when` | 说明 |
 |---|---|---|---|
 | `bdl.restartServer` | 重启语言服务器 | — | 设置里需要重启的键改过之后也会提示它 |
 | `bdl.showServerInfo` | 显示语言服务器信息 | — | 二进制来源、版本、当前设置；通知里有**「打开日志」**（C5 合并了原「显示输出」） |
 | `bdl.forceParseCurrentFile` | 强制解析当前文件 | `bdl.parseSkipped` | C4：只在当前文件被跳过解析时出现（编辑器按钮同条件） |
+| `bdl.initProject` | 初始化项目（从生产服务器拉取代码） | `workspaceFolderCount > 0` | 按宿主平台选 bash/PowerShell 脚本（命令里可强制），**在集成终端里执行**；收集 SSH 目标/生产根/目标目录/选项/编码，上次值预填（不含密码） |
 
 ### 1.2 链接资料（7 条）
 
@@ -135,7 +136,7 @@
 
 ## 6. 后台运行与自动行为
 
-**扩展激活（26 个 `activationEvents`）**：`onLanguage:bdl`、`onLanguage:per`，以及 24 条 `onCommand:*`（命令被点/被程序调用时才加载扩展）。
+**扩展激活（27 个 `activationEvents`）**：`onLanguage:bdl`、`onLanguage:per`，以及 25 条 `onCommand:*`（命令被点/被程序调用时才加载扩展）。
 
 | 行为 | 触发 | 说明 |
 |---|---|---|

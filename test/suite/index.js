@@ -1776,6 +1776,92 @@ async function run() {
       }
     });
 
+    // 初始化项目命令：平台分派（Windows→ps1 / 其它→sh）+ 终端命令行组装
+    await test("初始化项目：按客户端分派脚本与命令组装", async () => {
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const api = await ext.activate();
+      assert.ok(api.scriptFlavorFor, "应导出 scriptFlavorFor");
+      assert.ok(api.buildInitProjectCommandLine, "应导出 buildInitProjectCommandLine");
+
+      // 自动：按扩展宿主平台（Remote-WSL/Remote-SSH 的宿主就是 Linux → bash）
+      assert.strictEqual(api.scriptFlavorFor("win32", "auto"), "powershell");
+      assert.strictEqual(api.scriptFlavorFor("linux", "auto"), "bash");
+      assert.strictEqual(api.scriptFlavorFor("darwin", "auto"), "bash");
+      // 手动覆盖
+      assert.strictEqual(api.scriptFlavorFor("win32", "bash"), "bash");
+      assert.strictEqual(api.scriptFlavorFor("linux", "powershell"), "powershell");
+
+      const opts = {
+        target: "u@h",
+        remoteRoot: "/u1/topprod",
+        dest: "/tmp/my proj",
+        module: "topcust",
+        update: true,
+        deleteLocal: true,
+        noCommit: true,
+        dryRun: true,
+        fromEncoding: "gbk",
+      };
+      const sh = api.buildInitProjectCommandLine("bash", "/ext/path with space", opts);
+      assert.ok(sh.startsWith("bash '"), `应显式用 bash 启动：${sh}`);
+      assert.ok(sh.includes("init-project.sh"), sh);
+      assert.ok(!sh.includes("--yes"), "终端里跑要保留脚本的交互（不应传 --yes）");
+      for (const frag of [
+        "--target 'u@h'",
+        "--remote-root '/u1/topprod'",
+        "--dest '/tmp/my proj'",
+        "--module 'topcust'",
+        "--update",
+        "--delete",
+        "--no-commit",
+        "--dry-run",
+        "--from-encoding 'gbk'",
+      ]) {
+        assert.ok(sh.includes(frag), `bash 命令缺 ${frag}：${sh}`);
+      }
+      // 路径含单引号也要安全
+      const sh2 = api.buildInitProjectCommandLine("bash", "/ext", {
+        target: "a'b",
+        remoteRoot: "/r",
+        dest: "/d",
+      });
+      assert.ok(sh2.includes("'a'\\''b'"), `单引号应转义：${sh2}`);
+
+      const ps = api.buildInitProjectCommandLine("powershell", "C:\\ext dir", {
+        target: "u@h",
+        remoteRoot: "/u1/topprod",
+        dest: "C:\\my proj",
+        update: true,
+      });
+      assert.ok(
+        ps.startsWith("powershell -NoProfile -ExecutionPolicy Bypass -File "),
+        `PowerShell 启动参数不对：${ps}`,
+      );
+      // e2e 跑在 Linux：path.join 用 "/"；真实 Windows 宿主给 "\"，这里与分隔符无关地断言
+      const psNorm = ps.split("\\").join("/");
+      assert.ok(
+        psNorm.includes('"C:/ext dir/scripts/init-project/init-project.ps1"'),
+        `脚本路径应带引号且是单个参数：${ps}`,
+      );
+      assert.ok(psNorm.includes('-Dest "C:/my proj"') && ps.includes("-Update"), ps);
+      assert.ok(!ps.includes("-Yes"), "终端里跑要保留脚本的交互（不应传 -Yes）");
+
+      // 命令已注册且面板门控要求打开工作区
+      const commands = await vscode.commands.getCommands(true);
+      assert.ok(commands.includes("bdl.initProject"), "缺少 bdl.initProject");
+      const pkg = JSON.parse(
+        fs.readFileSync(path.join(ext.extensionPath, "package.json"), "utf8"),
+      );
+      const entry = pkg.contributes.menus.commandPalette.find(
+        (m) => m.command === "bdl.initProject",
+      );
+      assert.ok(entry, "命令面板应有 bdl.initProject");
+      assert.ok(
+        String(entry.when).includes("workspaceFolderCount > 0"),
+        `门控应为需要工作区：${entry.when}`,
+      );
+    });
+
   } finally {
     report();
   }

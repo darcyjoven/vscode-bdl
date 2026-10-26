@@ -1,0 +1,20 @@
+# 由 scripts/init-project 生成：与生产端（Linux/LF）保持一致，避免 Windows 编辑产生空白符差异。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = false
+trim_trailing_whitespace = false
+indent_style = space
+indent_size = 4
+
+[*.{4gl,global,per,sch}]
+indent_style = space
+indent_size = 4
+
+[*.{md,json,yml,yaml,toml,sh,py}]
+indent_size = 2
+
+[*.ps1]
+end_of_line = crlf

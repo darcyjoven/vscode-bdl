@@ -1,105 +1,99 @@
 # init-project —— 从生产服务器初始化 4GL 项目仓库
 
-在 **Ubuntu / WSL** 上跑：从 **RedHat 6.5 类生产服务器**（TiTop 环境）把 `*.4gl` / `*.global` / `*.per`
-取回本地，整理成一个 **git 仓库**，并生成 `.gitignore` / `.gitattributes` / 示例设置。
+在本地把生产代码（`/u1/topprod` 下的 `*.4gl` / `*.global` / `*.per`）拉下来，整理成一个 **git 仓库**，
+并生成 `.gitignore` / `.gitattributes` / `.editorconfig` / 示例设置 / 来源说明。
 
-> **运行位置**：只在**本地 / WSL** 直接执行——**不要把这个脚本放到生产服务器上跑**。
-> 对服务器只做**只读**操作：`find` / `stat` / `ls` / `head` / `base64` / `tar`（结果经 stdout 回传），
-> 不在服务器上写任何文件（**连临时文件都不建**）、不调用任何上传/部署命令（`tiptop`、`rsync`、`scp` 一律不用）。
-> 用 `--print-remote` 可以把将要执行的远端命令原样打印出来审计。
->
-> Windows 版计划中的 `init-project.ps1` 与本脚本**参数同名**（远端命令与模板共用同一套）。
+> **只在本地跑**（WSL/Linux 用 `init-project.sh`，Windows 用 `init-project.ps1`）；
+> 绝不要把这些脚本放到生产服务器上执行。对生产侧只做**只读**操作：
+> Linux 流程是"只读 find + rsync 拉取"；Windows 流程是"只读 find + 一次 tar 打包到 `/u1/out`（用完即删）"。
+> 两者都**不调用** `tiptop`、不上传、不部署。
 
-## 依赖
+## 从 VSCode 里用（推荐）
 
-`ssh`（密钥或 agent，**不支持密码**）、`tar`、`git`、`iconv`、`python3`、`base64`。
-服务器侧只需要：`sh`、`find`、`tar`、`stat`、`base64`、`mktemp`（RH6.5 全都有）。
+命令面板 → **`Genero BDL: 初始化项目（从生产服务器拉取代码）`**：
 
-## 快速开始
+1. 先问"用哪个脚本"：**自动**（按客户端平台）/ 强制 bash / 强制 PowerShell；
+   - Windows 宿主 → PowerShell 脚本；Linux / macOS / **Remote-WSL / Remote-SSH** 宿主 → bash 脚本；
+2. 依次填：SSH 目标、生产根（默认 `/u1/topprod`）、目标目录（默认当前工作区/可选文件夹）；
+3. 选项（多选）：增量更新、删除本地多余、不自动提交、只预演；再选源编码（自动检测 / GBK / BIG5 / 不转码）；
+4. 命令会**打开集成终端执行**脚本 —— 进度、编码报告、删除确认都在终端里完成；
+   命令行同时写入「Genero BDL 任务」输出通道，方便复制重跑。
+
+## 命令行执行
 
 ```bash
-# 交互式（会问：SSH 目标、生产根、本地目录；并展示编码检测结果让你选）
-scripts/init-project/init-project.sh
+# Linux / WSL：rsync 拉取（增量最快）
+scripts/init-project/init-project.sh -t <user@host> -r /u1/topprod -d ~/projects/topprod -y
+scripts/init-project/init-project.sh -t <host> -r /u1/topprod -d <dir> --print-remote   # 审计远端命令
 
-# 一步到位（推荐：编好参数，--yes 不再确认）
-scripts/init-project/init-project.sh \
-  -t tiptop@erp.example.com \
-  -r /u1/toppord \
-  -d ~/projects/toppord \
-  --module topcust,other \
-  -y
+# Windows：生产端 tar → scp 回本地 → 解压 → 清理两端中间文件
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-project/init-project.ps1 `
+  -Target <user@host> -RemoteRoot /u1/topprod -Dest C:\projects\topprod -Yes
 ```
 
-首次会先做**只读预检**：连不上/远根不存在/没有匹配文件都会立刻报错，不会先传一半。
+## 两条流程
 
-## 参数
+### Linux / WSL（`init-project.sh`，rsync）
 
-| 参数 | 说明 |
+```
+连接（老服务器自动 legacy 重试）→ 只读 find 预检（文件数/字节）
+→ rsync 拉取（过滤规则只取 4gl/global/per；排除 .git/.project/42f/bin/tmp… 与 *~ *.bak）
+→ 本地转 UTF-8（样本检测后问；已是 UTF-8 跳过）+ CRLF→LF
+→ git init -b main + 模板 + core.autocrlf=false/core.eol=lf + 提交
+→ 校验 git ls-files --eol 全是 i/lf w/lf
+```
+**更新语义**：默认**只覆盖不删**；`--delete` 才会删本地多余（先列出清单 + 确认；rsync 的排除规则同时保护 `.git/`、模板、`.project/` 和你的其它文件）。
+
+### Windows（`init-project.ps1`，tar + scp）
+
+```
+连接 → 只读 find 预检 → 取样本判编码
+→ 生产端 tar 打包到 /u1/out/<唯一名>.tar.gz（唯一写操作，不碰项目树，用管道喂 tar -T -，不留清单文件）
+→ scp 回本地 <Dest>\.pack\src.tar.gz（.pack/ 已被 .gitignore 排除）
+→ 本地 tar 解压 → 转码/行尾（字节级 .NET，绝不走 Get-Content/Set-Content）
+→ git init + 模板 + 三项换行配置 + 提交
+→ finally：删远端 /u1/out 里那个包 + 本地 .pack 目录（成功失败都清）
+```
+
+## 换行符不会变（关键设置）
+
+生产是 Linux（LF），Windows 编辑后仍保持 LF —— 脚本会自动落地这几项：
+
+| 落点 | 内容 |
 |---|---|
-| `-t, --target` | `user@host` 或 `~/.ssh/config` 别名 |
-| `-p, --port` / `-k, --key` | 端口 / 私钥（默认走 agent 与 `~/.ssh` 默认密钥） |
-| `--legacy-ssh` | 强制用 `ssh-rsa`/SHA-1 兼容（老服务器）；默认**连不上时自动重试一次** |
-| `-r, --remote-root` | 生产根目录（必填） |
-| `-m, --module a,b` | 只取这些顶层模组（默认全部） |
-| `--include '<glob>'` | 改文件匹配（可多次；默认 `*.4gl` / `*.global` / `*.per`） |
-| `-d, --dest` | 目标目录（默认 `~/projects/<远根名>`） |
-| `--branch` | 分支名，默认 `main` |
-| `--from-encoding <gbk\|big5\|euc-cn\|utf-8>` | 跳过"样本检测+询问"，直接按它转码；给 `utf-8` 表示不转 |
-| `--update` | 目标已存在时增量合并（见下） |
-| `--force` | 目标非空也继续（可能与旧文件混在一起，慎用） |
-| `--no-commit` | 只落盘不提交 |
-| `--force-templates` | 覆盖已存在的 `.gitignore` / `.gitattributes` |
-| `--print-remote` | 打印将在服务器上执行的**只读**命令（可单独用，便于审计） |
-| `--dry-run` | 只预检 + 检测编码，不传输不写盘（结束时也会打印远端命令） |
-| `-y, --yes` | 全程不再确认（编码仍用检测结果） |
-| `--keep-tmp` / `-v` | 保留临时 tarball / 详细输出 |
+| `.gitattributes` | `*.4gl` / `*.per` / `*.global` 均 `text eol=lf`；其余 `* -text` |
+| `.editorconfig` | `end_of_line = lf`、`charset = utf-8`、`trim_trailing_whitespace = false` |
+| 仓库 git 配置 | `core.autocrlf=false`、`core.eol=lf`、`core.safecrlf=warn` |
+| `.vscode/settings.example.json` | `"files.eol": "\n"`（复制成 `settings.json` 用；该文件已被忽略） |
+| 运行期校验 | 跑完打印 `git ls-files --eol`（应全 `i/lf w/lf`）与 `git diff --check` |
 
-## 它做了什么
+## 参数（两者同名）
 
-1. **连通性**：默认算法失败时按老服务器（OpenSSH 5.x）兼容参数重试，并提示已启用。
-2. **只读预检**：统计匹配到的文件数与字节数，打印顶层目录名让你核对。
-3. **编码检测**：远端 `head -c 4096 | base64` 取最多 6 个样本，本地用 `detect-encoding.py` 打分
-   （能解码 + 汉字多 + 控制字符少），打印候选与各自解码预览，**问你选哪个**（默认给检测建议）。
-4. **流式取回**：远端 `find … | tar czf - -T -` 直接把 tar.gz 写到 stdout 回传；
-   **服务器上不落任何文件**，也不依赖 rsync。
-5. **解包 + 规范化**：转 UTF-8（**本来就是 UTF-8 的文件跳过**）、CRLF→LF、剔除副作用文件。
-6. **git**：`git init -b main`、写模板、生成来源段落、`git add -A` 后提交
-   （`chore: 从 <host>:<root> 初始化/更新生产代码镜像`）。
-
-### 取数范围（写死在逻辑里的排除）
-
-跳过：`.git` `.svn` `CVS` `node_modules` `42f` `4fd` `bin` `obj` `tmp` `backup` `bak`
-`.project` `.link`，以及 `*~` `*.bak` `*.orig` `*.rej` `*.swp` `.DS_Store` `Thumbs.db`。
-**只打包源文件**（`tar -T 清单`），所以产物/日志不会混进来。
-
-### 生成的文件
-
-```
-<dest>/
-├── .gitignore                 # 忽略 .project/（含 secrets）、编译产物、编辑器临时、.vscode/settings.json
-├── .gitattributes             # 源码一律 LF；*.ps1/.cmd 保留 CRLF；产物标 binary
-├── .vscode/settings.example.json   # 复制成 settings.json 用（该文件已被忽略，避免提交主机/路径）
-├── README-PROJECT.md          # 来源（主机/远根/文件数/时间/编码）+ 重新初始化命令
-└── <模组>/…                   # 与生产完全一致的相对路径
-```
-
-## 更新（`--update`）
-
-- 用生产端文件**覆盖**本地同名文件；
-- 生产端已删除的**源文件**（仅限取数范围内）会列出来问你"本地是否也删"——**绝不碰** `.git/`、模板、`.vscode/`、`.project/` 与你自己添加的文件；
-- 已存在的 `.gitignore` / `.gitattributes` / `README-PROJECT.md` 不会被覆盖（要刷用 `--force-templates`）。
+| Linux | Windows | 说明 |
+|---|---|---|
+| `-t/--target` | `-Target` | `user@host` 或 `~/.ssh/config` 别名（只支持密钥/agent） |
+| `-r/--remote-root` | `-RemoteRoot` | 生产根，默认 `/u1/topprod` |
+| `-d/--dest` | `-Dest` | 目标目录 |
+| `-m/--module` | `-Module` | 只取某些顶层模组 |
+| `--update` | `-Update` | 增量更新（默认模式检测：目标已存在时必须给） |
+| `--delete` | `-Delete` | 删除本地多余源文件（默认不删） |
+| `--from-encoding` | `-FromEncoding` | 跳过检测与询问（`utf-8` = 不转码） |
+| `--no-commit` | `-NoCommit` | 不自动提交 |
+| `--print-remote` | `-PrintRemote` | 只打印将在服务器上执行的命令（审计） |
+| `--dry-run` | `-DryRun` | 只预检/检测，不拉取不写盘 |
+| `-y/--yes` | `-Yes` | 不再交互确认（在终端里跑时通常**不要**加，保留编码/删除确认） |
+| `--progress-protocol` | `-ProgressProtocol` | 进度改成 `进度\t阶段\t信息` 机器格式（默认是终端可读的 `[阶段] 信息`） |
 
 ## 排障
 
 | 现象 | 处理 |
 |---|---|
-| `no matching host key type / kex` | 老服务器：脚本会自动用 legacy 重试；也可显式 `--legacy-ssh` |
-| `Permission denied (publickey)` | 只支持密钥：先 `ssh -i <key> <target> true` 或 `ssh-agent` 加好 key |
-| 中文全是乱码 | 编码选错：先 `--dry-run` 看检测报告（含 alt 预览），再用 `--from-encoding big5`（或 gbk）重跑 |
-| `tar: Removing leading '/'` | 已修（远端输出相对路径）；若在旧版本看到，更新脚本即可 |
-| 目标目录已有内容 | 正常重跑用 `--update`；确实要混着用才加 `--force` |
-| 想看远端到底会执行什么 | `scripts/init-project/init-project.sh -t <host> -r <root> --print-remote` |
-| 想手工核对选中了哪些文件 | `ssh <host> "cd <root> && find . \( -name 42f -o -name 4fd -o -name bin \) -prune -o -type f \( -name '*.4gl' -o -name '*.global' -o -name '*.per' \) -print"` |
+| `no matching host key type / kex` | 老服务器：脚本自动 legacy 重试；也可显式 `--legacy-ssh` / `-LegacySsh` |
+| `Permission denied (publickey)` | 只支持密钥：先 `ssh -i <key> <target> true` 或加好 ssh-agent |
+| 中文乱码 | 先用 `--dry-run`/`-DryRun` 看编码报告（含候选与预览），再用 `--from-encoding big5` 重跑 |
+| Windows 组策略禁止脚本 | 命令会把命令行写进输出通道，复制到终端手工执行（或让管理员放开 ExecutionPolicy） |
+| 目标目录已有内容 | 用 `--update`/`-Update`；确实要混着用才加 `--force`/`-Force` |
+| 远端 `/u1/out` 里发现残留包 | 说明上次被强杀（`finally`/`trap` 没跑到）；删掉即可，脚本每次用唯一名不冲突 |
 
 ## 自测（不需要真服务器）
 
@@ -107,7 +101,10 @@ scripts/init-project/init-project.sh \
 scripts/init-project/test-local.sh
 ```
 
-造一棵"远端"fixture + 假 `ssh`，把整条链路（预检 → 编码检测 → 流式取回 → 解包 → 规范化 → git）
-跑一遍并逐项断言（取数/排除、GBK→UTF-8、CRLF→LF、模板、提交、增量更新与删除同步），
-外加**只读审计**（远端命令里不许出现重定向/`rm`/`mkdir`/`tiptop`/`rsync`/`scp`/`upload`/`deploy`），
-当前 **29/29 通过**。
+造一棵"远端"fixture + 假 ssh，跑通 rsync 全链路并逐项断言：取数/排除、GBK→UTF-8、CRLF→LF、
+模板与换行配置、`git ls-files --eol` 全 LF、默认不删 / `--delete` 才删（含"答 n 保留"）、
+远端只读审计（无重定向、无 `rm/mkdir/mktemp/cp/mv`、无上传/部署）。
+当前 **36/36 通过**。
+
+> Windows 版 `init-project.ps1` 已做静态检查（括号配平、无 PS7-only 语法），但**未在本机实跑**
+> （开发环境无 PowerShell）；建议先在非生产环境用 `-DryRun` 跑一遍。

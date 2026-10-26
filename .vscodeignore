@@ -6,6 +6,7 @@ node_modules/**
 out/**
 coverage/**
 scripts/**
+!scripts/init-project/**
 .github/**
 *.vsix
 *.log

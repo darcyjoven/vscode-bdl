@@ -257,7 +257,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I2 | 平台 VSIX 内置二进制 | VSC | 每个平台 VSIX 打包对应的 `bdl-lsp` + `tiptop`（`bin/`），装完即用、无需另装 |
 | I3 | 二进制路径覆盖 | VSC | `bdl.server.path` / `bdl.tools.path` 指定外部二进制（开发期或自定义构建） |
 | I4 | 轻量档默认 | VSC | 默认不连库、不写工作区、不起后台任务；三个总开关默认 false，命令用 `when` 门控 |
-| I5 | 命令（31 条） | VSC | 完整操作清单见 [COMMANDS.md](COMMANDS.md)（面板/按钮/后台）；命令表见 [§10.3](#103-vscode-命令31-条) |
+| I5 | 命令（32 条） | VSC | 完整操作清单见 [COMMANDS.md](COMMANDS.md)（面板/按钮/后台）；命令表见 [§10.3](#103-vscode-命令32-条) |
 | I6 | 侧边栏视图（2 个） | VSC | 「链接资料」、「数据库字段」TreeView，按开关显隐 |
 | I7 | 进度通知 | VSC | 解析 tiptop stderr 进度协议，展示阶段与计数，支持取消 |
 | I8 | 输出与追踪 | VSC | 「Genero BDL」输出通道 + 「Genero BDL 追踪」LSP 消息通道（`bdl.trace.server`：off/messages/verbose） |
@@ -297,11 +297,12 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | `tiptop deploy` | `-target` `-config` `-workspace` `-dry-run` `-no-compile` `-no-upload` `-json` `-list` `-version` `[文件...]` |
 | `tiptop version` | 打印版本 |
 
-### 10.3 VSCode 命令（31 条）
+### 10.3 VSCode 命令（32 条）
 
 | 分组 | 命令 ID / 标题 |
 |---|---|
 | 排障 | `bdl.restartServer` 重启语言服务器 · `bdl.showServerInfo` 显示语言服务器信息（含「打开日志」） · `bdl.forceParseCurrentFile` 强制解析当前文件（仅 `bdl.parseSkipped`） |
+| 项目初始化 | `bdl.initProject` 初始化项目（从生产服务器拉取代码）：按宿主平台选 bash/PowerShell 脚本（命令里可强制），在集成终端里执行 |
 | 链接资料 | `bdl.link.importCsv` 从 CSV 导入 · `bdl.link.syncModules` 按模组更新 · `bdl.link.syncAll` 全量更新 · `bdl.link.status` 查看状态 · **`bdl.link.updateFromDb` 从数据库更新（唯一的「更新」入口：视图标题栏 + 面板；仅已配库 + 已有全量资料时出现）** · `bdl.links.refresh` 刷新 · `bdl.links.references` 反查引用程序（面板限 `.4gl`） · `bdl.links.moreRefs` 显示更多反查结果（隐藏） · `bdl.migrateLinkDir` 迁移项目资料目录（隐藏）。删掉了 `syncCurrent` / `resync` |
 | 编译/链接/预览（生产端） | `bdl.build.4gl.preview` 4GL 预演编译 · `bdl.build.4gl.compile` 4GL 编译 · `bdl.build.4gl.link` 4GL 链接（无 MAIN 时禁用） · `bdl.build.per.preview` Form 预演编译 · `bdl.build.per.compile` Form 编译 · `bdl.build.per.form` Form 预览画面 |
 | 数据库字段 | `bdl.schema.import` 从 CSV 导入 · `bdl.schema.syncAll` 从数据库同步 · `bdl.schema.syncSelected` 同步已选中的表 · `bdl.schema.selectAll` 全选当前列表 · `bdl.schema.clearSelection` 清除勾选 · `bdl.schema.filter` 正则过滤表名 · `bdl.schema.clearFilter` 清除过滤 · `bdl.schema.refresh` 刷新 · 右键/内联：`bdl.schema.syncTable` 同步选中的表 · `bdl.schema.copyColumn` 复制列定义 · `bdl.schema.openTable` 打开表资料文件。已删掉 `syncFiltered` 并把三条改为只走右键 |
@@ -401,7 +402,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | L16 | `npm run test:e2e` | 无头 VSCode 端到端 49 用例 |
 | L17 | `scripts/package-vsix.mjs` | 平台 VSIX 打包，内置对应平台二进制与 `BUILD-INFO.json` |
 | L18 | CI 自检 | 构建 + 单测 + 二进制自检 + VSIX 内容自检；`bundle-vsix.yml` 出 4 平台包（`win32-x64` / `linux-x64` / `darwin-x64` / `darwin-arm64`） |
-| L19 | 项目初始化脚本 | `scripts/init-project/init-project.sh`（本地直接执行）：从生产服务器（RH6.5 类）流式取回 4gl/global/per，转 UTF-8 + 归一行尾，生成 git 仓库与 `.gitignore`/`.gitattributes`/示例设置/来源段落。**远端只读**（find/stat/head/base64/tar，不写文件、不上传/部署；`--print-remote` 可审计），离线自测 `test-local.sh`（29 项） |
+| L19 | 项目初始化（从生产服务器拉取代码） | VSC | 命令 `bdl.initProject`（面板，需打开工作区）：先问用哪个脚本（自动/强制），再收集 SSH 目标/生产根（默认 `/u1/topprod`）/目标目录/选项/编码，**在集成终端里执行**。脚本：Linux/WSL `init-project.sh`（只读 find + **rsync 拉取**；默认只覆盖不删，`--delete` 才删并先列清单确认）；Windows `init-project.ps1`（只读 find + 生产端 **tar** 到 `/u1/out` → **scp** 回 `<Dest>\.pack` → 解压 → **清理两端临时包**）。两者都转 UTF-8（样本检测+询问）、归一行尾、生成 `.gitignore`/`.gitattributes`/`.editorconfig`/示例设置/来源段落，并设 `core.autocrlf=false`/`core.eol=lf`；跑完校验 `git ls-files --eol` 全 `i/lf w/lf`。离线自测 `test-local.sh`（36 项） |
 
 ---
 

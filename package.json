@@ -54,7 +54,8 @@
     "onCommand:bdl.schema.syncAll",
     "onCommand:bdl.schema.syncSelected",
     "onCommand:bdl.schema.selectAll",
-    "onCommand:bdl.schema.clearSelection"
+    "onCommand:bdl.schema.clearSelection",
+    "onCommand:bdl.initProject"
   ],
   "contributes": {
     "languages": [
@@ -682,6 +683,11 @@
         "title": "数据库字段：清除勾选",
         "category": "Genero BDL",
         "icon": "$(close)"
+      },
+      {
+        "command": "bdl.initProject",
+        "title": "初始化项目（从生产服务器拉取代码）",
+        "category": "Genero BDL"
       }
     ],
     "views": {
@@ -884,6 +890,10 @@
         {
           "command": "bdl.schema.openTable",
           "when": "false"
+        },
+        {
+          "command": "bdl.initProject",
+          "when": "workspaceFolderCount > 0"
         }
       ],
       "editor/title": [

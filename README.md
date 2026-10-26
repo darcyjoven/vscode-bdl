@@ -2117,10 +2117,13 @@ npm run build            # 打 bundle（esbuild）
 npm run package          # 打 VSIX（平台包内置 bdl-lsp / tiptop，需要先构建它们）
 npm run test:e2e         # 无头 VSCode 端到端测试（50 个用例）
 
-# 从生产服务器初始化一个 4GL 项目仓库（**在本地/WSL 直接执行**，详见 scripts/init-project/README.md）
-scripts/init-project/init-project.sh -t <user@host> -r <生产根> -d <本地目录> -y
-scripts/init-project/init-project.sh -t <host> -r <root> --print-remote   # 审计：远端只跑只读命令
-scripts/init-project/test-local.sh   # 该脚本的离线自测（不需要服务器，29 项）
+# 从生产服务器初始化一个 4GL 项目仓库：
+#   ① VSCode 命令面板 →「Genero BDL: 初始化项目（从生产服务器拉取代码）」
+#      （按客户端平台自动选脚本：Windows→PowerShell，Linux/WSL→bash；在集成终端里执行）
+#   ② 或命令行（详见 scripts/init-project/README.md）
+scripts/init-project/init-project.sh -t <user@host> -r /u1/topprod -d <本地目录> -y   # Linux/WSL：rsync 拉取
+scripts/init-project/init-project.sh -t <host> -r /u1/topprod --print-remote          # 审计：远端只跑只读命令
+scripts/init-project/test-local.sh   # 离线自测（不需要服务器，36 项）
 ```
 
 - 仓库只保留 VSCode 交付物；**计划、待办、测试脚本、过程记录都在 `bdl-lsp` 仓库**；
