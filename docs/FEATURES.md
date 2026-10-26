@@ -172,7 +172,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | F13 | `function-not-found` 启用条件 | LSP | 必须有链接资料且索引预热完成；资料缺失/链内文件不在磁盘/索引未就绪 → 一律不报（宁漏勿误） |
 | F14 | 资料自身诊断 | LSP | `link-data-invalid`（JSONL 坏了 → 停用并提示重导）；都落在资料文件上，不污染源码 |
 | F15 | 链接资料数据服务 | LSP | 自定义请求 `bdl/linkTree`、`bdl/linkReferences`（反查默认不查、分页 50） |
-| F16 | 链接资料配置 | LSP | `bdl.link.mode`（off/file/db；兼容旧 `enable`）/ `dataDir` / `moduleRoots` / `globalModules` |
+| F16 | 链接资料配置 | LSP | `bdl.link.mode`（off/file/db）/ `dataDir` / `moduleRoots` / `globalModules` |
 
 ### 6.3 界面与操作（VSC）
 
@@ -211,7 +211,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | G11 | 记录成员校验 | LSP | `record-member-unknown`（默认 off）；`RECORD LIKE t.*` 用字段资料展开成员 |
 | G12 | 列补全 | LSP | `r.` 补全带每列类型与中文说明 |
 | G13 | 字段资料数据服务 | LSP | 自定义请求 `bdl/schemaTables`（服务端正则过滤 + `total/matched/returned`）、`bdl/schemaColumns`（展开才取） |
-| G14 | 字段资料配置 | LSP | `bdl.schema.mode`（off/file/db；兼容旧 `enable`）/ `bdl.schema.dataDir`（默认 `.project/schema`） |
+| G14 | 字段资料配置 | LSP | `bdl.schema.mode`（off/file/db）/ `bdl.schema.dataDir`（默认 `.project/schema`） |
 
 ### 7.3 界面与操作（VSC）
 
@@ -257,7 +257,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I2 | 平台 VSIX 内置二进制 | VSC | 每个平台 VSIX 打包对应的 `bdl-lsp` + `tiptop`（`bin/`），装完即用、无需另装 |
 | I3 | 二进制路径覆盖 | VSC | `bdl.server.path` / `bdl.tools.path` 指定外部二进制（开发期或自定义构建） |
 | I4 | 轻量档默认 | VSC | 默认不连库、不写工作区、不起后台任务；三个总开关默认 false，命令用 `when` 门控 |
-| I5 | 命令（35 条） | VSC | 见 [§10.3](#103-vscode-命令35-条)；排障三件套 + 强制解析 + 链接资料 + 数据库字段 + **编译/链接/预览（生产端）** + 上传 |
+| I5 | 命令（35 条） | VSC | 完整操作清单见 [COMMANDS.md](COMMANDS.md)（面板/按钮/后台）；命令表见 [§10.3](#103-vscode-命令35-条) |
 | I6 | 侧边栏视图（2 个） | VSC | 「链接资料」、「数据库字段」TreeView，按开关显隐 |
 | I7 | 进度通知 | VSC | 解析 tiptop stderr 进度协议，展示阶段与计数，支持取消 |
 | I8 | 输出与追踪 | VSC | 「Genero BDL」输出通道 + 「Genero BDL 追踪」LSP 消息通道（`bdl.trace.server`：off/messages/verbose） |

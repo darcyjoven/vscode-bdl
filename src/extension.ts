@@ -112,7 +112,7 @@ interface ExtensionApi {
   buildTiptopArgs: typeof buildTiptopArgs;
   /** §0d：文件相对工作区根路径（e2e 用）。 */
   relativePathFor: typeof relativePathFor;
-  /** §0d：设置三态与开关（e2e 断言旧键兼容）。 */
+  /** §0d：设置三态与开关（e2e 断言模式/开关语义）。 */
   linkMode: typeof linkMode;
   schemaMode: typeof schemaMode;
   transport: typeof transport;

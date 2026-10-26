@@ -42,7 +42,7 @@ function cfg(): vscode.WorkspaceConfiguration {
   return vscode.workspace.getConfiguration("bdl");
 }
 
-/** 读出当前设置（缺省值来自 package.json；transport 含旧键兼容）。 */
+/** 读出当前设置（缺省值来自 package.json）。 */
 export function readDeployValues(): DeployValues {
   const c = cfg();
   const str = (key: string, def = ""): string => {

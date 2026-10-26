@@ -2,7 +2,7 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 
-import { linkEnabled, linkMode, schemaEnabled, schemaMode } from "./settings";
+import { linkMode, schemaMode } from "./settings";
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -166,9 +166,7 @@ function collectSettings(): Record<string, unknown> {
     },
     // 链接资料（P7-D）：同样必须显式转交（collectSettings 是白名单）。
     link: {
-      // §0d：模式三态（off/file/db），服务端仍只认 enable 布尔——这里换算过去。
-      // 旧 `bdl.link.enable` 由 settings.linkMode() 兼容读取。
-      enable: linkEnabled(),
+      // §0d：新模式三态（off/file/db）。服务端按 mode 判断是否加载资料。
       mode: linkMode(),
       dataDir: cfg.get<string>("link.dataDir") ?? ".project/link",
       moduleRoots: cfg.get<string[]>("link.moduleRoots") ?? [],
@@ -180,8 +178,7 @@ function collectSettings(): Record<string, unknown> {
       enable: cfg.get<boolean>("index.enable") ?? true,
     },
     schema: {
-      // §0d：模式三态 → enable 布尔；旧 `bdl.schema.enable` 兼容读取。
-      enable: schemaEnabled(),
+      // §0d：新模式三态（off/file/db）。
       mode: schemaMode(),
       // P2-1/W6：资料目录（默认 .project/schema，由 tiptop schema import 生成；旧 .project/.schema 只读兼容）。
       dataDir: cfg.get<string>("schema.dataDir") ?? ".project/schema",
@@ -337,13 +334,9 @@ const RESTART_KEYS = [
   "bdl.server.path",
   "bdl.server.logLevel",
   "bdl.generoVersion",
-  // 模式决定服务器启动时是否加载 .project/ 资料，热切换会造成“半开”状态，
-  // 统一要求重启。旧 `bdl.link.enable` 也一并算上（兼容老配置）。
+  // 链接资料模式决定服务器启动时是否加载资料与采集调度，热切换会造成“半开”状态，
+  // 统一要求重启。字段资料模式是热切换（服务器按新值重载），所以不在这个清单里。
   "bdl.link.mode",
-  "bdl.link.enable",
-  // 字段资料的模式是热切换：服务器会按新开关重载资料（与旧的 schema.enable 行为一致）；
-  // 链接资料因为还带采集调度，仍要求重启。
-  "bdl.schema.enable",
 ];
 
 /** 注册配置变化监听：需要重启的键提示重启，其余自动同步。 */

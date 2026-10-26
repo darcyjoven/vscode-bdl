@@ -102,7 +102,7 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 | D3 | 生产服务器填 host/port/user（默认示例 `erp`/`22`/`tiptop`）；**SSH 密钥登录，不支持密码**；保留 `strictHostKey` |
 | D4 | 上传**只允许单文件**（当前打开文件，按"项目根目录 → 生产根目录"映射路径）；**删除整包/批量同步** |
 | D5 | **编译/链接/预览在生产服务器上执行（ssh）**；**不自动上传**——用户自己决定先点「上传当前文件」再点编译/链接/预览 |
-| D6 | link/schema 做**三态** `bdl.link.mode` / `bdl.schema.mode` = `off|file|db`（`file`=只用 CSV 导入，`db`=可连库；代码兼容旧 `enable=false`→`off`） |
+| D6 | link/schema 做**三态** `bdl.link.mode` / `bdl.schema.mode` = `off|file|db`（`file`=只用 CSV 导入，`db`=可连库）。**不保留旧键兼容**（未发布，用户 2026-10-26 决定删除全部旧值兼容） |
 | D7 | 删除：整包部署命令、`bdl.deploy.target`、「列出部署目标」、`include/exclude/delete`、`prod.deploy.compile4gl/compilePer`（由新的编译命令取代） |
 | D8 | 保留：上传方式 `transport`（`off|rsync|scp`，rsync 主 scp 备）、`localRoot`（项目根目录，默认 `.`）、`remoteRoot`（生产根目录，示例 `/u1/toppord`）、`link.moduleRoots`/`globalModules`、schema `batchSize`/`timeoutSec` |
 | D9 | 基本设置（现有 22 键：server/tools 路径、日志、trace、generoVersion、diagnostics、format、index、globals/perRoots、builtins、ignore、limits）**维持不变** |
@@ -128,8 +128,8 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 
 **状态（2026-10-26，已实现并全绿）**：**T1–T9 全部完成**。
 
-- 设置重构为 **3 组 55 键**（基本设置 22 / 账号、生产环境、配置 16 / 上传编译链接 17）；新增 `bdl.prod.oracle.service`、`bdl.link.mode`/`bdl.schema.mode`（off/file/db）、`bdl.prod.deploy.transport`（off/rsync/scp）、`bdl.build.enable` + 6 组 `enable`/`command`；删除整包部署、`deploy.target`、列出目标、`include`/`exclude`/`delete`/`compile4gl|Per`；旧键（`link.enable`/`schema.enable`/旧 6 个 build 键）仍兼容读取。
-- **bdl-lsp 也认 `mode`**（`SchemaSettings.Mode`/`LinkSettings.Mode`，mode 优先于旧 enable；`Manager.merge` 支持非空覆盖 `off`），并加了单测。
+- 设置重构为 **3 组 55 键**（基本设置 22 / 账号、生产环境、配置 16 / 上传编译链接 17）；新增 `bdl.prod.oracle.service`、`bdl.link.mode`/`bdl.schema.mode`（off/file/db）、`bdl.prod.deploy.transport`（off/rsync/scp）、`bdl.build.enable` + 6 组 `enable`/`command`；删除整包部署、`deploy.target`、列出目标、`include`/`exclude`/`delete`/`compile4gl|Per`。**不保留任何旧键兼容**：`link.enable`/`schema.enable`、旧 6 个 build 键、`deploy.target` 等一律不再读取（未发布）。
+- **bdl-lsp 也认 `mode`**（`SchemaSettings.Mode`/`LinkSettings.Mode`；服务端另有 `enable` 布尔入口，供 Zed 等直接配置 LSP 的客户端使用，`mode` 非空时优先），并加了单测。
 - 插件：命令 37 → **35**（删除 2 条），上传只剩「上传当前文件 / 预演上传」（单文件）；编译/链接/预览改走 `tiptop exec`（生产端 ssh，不自动上传）；**只有 4GL 链接弹 `${name}`**；视图按钮图标化 + 编译图标 `$(play)`；`dbctx` 新增 `bdl.link.enabled`/`modeDb`/`schema.enabled`/`schema.modeDb`/`upload.enabled`/`build.enabled` 门控。
 - 验证：bdl-lsp 全量测试、tiptop 全量测试、`npm run typecheck`、**e2e 49/49** 全绿；`tiptop upload/exec -dry-run` 实跑验证。
 - **剩余**：真机连生产服务器验证上传/编译/链接/预览（本地无法连）——建议按下面清单在 Windows 上过一遍。
@@ -142,16 +142,17 @@ link 却读 `.project/link/secrets.json`。原因：`oradb.QueryCSV` 用传入�
 | V4 | 4GL「链接」按钮（无 MAIN 的文件） | 按钮禁用/本地直接报错，不发 ssh |
 | V5 | Form「预览画面」 | 远程执行 `cd ${path} && r.gf ${name} 2 p`（会调起本地 GUI） |
 
-> 已知限制：旧键兼容只能对"老 settings.json 里已有的值"生效——VSCode 不允许写入
-> 未注册的键，所以 e2e 里无法覆盖该路径（有单测覆盖服务器侧 mode 优先级）。
+> 旧键兼容已**全部删除**（未发布，用户 2026-10-26 决定）：插件只读 3 组 55 键里的当前键。
+> 服务器侧仍保留 `enable` 布尔入口，因为 Zed 扩展是把 `lsp.bdl-lsp.settings` 原样透传的，
+> 其文档用的是 `enable`；是否也统一成 `mode` 待你决定。
 
 | # | 事项 | 验收 |
 |---|---|---|
-| ✅ T1 | 设置重构：`package.json` 改成 3 组；新增/删除键；`bdl.link.mode`/`bdl.schema.mode` 三态；build 6 键拆成 `enable`+`command`；保留旧键兼容读取（`enable`、旧 6 键） | 设置面板 3 组；旧 `settings.json` 不失效；键数/文档一致 |
+| ✅ T1 | 设置重构：`package.json` 改成 3 组；新增/删除键；`bdl.link.mode`/`bdl.schema.mode` 三态；build 6 键拆成 `enable`+`command`；**不留旧键兼容**（未发布） | 设置面板 3 组；键数/文档一致 |
 | ✅ T2 | tiptop 新增远程执行：`tiptop exec`——读 deploy 配置 → `ssh` 在**生产根目录**执行命令（模板里的 `cd ${path}` 由此生效）→ stdout/stderr 流式回传 + 退出码；`-dry-run`/`-json`。**不自动上传**（用户自己决定先上传） | 本地无法测真机，需 Windows/生产服务器复测；单测覆盖配置解析、路径映射、缺配置报错 |
 | ✅ T3 | 单文件上传：`tiptop upload -file <相对路径>`（当前文件 → `remoteRoot/<相对路径>`），rsync 主/scp 备（scp 前先 `mkdir -p`）；无整包、无 include/exclude/delete | 单文件落到正确远端路径；不传其它文件 |
 | ✅ T4 | 插件：删除 `bdl.deploy`（整包）、`bdl.deploy.target`、`bdl.deployListTargets`；改名/保留「上传当前文件」「预演上传」；6 条编译/链接/预览命令改调 `tiptop exec`（**不再本地 spawn**，占位符仍在插件侧展开，输出仍进「Genero BDL 编译」） | 命令面板与工具栏只剩单文件上传 + 6 条远程命令；输出完整 |
-| ✅ T5 | 兼容与迁移说明：旧 `link.enable`/`schema.enable`/`deploy.target`/`include/exclude/delete`/`compile4gl|Per` 的处理（映射或忽略 + README 提示） | 升级后旧配置行为可预期 |
+| ✅ T5 | 旧值的处理：**全部删除、不做兼容**（未发布）；README/FEATURES 只写当前键 | 文档里不再出现旧键 |
 | ✅ T6 | 测试：tiptop exec/upload 单测（dry-run、路径映射、缺配置）；插件 e2e（命令注册、3 组设置、门控、上传预演） | 全绿 |
 | ✅ T7 | 文档：README（三档/设置/命令/FAQ）、三份 `FEATURES.md`、本文件、`OPEN-ITEMS.md` | 无死链、口径一致 |
 | ✅ T8 | 图标化：`bdl.schema.filter` / `bdl.schema.refresh` / `bdl.schema.import` / `bdl.links.resync` / `bdl.link.updateFromDb` 加 `icon`；`bdl.build.4gl.compile`、`bdl.build.per.compile` 改 `$(play)`（具体 codicon 见 OPEN-ITEMS S-k） | 视图标题栏只显示图标；编译按钮是运行形状 |
@@ -205,6 +206,29 @@ select zta01 table_name,
 | ✅ T11 | 保留 `-query` 覆盖；`-owner` 语义在文档里标注"仅自定义/通用 SQL" | 非 TiTop 环境不被破坏 |
 | ✅ T12 | 文档：tiptop README/FEATURES + 插件 README/FEATURES 写清"说明来自 DS.GAQ_FILE"、需要的权限与账号 | 用户能自查权限；命令都在文档里 |
 | ✅ T13 | 字典表缺失的友好报错：识别 ORA-00942 并提示「TiTop 字典表（DS.ZTA_FILE/DS.GAQ_FILE）不存在，请改用 CSV 导入」 | 非 TiTop 库/权限不足时不会只抛原始 ORA 码 |
+
+---
+
+## 0g. 命令清理（2026-10-26 待你圈定）
+
+**当前操作清单**（命令面板 / 编辑器按钮 / 视图按钮 / 右键 / 后台任务）已整理成
+[docs/COMMANDS.md](COMMANDS.md)：35 条命令（面板可见 33、隐藏 2）、编辑器按钮 7 个、
+视图标题栏 10 个、视图项 5 个、输出通道 6 个、上下文键 11 个。
+
+**待决策**：COMMANDS.md §7 的 C1–C10——
+
+- C1 「更新链接资料」3 个同义入口（`syncCurrent` / `links.resync` / `link.updateFromDb`）→ 只留 1 个？
+- C2 字段同步 4 个入口（`syncAll` / `syncSelected` / `syncFiltered` / `syncTable`）→ 合并成 2–3 个？
+- C3 `bdl.links.references` 出现在 3 处 → 去重？
+- C4 `bdl.forceParseCurrentFile` 面板始终可见 → 加 `when: bdl.parseSkipped`？
+- C5 `showOutput` 与 `showServerInfo` 合并？
+- C6 输出通道 6 → 2？
+- C7 `migrateLinkDir` 面板隐藏（通知触发）→ 保持 + 文档写手动路径？
+- C8 `copyColumn` / `openTable` 只留右键？
+- C9 `moreRefs` 保持隐藏（内部）？
+- C10 6 个 build `enable` 开关是否精简为"总开关 + 命令模板"？
+
+你圈定后我改代码 + e2e + 文档，并更新 COMMANDS.md。
 
 ---
 

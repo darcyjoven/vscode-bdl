@@ -35,13 +35,12 @@ type Node =
   | { kind: "moreRefs"; total: number; loaded: number };
 
 /**
- * 链接资料功能开关（`bdl.link.mode`，兼容旧 `bdl.link.enable`）。
+ * 链接资料功能开关（`bdl.link.mode`）。
  *
  * P1-4：**默认关闭**（轻量档：零配置、不连库、不后台跑任务、不往项目写文件）。
  * 显式给默认值是为了不依赖 package.json（两者必须一致：false）。
  */
 export function linkEnabled(): boolean {
-  // §0d：模式三态（off/file/db），旧 bdl.link.enable 由 settings 兼容读取。
   return linkEnabledByMode();
 }
 

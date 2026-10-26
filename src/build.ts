@@ -86,8 +86,8 @@ export function disposeBuild(): void {
 }
 
 /**
- * 取命令模板：设置里的 `.command` 优先，其次兼容旧键 `<lang>.<mode>`，
- * 最后回退内置默认值。
+ * 取命令模板：设置里的 `bdl.build.<lang>.<mode>.command` 优先，
+ * 为空/未设置时回退内置默认值。
  */
 export function buildCommandFor(lang: string, mode: string): string {
   const fromSettings = (buildCommandValue(lang, mode) ?? "").trim();

@@ -910,8 +910,8 @@ tiptop link sync -root . -source file -file /path/to/gal_file.csv
 
 - `bdl.link.mode`（**默认 `off`**）——链接资料三态：`off` 不加载资料、不发
   `function-not-found` / `link-data-*` 诊断、隐藏视图与命令；`file` 只用 CSV 导入；
-  `db` 允许连数据库同步/更新。旧 `bdl.link.enable` 仍兼容读取（`true` → `db`）。
-- `bdl.schema.mode`（**默认 `off`**）——字段资料三态，含义同上；旧 `bdl.schema.enable` 兼容。
+  `db` 允许连数据库同步/更新。
+- `bdl.schema.mode`（**默认 `off`**）——字段资料三态，含义同上。
 - `bdl.deploy.enable`（**默认关**）+ `bdl.prod.deploy.transport`（**默认 `off`**）——
   「上传编译链接」组：两者都满足才出现「上传当前文件 / 预演上传」；
   `bdl.build.enable` 控制六个编译/链接/预览命令（命令在**生产服务器**上执行）。
