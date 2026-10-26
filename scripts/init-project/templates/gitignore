@@ -1,0 +1,38 @@
+# 由 scripts/init-project 生成：只放"生成物 / 本机文件 / 密钥"，源文件一律入库。
+
+# ── 资料目录（tiptop 生成，含 secrets.json 与链接/字段资料）
+.project/
+# 旧布局（只读兼容期可能残留）
+.link/
+.bdl-lsp/
+
+# ── 生产端编译产物（不入库）
+*.42m
+*.42f
+*.4fd
+*.o
+*.a
+*.so
+*.exe
+
+# ── 日志与临时
+*.log
+last-run-*.log
+*.tmp
+*.temp
+.project-init/
+
+# ── 编辑器 / 系统
+*~
+*.bak
+*.orig
+*.rej
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── VSCode：示例可提交，真实 settings 可能含主机/路径，不进库
+.vscode/settings.json
+.vscode/*.local.json

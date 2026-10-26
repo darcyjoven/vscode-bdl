@@ -2115,7 +2115,11 @@ npm install
 npm run typecheck        # 类型检查
 npm run build            # 打 bundle（esbuild）
 npm run package          # 打 VSIX（平台包内置 bdl-lsp / tiptop，需要先构建它们）
-npm run test:e2e         # 无头 VSCode 端到端测试（46 个用例）
+npm run test:e2e         # 无头 VSCode 端到端测试（50 个用例）
+
+# 从生产服务器初始化一个 4GL 项目仓库（详见 scripts/init-project/README.md）
+scripts/init-project/init-project.sh -t <user@host> -r <生产根> -d <本地目录> -y
+scripts/init-project/test-local.sh   # 该脚本的离线自测（不需要服务器）
 ```
 
 - 仓库只保留 VSCode 交付物；**计划、待办、测试脚本、过程记录都在 `bdl-lsp` 仓库**；

@@ -1,0 +1,29 @@
+# 由 scripts/init-project 生成：统一行尾 + 明确二进制，避免 Windows/Ubuntu 互相改写源文件。
+
+# Genero 源码：一律 LF（跨平台一致，diff 不因行尾炸）
+*.4gl     text eol=lf
+*.global  text eol=lf
+*.per     text eol=lf
+*.sch     text eol=lf
+*.txt     text eol=lf
+*.md      text eol=lf
+*.sh      text eol=lf
+*.py      text eol=lf
+*.json    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.toml    text eol=lf
+
+# Windows 脚本保留 CRLF
+*.ps1     text eol=crlf
+*.cmd     text eol=crlf
+*.bat     text eol=crlf
+
+# 二进制 / 产物
+*.42m     binary
+*.42f     binary
+*.4fd     binary
+*.gz      binary
+*.zip     binary
+*.png     binary
+*.vsix    binary

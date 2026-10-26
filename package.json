@@ -936,7 +936,9 @@
     "package": "npm run package:platform",
     "vscode:prepublish": "npm run typecheck && npm run build",
     "package:platform": "npm run typecheck && npm run build && node scripts/package-vsix.mjs",
-    "package:dev": "npm run typecheck && npm run build && node scripts/package-vsix.mjs --dev"
+    "package:dev": "npm run typecheck && npm run build && node scripts/package-vsix.mjs --dev",
+    "init-project": "bash scripts/init-project/init-project.sh",
+    "test:init-project": "bash scripts/init-project/test-local.sh"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
