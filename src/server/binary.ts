@@ -20,7 +20,7 @@ import * as vscode from "vscode";
  *
  * 两者**都必须**存在才能用全功能：LSP 负责语言智能，tiptop 负责
  * "资料从哪来"和"改完怎么送上去"。分离的理由见 bdl-lsp 的
- * docs/PLAN-SEPARATION.md。
+ * docs/FEATURES.md §0 职责与边界。
  */
 export type BinaryKind = "lsp" | "tools";
 

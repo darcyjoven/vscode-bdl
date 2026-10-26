@@ -120,7 +120,16 @@ async function run() {
         "bdl.link.syncAll",
         "bdl.link.status",
         "bdl.links.resync",
-        // P1-2：把旧目录 .link/ 搬到 .project/
+        // W3：链接资料视图的「从数据库更新」
+        "bdl.link.updateFromDb",
+        // W5：本地编译/链接/预览（4GL 与 Form 各三种）
+        "bdl.build.4gl.preview",
+        "bdl.build.4gl.compile",
+        "bdl.build.4gl.link",
+        "bdl.build.per.preview",
+        "bdl.build.per.compile",
+        "bdl.build.per.form",
+        // W6：把旧布局（.link/、.project 根、.project/.schema）搬到 .project/{link,schema,deploy}/
         "bdl.migrateLinkDir",
       ]) {
         assert.ok(commands.includes(id), `缺少命令 ${id}`);
@@ -1059,7 +1068,7 @@ async function run() {
       await cfg.update("prod.deploy.user", "e2e", vscode.ConfigurationTarget.Global);
       await cfg.update("prod.deploy.remoteRoot", "/tmp/e2e", vscode.ConfigurationTarget.Global);
       await cfg.update("deploy.target", target, vscode.ConfigurationTarget.Global);
-      const dest = path.join(root, ".project", "deploy.json");
+      const dest = path.join(root, ".project", "deploy", "deploy.json");
       try {
         const res = await api.ensureDeployConfig(root, "test");
         assert.ok(res.path === dest, `合成的路径应为 ${dest}，实际 ${res.path}`);
@@ -1445,6 +1454,209 @@ async function run() {
         );
       }
     });
+    // W3/W4：按钮门控依据（数据库是否配置、是否已有全量资料）。
+    await test("W3/W4：数据库/资料就绪状态（按钮显隐依据）", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const api = await ext.activate();
+      assert.ok(api.dbReadiness, "应导出 dbReadiness");
+
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      const oracleKeys = [
+        "prod.oracle.host",
+        "prod.oracle.service",
+        "prod.oracle.user",
+      ];
+      fs.rmSync(path.join(root, ".project"), { recursive: true, force: true });
+      for (const key of oracleKeys) {
+        await cfg.update(key, undefined, vscode.ConfigurationTarget.Global);
+      }
+      try {
+        let state = await api.dbReadiness();
+        assert.strictEqual(state.configured, false, "未配 Oracle 时 configured 应为 false");
+        assert.strictEqual(state.linkHasData, false, "没有 links.jsonl 时 linkHasData 应为 false");
+        assert.strictEqual(state.schemaHasData, false, "没有 tables.json 时 schemaHasData 应为 false");
+
+        // 已有全量链接资料（新布局）→ linkHasData
+        fs.mkdirSync(path.join(root, ".project", "link"), { recursive: true });
+        fs.writeFileSync(path.join(root, ".project", "link", "links.jsonl"), "{}\n");
+        state = await api.dbReadiness();
+        assert.strictEqual(state.linkHasData, true, "有 links.jsonl 应视为已有全量链接资料");
+        assert.strictEqual(state.linkDir, ".project/link", `链接目录应为新布局，实际 ${state.linkDir}`);
+
+        // 旧布局也要认（只做过 mode ① 的老工程）
+        fs.rmSync(path.join(root, ".project", "link"), { recursive: true, force: true });
+        fs.writeFileSync(path.join(root, ".project", "links.jsonl"), "{}\n");
+        state = await api.dbReadiness();
+        assert.strictEqual(state.linkHasData, true, "旧布局 links.jsonl 也应认");
+        assert.strictEqual(state.linkDir, ".project", `旧布局目录应为 .project，实际 ${state.linkDir}`);
+
+        // 字段资料（新布局）→ schemaHasData
+        fs.mkdirSync(path.join(root, ".project", "schema"), { recursive: true });
+        fs.writeFileSync(path.join(root, ".project", "schema", "tables.json"), "{}");
+        state = await api.dbReadiness();
+        assert.strictEqual(state.schemaHasData, true, "有 tables.json 应视为已有全量字段资料");
+        assert.strictEqual(state.schemaDir, ".project/schema", `字段目录应为新布局，实际 ${state.schemaDir}`);
+
+        // Oracle 三项配齐 → configured
+        await cfg.update("prod.oracle.host", "127.0.0.1", vscode.ConfigurationTarget.Global);
+        await cfg.update("prod.oracle.service", "E2E", vscode.ConfigurationTarget.Global);
+        await cfg.update("prod.oracle.user", "e2e", vscode.ConfigurationTarget.Global);
+        state = await api.dbReadiness();
+        assert.strictEqual(state.configured, true, "三项配齐时 configured 应为 true");
+      } finally {
+        for (const key of oracleKeys) {
+          await cfg.update(key, undefined, vscode.ConfigurationTarget.Global);
+        }
+        fs.rmSync(path.join(root, ".project"), { recursive: true, force: true });
+      }
+    });
+
+    // W3/W4：门控条件必须真的写进 manifest 的 when（否则按钮不会隐藏）。
+    await test("W3/W4：按钮门控写进 package.json 的 when", async () => {
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const pkg = JSON.parse(
+        fs.readFileSync(path.join(ext.extensionPath, "package.json"), "utf8"),
+      );
+      const menus = JSON.stringify(pkg.contributes.menus);
+      for (const key of ["bdl.db.configured", "bdl.link.hasData", "bdl.schema.hasData"]) {
+        assert.ok(menus.includes(key), `menus.when 应包含 ${key}`);
+      }
+      assert.ok(
+        menus.includes("bdl.link.updateFromDb"),
+        "链接视图标题栏应有「从数据库更新」按钮",
+      );
+    });
+
+    // W5：占位符语义与 MAIN 判定（纯函数，不跑外部命令）。
+    await test("W5：编译占位符与 MAIN 判定", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const api = await ext.activate();
+      assert.ok(
+        api.expandBuildTemplate && api.buildPlaceholders && api.hasMainProgram,
+        "应导出 W5 API",
+      );
+
+      // 模板展开：四个占位符都替换，且不做多余处理。
+      const got = api.expandBuildTemplate(
+        "cd ${path} && r.c2 ${name} && echo ${fullpath} ${fullname}",
+        {
+          path: "axc/4gl",
+          fullpath: "tiptop/axc/4gl",
+          name: "axcp500",
+          fullname: "axcp500.4gl",
+        },
+      );
+      assert.strictEqual(
+        got,
+        "cd axc/4gl && r.c2 axcp500 && echo tiptop/axc/4gl axcp500.4gl",
+      );
+
+      // MAIN 判定：只认独占一行的 MAIN 程序块。
+      assert.strictEqual(api.hasMainProgram("MAIN\n  DISPLAY 1\nEND MAIN\n"), true);
+      assert.strictEqual(api.hasMainProgram("  MAIN  -- 入口\nEND MAIN\n"), true);
+      assert.strictEqual(api.hasMainProgram("FUNCTION f()\nEND FUNCTION\n"), false);
+      assert.strictEqual(api.hasMainProgram("DEFINE main LIKE x\n"), false);
+
+      // 目录层级：tiptop/apm/4gl/axcp500.4gl → path=apm/4gl，fullpath=tiptop/apm/4gl。
+      const dir = path.join(root, "tiptop", "apm", "4gl");
+      fs.mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, "axcp500.4gl");
+      fs.writeFileSync(file, "MAIN\nEND MAIN\n");
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+      const params = api.buildPlaceholders(doc, "custom");
+      assert.strictEqual(params.path, "apm/4gl", `path 应为两层，实际 ${params.path}`);
+      assert.strictEqual(
+        params.fullpath,
+        "tiptop/apm/4gl",
+        `fullpath 应为三层，实际 ${params.fullpath}`,
+      );
+      assert.strictEqual(params.name, "custom");
+      assert.strictEqual(params.fullname, "axcp500.4gl");
+    });
+
+    // W5：预演编译真的执行（占位符 + 工作区根 cwd + 输出到子进程）。
+    await test("W5：预演编译真跑一条命令", async () => {
+      const root = process.env.BDL_E2E_WORKSPACE;
+      assert.ok(root, "缺少 BDL_E2E_WORKSPACE");
+      const cfg = vscode.workspace.getConfiguration("bdl");
+      const dir = path.join(root, "tiptop", "apm", "4gl");
+      fs.mkdirSync(dir, { recursive: true });
+      const file = path.join(dir, "axcp500.4gl");
+      fs.writeFileSync(file, "MAIN\nEND MAIN\n");
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(file));
+      await vscode.window.showTextDocument(doc);
+
+      const marker = path.join(root, "build-marker.txt");
+      fs.rmSync(marker, { force: true });
+      // 用 echo + 重定向（cmd 与 sh 都支持），避免跨平台引号问题。
+      const tpl = "echo ${name} ${path} ${fullpath}>build-marker.txt";
+      await cfg.update(
+        "build.4gl.preview",
+        tpl,
+        vscode.ConfigurationTarget.Global,
+      );
+      try {
+        const extApi = await vscode.extensions
+          .getExtension("darcyjoven.4gl-full")
+          .activate();
+        assert.strictEqual(
+          extApi.buildCommandFor("bdl.build.4gl.preview"),
+          tpl,
+          "设置里的模板应被读到",
+        );
+        // 显式传文件 uri：不依赖"当前激活编辑器"（headless 下更稳）。
+        await vscode.commands.executeCommand("bdl.build.4gl.preview", doc.uri);
+        assert.ok(fs.existsSync(marker), "预演编译应真的执行了命令（应生成 marker）");
+        const text = fs.readFileSync(marker, "utf8").trim();
+        assert.strictEqual(
+          text,
+          "axcp500 apm/4gl tiptop/apm/4gl",
+          `占位符展开或 cwd 不对：${text}`,
+        );
+      } finally {
+        await cfg.update(
+          "build.4gl.preview",
+          undefined,
+          vscode.ConfigurationTarget.Global,
+        );
+        fs.rmSync(marker, { force: true });
+      }
+    });
+
+    // W5：六个按钮与设置键都写进 manifest，链接按钮带 MAIN 门控。
+    await test("W5：编译按钮与设置写进 manifest", async () => {
+      const ext = vscode.extensions.getExtension("darcyjoven.4gl-full");
+      const pkg = JSON.parse(
+        fs.readFileSync(path.join(ext.extensionPath, "package.json"), "utf8"),
+      );
+      const ids = [
+        "bdl.build.4gl.preview",
+        "bdl.build.4gl.compile",
+        "bdl.build.4gl.link",
+        "bdl.build.per.preview",
+        "bdl.build.per.compile",
+        "bdl.build.per.form",
+      ];
+      const editorMenus = JSON.stringify(pkg.contributes.menus["editor/title"]);
+      for (const id of ids) {
+        assert.ok(editorMenus.includes(id), `编辑器工具栏应有 ${id}`);
+      }
+      assert.ok(
+        JSON.stringify(pkg.contributes.menus).includes("bdl.build.hasMain"),
+        "4GL 链接按钮应有 MAIN 门控",
+      );
+      const props = pkg.contributes.configuration.flatMap((sec) =>
+        Object.keys(sec.properties),
+      );
+      for (const id of ids) {
+        assert.ok(props.includes(id), `设置应包含 ${id}`);
+      }
+    });
+
   } finally {
     report();
   }
@@ -1465,7 +1677,7 @@ function fireAndForget(command, ...args) {
 
 /** 写一份最小字段资料夹具（两条表）。多个用例共用，避免复制粘贴。 */
 function writeSchemaFixture(root) {
-  const schemaDir = path.join(root, ".project", ".schema");
+  const schemaDir = path.join(root, ".project", "schema");
   fs.mkdirSync(path.join(schemaDir, "tables"), { recursive: true });
   fs.writeFileSync(
     path.join(schemaDir, "tables.json"),

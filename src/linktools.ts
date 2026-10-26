@@ -2,7 +2,7 @@
 //
 // 设计：
 //   - **只由用户显式触发**：用户明确要求"不要无感知后台同步"，插件不做定时任务；
-//   - 会写项目资料的动作先用 `-dry-run` 拿到"受影响作业 N 个"，确认后再真跑；
+//   - 写项目资料的动作**直接执行**（W2：不再预演；预演只留给编译类命令）；
 //   - 没配置数据库时给明确提示（打开设置 / 改用 CSV 导入），不静默失败；
 //   - 输出进专用通道，"为什么失败"能直接看到。
 import { spawn } from "node:child_process";
@@ -11,6 +11,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 
 import { currentTools } from "./client";
+import { refreshDataContexts } from "./dbctx";
 import { resolveTools } from "./server/binary";
 
 /** 扩展安装目录，用于定位内置的 tiptop（注册命令时写入）。 */
@@ -251,12 +252,23 @@ export function workspaceRoot(): string | undefined {
   return folders && folders.length > 0 ? folders[0].uri.fsPath : undefined;
 }
 
-/** 项目资料目录名（默认 `.project`，旧项目可能配了 `.link`）。 */
+/**
+ * `.project` 项目资料根目录（W6）：只放 `secrets.json` 一个文件，
+ * link/schema/deploy 各自在它的子目录下。
+ */
+export const PROJECT_DIR = ".project";
+
+/**
+ * 链接资料目录名（相对工作区根）。
+ *
+ * W6：默认 `.project/link`（旧项目可能在 `.project` 根或 `.link`，
+ * 由 bdl-lsp/tiptop 侧回退读取；迁移命令会把它们搬过来）。
+ */
 export function dataDirName(): string {
-  return cfg().get<string>("link.dataDir") || ".project";
+  return cfg().get<string>("link.dataDir") || ".project/link";
 }
 
-/** 导入用的 CSV 落点（与 tiptop 的默认值一致）。 */
+/** 导入用的 CSV 落点（与 tiptop 的默认值一致：`<link 目录>/gal_file.csv`）。 */
 function csvPath(root: string): string {
   return path.join(root, dataDirName(), "gal_file.csv");
 }
@@ -296,7 +308,8 @@ export function oracleCfg(): OracleCfg | undefined {
 
 /** 没配数据库时的统一提示：给"打开设置"与"改用 CSV 导入"两条出路。 */
 export async function promptNoOracle(root: string): Promise<void> {
-  const secrets = path.join(root, dataDirName(), "secrets.json");
+  // W6：secrets.json 始终在 `.project` 根（不随 link 资料目录走）。
+  const secrets = path.join(root, PROJECT_DIR, "secrets.json");
   const pick = await vscode.window.showWarningMessage(
     `还没有配置数据库连接：在「Genero BDL: 生产环境」里填主机 / 服务名 / 只读账号，` +
       `密码放 ${secrets}（chmod 600）或环境变量 BDL_ORA_PASSWORD；` +
@@ -377,7 +390,12 @@ async function discoverModules(root: string): Promise<string[]> {
 }
 
 /**
- * 采集类命令的共同流程：dry-run 拿影响面 → 用户确认 → 真跑 → 刷新视图。
+ * 采集类命令的共同流程：**直接执行**（不再预演）→ 刷新视图。
+ *
+ * W2（Windows 实机反馈）：以前先跑一次 `-dry-run` 拿"受影响 N 个作业"再让用户确认，
+ * 但对全量来说 dry-run 本身就要整份扫描/解析——等于跑两遍（实测从文档里的
+ * "20–30 秒"变成约 5 分钟）。现在只有编译类命令允许预演：这里一律直接执行，
+ * 全量操作保留一次**不重新扫描**的静态确认，避免误触几分钟的任务。
  *
  * @param filterArgs `-files …` / `-modules …`；空数组 = 全量
  * @param label 用户可见的动作名
@@ -414,36 +432,20 @@ async function syncWithConfirm(
       ]
     : ["link", "import", "-csv", csv, "-root", root, ...filterArgs];
 
-  const dry = await runTiptopWithProgress(root, [...base, "-dry-run"], `${label}：预演`);
-  if (dry.cancelled) {
-    vscode.window.setStatusBarMessage(`${label}已取消`, 3000);
-    return;
-  }
-  if (dry.code !== 0) {
-    output().show(true);
-    void vscode.window.showErrorMessage(
-      `${label}预演失败（退出码 ${dry.code ?? "?"}）：详见「Genero BDL 链接资料」输出通道`,
+  // 全量：一次静态确认（不重新扫描）避免误触；局部更新直接执行。
+  if (filterArgs.length === 0) {
+    const from = oracle ? "数据库" : "CSV";
+    const pick = await vscode.window.showWarningMessage(
+      `${label}：将从${from}重算全部链接资料。通常几分钟、也可能更长，` +
+        `请开「输出 → Genero BDL 链接资料」看进度。继续？`,
+      { modal: true },
+      "开始",
     );
-    return;
+    if (pick !== "开始") {
+      return;
+    }
   }
-  const affected = parseAffectedJobs(dry.stdout);
-  if (affected && affected.count === 0) {
-    void vscode.window.showInformationMessage(
-      `${label}：没有匹配到任何作业（这个文件可能不属于任何链接链）`,
-    );
-    return;
-  }
-  const scope = affected
-    ? `将更新 ${affected.count} 个作业${affected.names ? `：${affected.names}` : ""}（其余链保留）`
-    : "未能从输出解析出影响面（请看输出通道），仍要继续吗";
-  const pick = await vscode.window.showWarningMessage(
-    `${label}：${scope}。继续？`,
-    { modal: true },
-    "更新",
-  );
-  if (pick !== "更新") {
-    return;
-  }
+
   const res = await runTiptopWithProgress(root, base, label);
   if (res.cancelled) {
     vscode.window.setStatusBarMessage(`${label}已取消`, 3000);
@@ -458,9 +460,11 @@ async function syncWithConfirm(
   }
   void vscode.window.showInformationMessage(`${label}完成`);
   await vscode.commands.executeCommand("bdl.links.refresh");
+  // W3/W4：资料可能刚生成，刷新"按钮显隐"用到的就绪状态。
+  void refreshDataContexts();
 }
 
-/** 从 CSV 导入：复制到 `.project/gal_file.csv`（覆盖源文件）后导入。 */
+/** 从 CSV 导入：复制到 `.project/link/gal_file.csv`（覆盖源文件）后导入。 */
 async function importCsv(): Promise<void> {
   const root = workspaceRoot();
   if (!root) {
@@ -513,6 +517,7 @@ async function importCsv(): Promise<void> {
   }
   void vscode.window.showInformationMessage("链接资料导入完成");
   await vscode.commands.executeCommand("bdl.links.refresh");
+  void refreshDataContexts();
 }
 
 /** 更新当前打开文件相关的链接资料。 */
@@ -595,6 +600,8 @@ export function registerLinkToolCommands(
     vscode.commands.registerCommand("bdl.link.status", () => showStatus()),
     // 「反查引用程序」旁边的"重新同步"：语义就是"更新当前文件的资料"。
     vscode.commands.registerCommand("bdl.links.resync", () => syncCurrent()),
+    // W3：视图标题栏的「从数据库更新」按钮（等同"更新当前文件"；门控见 package.json）。
+    vscode.commands.registerCommand("bdl.link.updateFromDb", () => syncCurrent()),
   );
 }
 

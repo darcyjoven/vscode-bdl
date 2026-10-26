@@ -310,16 +310,134 @@ export function registerLinks(context: vscode.ExtensionContext): LinkTreeProvide
   return provider;
 }
 
-/** 旧資料目录名（P1-2 之前）与默认新目录名。 */
-const LEGACY_DIR = ".link";
-const DEFAULT_DIR = ".project";
+/**
+ * W6：`.project` 目录化布局。
+ *
+ *   .project/
+ *   ├── secrets.json                  # 唯一留在根的单文件
+ *   ├── link/{links.jsonl,links.meta.json,gal_file.csv}
+ *   ├── schema/{tables.json,tables/,gal_schema.csv}
+ *   └── deploy/deploy.json
+ *
+ * 历史位置（`.project` 根的 link 文件、`.project/.schema/`、`.project/deploy.json`、
+ * `.link/`、`.bdl-lsp/deploy.json`）都能被 bdl-lsp/tiptop 读取；下面的迁移命令
+ * 负责把它们搬到新位置。
+ */
+const PROJECT_DIR = ".project";
+const LINK_DIR = "link";
+const SCHEMA_DIR = "schema";
+const DEPLOY_DIR = "deploy";
+
+/** 迁移统计。 */
+interface MigrateStat {
+  moved: number;
+  skipped: number;
+}
+
+/** 列出"旧位置 → 新位置"的候选（不一定存在，调用方先 stat）。 */
+function legacySources(root: vscode.Uri): Array<[vscode.Uri, vscode.Uri]> {
+  const project = vscode.Uri.joinPath(root, PROJECT_DIR);
+  const link = vscode.Uri.joinPath(project, LINK_DIR);
+  const schema = vscode.Uri.joinPath(project, SCHEMA_DIR);
+  const deploy = vscode.Uri.joinPath(project, DEPLOY_DIR);
+  const jobs: Array<[vscode.Uri, vscode.Uri]> = [];
+  // 1) 最老的 .link/ → .project/link/
+  jobs.push([vscode.Uri.joinPath(root, ".link"), link]);
+  // 2) W6 之前的 .project 根 → .project/link/
+  for (const name of ["links.jsonl", "links.meta.json", "gal_file.csv"]) {
+    jobs.push([
+      vscode.Uri.joinPath(project, name),
+      vscode.Uri.joinPath(link, name),
+    ]);
+  }
+  // 3) 字段资料旧目录 .project/.schema/ → .project/schema/
+  jobs.push([vscode.Uri.joinPath(project, ".schema"), schema]);
+  jobs.push([
+    vscode.Uri.joinPath(project, "gal_schema.csv"),
+    vscode.Uri.joinPath(schema, "gal_schema.csv"),
+  ]);
+  // 4) 部署配置 → .project/deploy/deploy.json
+  jobs.push([
+    vscode.Uri.joinPath(project, "deploy.json"),
+    vscode.Uri.joinPath(deploy, "deploy.json"),
+  ]);
+  jobs.push([
+    vscode.Uri.joinPath(root, ".bdl-lsp", "deploy.json"),
+    vscode.Uri.joinPath(deploy, "deploy.json"),
+  ]);
+  return jobs;
+}
+
+async function statOrUndefined(
+  uri: vscode.Uri,
+): Promise<vscode.FileStat | undefined> {
+  try {
+    return await vscode.workspace.fs.stat(uri);
+  } catch {
+    return undefined;
+  }
+}
+
+/** 迁移一个文件；目标已存在则不覆盖（计入 skipped）。 */
+async function moveFile(
+  from: vscode.Uri,
+  to: vscode.Uri,
+  stat: MigrateStat,
+): Promise<void> {
+  if (await statOrUndefined(to)) {
+    stat.skipped += 1;
+    return;
+  }
+  await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(to, ".."));
+  await vscode.workspace.fs.rename(from, to, { overwrite: false });
+  stat.moved += 1;
+}
+
+/** 递归迁移一个目录下的文件（保留子目录结构；不删空目录）。 */
+async function moveDir(
+  from: vscode.Uri,
+  to: vscode.Uri,
+  stat: MigrateStat,
+): Promise<void> {
+  let entries: [string, vscode.FileType][];
+  try {
+    entries = await vscode.workspace.fs.readDirectory(from);
+  } catch {
+    return;
+  }
+  for (const [name, type] of entries) {
+    const src = vscode.Uri.joinPath(from, name);
+    const dst = vscode.Uri.joinPath(to, name);
+    if (type === vscode.FileType.Directory) {
+      await moveDir(src, dst, stat);
+    } else {
+      await moveFile(src, dst, stat);
+    }
+  }
+}
+
+/** 按类型迁移（目录递归、文件直搬）。 */
+async function moveAny(
+  from: vscode.Uri,
+  to: vscode.Uri,
+  stat: MigrateStat,
+): Promise<void> {
+  const info = await statOrUndefined(from);
+  if (!info) {
+    return;
+  }
+  if (info.type === vscode.FileType.Directory) {
+    await moveDir(from, to, stat);
+  } else {
+    await moveFile(from, to, stat);
+  }
+}
 
 /**
- * 把 `.link/` 整体搬到 `.project/`（P1-2）。
+ * W6：把历史布局的项目资料整体搬到 `.project/{link,schema,deploy}/`。
  *
- * 为什么让插件做而不是让用户手动 mv：还要保证"服务器重新加载、
- * 旧目录不残留、已有 `.project/` 不被覆盖"，这几件事一起做才不会出错。
- * 只在用户确认后动手，不动 `.gitignore` 等用户文件（旧决定 E8 保留）。
+ * 只搬、不覆盖：目标已存在的文件保留原样并计入 skipped。
+ * 搬完自动重启语言服务器，让服务端按新目录重新加载。
  */
 async function migrateLinkDir(): Promise<void> {
   const folders = vscode.workspace.workspaceFolders;
@@ -328,34 +446,25 @@ async function migrateLinkDir(): Promise<void> {
     return;
   }
   const root = folders[0].uri;
-  const legacy = vscode.Uri.joinPath(root, LEGACY_DIR);
-  const target = vscode.Uri.joinPath(root, DEFAULT_DIR);
 
-  let entries: [string, vscode.FileType][];
-  try {
-    entries = await vscode.workspace.fs.readDirectory(legacy);
-  } catch {
-    void vscode.window.showInformationMessage(`没有找到旧目录 ${LEGACY_DIR}/，无需迁移`);
+  // 先算出真的存在哪些来源，避免"没有任何可搬的东西"还弹确认框。
+  const present: Array<[vscode.Uri, vscode.Uri]> = [];
+  for (const [from, to] of legacySources(root)) {
+    if (await statOrUndefined(from)) {
+      present.push([from, to]);
+    }
+  }
+  if (present.length === 0) {
+    void vscode.window.showInformationMessage(
+      `没有需要迁移的旧资料（已经是 ${PROJECT_DIR}/{${LINK_DIR},${SCHEMA_DIR},${DEPLOY_DIR}}/ 布局）`,
+    );
     return;
   }
 
-  // 目标目录已有 links.jsonl 时不覆盖：让用户自己决定
-  try {
-    await vscode.workspace.fs.stat(vscode.Uri.joinPath(target, "links.jsonl"));
-    const pick = await vscode.window.showWarningMessage(
-      `${DEFAULT_DIR}/links.jsonl 已存在，迁移会保留它、只搬旧目录里其余文件。继续？`,
-      { modal: true },
-      "继续",
-    );
-    if (pick !== "继续") {
-      return;
-    }
-  } catch {
-    // 目标不存在：正常情况
-  }
-
   const pick = await vscode.window.showWarningMessage(
-    `将把 ${LEGACY_DIR}/ 下的资料搬到 ${DEFAULT_DIR}/（${entries.length} 项），搬完自动重启语言服务器。继续？`,
+    `将把 ${present.length} 处旧资料搬到 ` +
+      `${PROJECT_DIR}/{${LINK_DIR},${SCHEMA_DIR},${DEPLOY_DIR}}/（已存在的目标文件不覆盖），` +
+      "搬完自动重启语言服务器。继续？",
     { modal: true },
     "迁移",
   );
@@ -363,32 +472,20 @@ async function migrateLinkDir(): Promise<void> {
     return;
   }
 
-  await vscode.workspace.fs.createDirectory(target);
-  let moved = 0;
-  for (const [name, type] of entries) {
-    const from = vscode.Uri.joinPath(legacy, name);
-    const to = vscode.Uri.joinPath(target, name);
-    if (type === vscode.FileType.Directory) {
-      continue; // 旧目录里目前只有文件；子目录留给用户自己处理
-    }
-    try {
-      // 目标已存在则不覆盖（例如刚确认过的 links.jsonl）
-      await vscode.workspace.fs.stat(to);
-      continue;
-    } catch {
-      // fallthrough：目标不存在
-    }
-    await vscode.workspace.fs.rename(from, to, { overwrite: false });
-    moved += 1;
+  const stat: MigrateStat = { moved: 0, skipped: 0 };
+  for (const [from, to] of present) {
+    await moveAny(from, to, stat);
   }
   void vscode.window.showInformationMessage(
-    `已迁移 ${moved} 个文件到 ${DEFAULT_DIR}/，正在重启语言服务器`,
+    `已迁移 ${stat.moved} 个文件到 ${PROJECT_DIR}/` +
+      (stat.skipped > 0 ? `（${stat.skipped} 个目标已存在，保留原样）` : "") +
+      "，正在重启语言服务器",
   );
   await vscode.commands.executeCommand("bdl.restartServer");
 }
 
 /**
- * 服务端读到旧目录时会发 `link-data-legacy-dir`（hint）。
+ * 服务端读到旧布局时会发 `link-data-legacy-dir`（hint）。
  * 这里接住它，弹一次"要不要迁移"的提示——PowerShell 用户不会去翻 Problems。
  */
 function registerLegacyDirWatcher(context: vscode.ExtensionContext): void {
@@ -409,7 +506,7 @@ function registerLegacyDirWatcher(context: vscode.ExtensionContext): void {
       asked = true;
       void vscode.window
         .showInformationMessage(
-          `链接资料还在旧目录 ${LEGACY_DIR}/，建议迁移到 ${DEFAULT_DIR}/`,
+          `项目资料还在旧目录布局，建议迁移到 ${PROJECT_DIR}/{${LINK_DIR},${SCHEMA_DIR},${DEPLOY_DIR}}/`,
           "迁移",
           "稍后",
         )

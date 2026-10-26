@@ -39,6 +39,13 @@
     "onCommand:bdl.link.syncAll",
     "onCommand:bdl.link.status",
     "onCommand:bdl.links.resync",
+    "onCommand:bdl.link.updateFromDb",
+    "onCommand:bdl.build.4gl.preview",
+    "onCommand:bdl.build.4gl.compile",
+    "onCommand:bdl.build.4gl.link",
+    "onCommand:bdl.build.per.preview",
+    "onCommand:bdl.build.per.compile",
+    "onCommand:bdl.build.per.form",
     "onCommand:bdl.schema.import",
     "onCommand:bdl.schema.refresh",
     "onCommand:bdl.schema.filter",
@@ -420,9 +427,9 @@
           },
           "bdl.link.dataDir": {
             "type": "string",
-            "default": ".project",
+            "default": ".project/link",
             "scope": "window",
-            "markdownDescription": "项目资料目录（相对工作区根），默认 `.project`：里面是 `links.jsonl`、`links.meta.json`、`gal_file.csv`、`secrets.json`，由 `tiptop link import`/`sync` 生成（迁移前放在 `.link/`，仍兼容读取）。"
+            "markdownDescription": "链接资料目录（相对工作区根），默认 `.project/link`：里面是 `links.jsonl`、`links.meta.json`、`gal_file.csv`，由 `tiptop link import`/`sync` 生成。旧布局 `.project` 根 / `.link/` 仍兼容读取，可用命令「迁移项目资料目录」搬家。`secrets.json` 始终在 `.project` 根。"
           },
           "bdl.link.moduleRoots": {
             "type": "array",
@@ -480,9 +487,50 @@
           },
           "bdl.schema.dataDir": {
             "type": "string",
-            "default": ".project/.schema",
+            "default": ".project/schema",
             "scope": "window",
-            "markdownDescription": "字段资料目录（相对工作区根，默认 `.project/.schema`）：`tables.json` 是总索引，`tables/<表>.json` 是每张表的列。由 `tiptop schema import` 生成。"
+            "markdownDescription": "字段资料目录（相对工作区根，默认 `.project/schema`）：`tables.json` 是总索引，`tables/<表>.json` 是每张表的列。由 `tiptop schema import` 生成。旧布局 `.project/.schema` 仍兼容读取。"
+          }
+        }
+      },
+      {
+        "title": "本地编译",
+        "properties": {
+          "bdl.build.4gl.preview": {
+            "type": "string",
+            "default": "cd ${path} && r.c2 ${name}",
+            "scope": "window",
+            "markdownDescription": "4GL「预演编译」命令模板（默认不动产物）。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+          },
+          "bdl.build.4gl.compile": {
+            "type": "string",
+            "default": "cd ${path} && r.c2 ${name}",
+            "scope": "window",
+            "markdownDescription": "4GL「编译」命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+          },
+          "bdl.build.4gl.link": {
+            "type": "string",
+            "default": "r.l2 ${name}",
+            "scope": "window",
+            "markdownDescription": "4GL「链接」命令模板。文件不含 MAIN 程序块时本地直接报错、不执行。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+          },
+          "bdl.build.per.preview": {
+            "type": "string",
+            "default": "cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f",
+            "scope": "window",
+            "markdownDescription": "Form「预演编译」命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+          },
+          "bdl.build.per.compile": {
+            "type": "string",
+            "default": "cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/",
+            "scope": "window",
+            "markdownDescription": "Form「编译」命令模板（生成 .42f/.4fd 并归位）。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
+          },
+          "bdl.build.per.form": {
+            "type": "string",
+            "default": "cd ${path} && r.gf ${name}",
+            "scope": "window",
+            "markdownDescription": "Form「预览画面」命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。运行目录是工作区根，stdout/stderr 原样进「Genero BDL 编译」输出通道。"
           }
         }
       }
@@ -553,7 +601,7 @@
       },
       {
         "command": "bdl.migrateLinkDir",
-        "title": "迁移链接资料目录",
+        "title": "迁移项目资料目录",
         "category": "Genero BDL"
       },
       {
@@ -585,6 +633,47 @@
         "command": "bdl.links.resync",
         "title": "重新同步",
         "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.link.updateFromDb",
+        "title": "从数据库更新",
+        "category": "Genero BDL"
+      },
+      {
+        "command": "bdl.build.4gl.preview",
+        "title": "4GL：预演编译",
+        "category": "Genero BDL",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "bdl.build.4gl.compile",
+        "title": "4GL：编译",
+        "category": "Genero BDL",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "bdl.build.4gl.link",
+        "title": "4GL：链接",
+        "category": "Genero BDL",
+        "icon": "$(link)"
+      },
+      {
+        "command": "bdl.build.per.preview",
+        "title": "Form：预演编译",
+        "category": "Genero BDL",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "bdl.build.per.compile",
+        "title": "Form：编译",
+        "category": "Genero BDL",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "bdl.build.per.form",
+        "title": "Form：预览画面",
+        "category": "Genero BDL",
+        "icon": "$(eye)"
       },
       {
         "command": "bdl.schema.import",
@@ -683,6 +772,11 @@
           "group": "navigation@2"
         },
         {
+          "command": "bdl.link.updateFromDb",
+          "when": "view == bdlLinks && config.bdl.link.enable && bdl.db.configured && bdl.link.hasData",
+          "group": "navigation@3"
+        },
+        {
           "command": "bdl.schema.filter",
           "when": "view == bdlSchema && config.bdl.schema.enable",
           "group": "navigation@1"
@@ -699,22 +793,22 @@
         },
         {
           "command": "bdl.schema.syncSelected",
-          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "when": "view == bdlSchema && config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@4"
         },
         {
           "command": "bdl.schema.selectAll",
-          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "when": "view == bdlSchema && config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@5"
         },
         {
           "command": "bdl.schema.clearSelection",
-          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "when": "view == bdlSchema && config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@6"
         },
         {
           "command": "bdl.schema.syncFiltered",
-          "when": "view == bdlSchema && config.bdl.schema.enable",
+          "when": "view == bdlSchema && config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@4"
         }
       ],
@@ -731,7 +825,7 @@
         },
         {
           "command": "bdl.schema.syncTable",
-          "when": "view == bdlSchema && viewItem == bdlSchemaTable",
+          "when": "view == bdlSchema && viewItem == bdlSchemaTable && bdl.db.configured && bdl.schema.hasData",
           "group": "1_sync"
         },
         {
@@ -803,6 +897,34 @@
           "when": "config.bdl.link.enable"
         },
         {
+          "command": "bdl.link.updateFromDb",
+          "when": "config.bdl.link.enable && bdl.db.configured && bdl.link.hasData"
+        },
+        {
+          "command": "bdl.build.4gl.preview",
+          "when": "editorLangId == bdl"
+        },
+        {
+          "command": "bdl.build.4gl.compile",
+          "when": "editorLangId == bdl"
+        },
+        {
+          "command": "bdl.build.4gl.link",
+          "when": "editorLangId == bdl", "enablement": "bdl.build.hasMain"
+        },
+        {
+          "command": "bdl.build.per.preview",
+          "when": "editorLangId == per"
+        },
+        {
+          "command": "bdl.build.per.compile",
+          "when": "editorLangId == per"
+        },
+        {
+          "command": "bdl.build.per.form",
+          "when": "editorLangId == per"
+        },
+        {
           "command": "bdl.schema.import",
           "when": "config.bdl.schema.enable"
         },
@@ -820,7 +942,7 @@
         },
         {
           "command": "bdl.schema.syncTable",
-          "when": "config.bdl.schema.enable"
+          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
         },
         {
           "command": "bdl.schema.copyColumn",
@@ -832,23 +954,23 @@
         },
         {
           "command": "bdl.schema.syncAll",
-          "when": "config.bdl.schema.enable"
+          "when": "config.bdl.schema.enable && bdl.db.configured"
         },
         {
           "command": "bdl.schema.syncSelected",
-          "when": "config.bdl.schema.enable"
+          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
         },
         {
           "command": "bdl.schema.selectAll",
-          "when": "config.bdl.schema.enable"
+          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
         },
         {
           "command": "bdl.schema.clearSelection",
-          "when": "config.bdl.schema.enable"
+          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
         },
         {
           "command": "bdl.schema.syncFiltered",
-          "when": "config.bdl.schema.enable"
+          "when": "config.bdl.schema.enable && bdl.db.configured && bdl.schema.hasData"
         }
       ],
       "editor/title": [
@@ -856,6 +978,37 @@
           "command": "bdl.forceParseCurrentFile",
           "when": "bdl.parseSkipped && (resourceLangId == bdl || resourceLangId == per)",
           "group": "navigation"
+        },
+        {
+          "command": "bdl.build.4gl.preview",
+          "when": "resourceLangId == bdl && resourceExtname == .4gl",
+          "group": "navigation@4"
+        },
+        {
+          "command": "bdl.build.4gl.compile",
+          "when": "resourceLangId == bdl && resourceExtname == .4gl",
+          "group": "navigation@5"
+        },
+        {
+          "command": "bdl.build.4gl.link",
+          "when": "resourceLangId == bdl && resourceExtname == .4gl",
+          "group": "navigation@6",
+          "enablement": "bdl.build.hasMain"
+        },
+        {
+          "command": "bdl.build.per.preview",
+          "when": "resourceLangId == per",
+          "group": "navigation@4"
+        },
+        {
+          "command": "bdl.build.per.compile",
+          "when": "resourceLangId == per",
+          "group": "navigation@5"
+        },
+        {
+          "command": "bdl.build.per.form",
+          "when": "resourceLangId == per",
+          "group": "navigation@6"
         }
       ]
     }

@@ -1,6 +1,6 @@
 // 部署命令：调用 tiptop deploy 并把结果发布成诊断。
 //
-// 部署从 bdl-lsp 分离出去了（见 bdl-lsp 的 docs/PLAN-SEPARATION.md）：
+// 部署从 bdl-lsp 分离出去了（见 bdl-lsp 的 docs/FEATURES.md §0 职责与边界）：
 // 语言服务器只做语言智能，采集链接资料与部署由 tiptop 负责。
 // 扩展必须分别定位两个二进制，两者可以来自不同位置。
 //
@@ -142,7 +142,7 @@ export function registerDeployCommands(
  * 部署功能总开关（`bdl.deploy.enable`）。
  *
  * P1-4：**默认关闭**（轻量档）。打开后命令面板才出现部署命令，
- * 配置走「生产环境 → 部署」设置（插件合成 `.project/deploy.json`）。
+ * 配置走「生产环境 → 部署」设置（插件合成 `.project/deploy/deploy.json`）。
  */
 export function deployEnabled(): boolean {
   return vscode.workspace
@@ -221,7 +221,7 @@ async function runDeploy(
     return;
   }
 
-  // P1-5：部署配置由设置合成到 <项目>/.project/deploy.json，
+  // P1-5/W6：部署配置由设置合成到 <项目>/.project/deploy/deploy.json，
   // 用户不再需要手写 JSON（tiptop 的配置模型不变）。
   const synth = await ensureDeployConfig(workspace, extensionVersion);
   if (!synth.path) {
@@ -454,7 +454,7 @@ async function runDeployList(): Promise<void> {
   const out = outputChannel();
   out.show(true);
   // 有设置就合成后再列；没设置/合成失败则退回 tiptop 自己找配置文件
-  //（用户手写的 .project/deploy.json 仍然可用）。
+  //（用户手写的 .project/deploy/deploy.json 仍然可用）。
   const synth = await ensureDeployConfig(workspace, extensionVersion);
   const args = ["deploy", "-workspace", workspace, "-list"];
   if (synth.path) {

@@ -166,7 +166,7 @@ function collectSettings(): Record<string, unknown> {
     link: {
       // P1-4：轻量档默认关闭（package.json 的默认值也是 false）。
       enable: cfg.get<boolean>("link.enable") ?? false,
-      dataDir: cfg.get<string>("link.dataDir") ?? ".project",
+      dataDir: cfg.get<string>("link.dataDir") ?? ".project/link",
       moduleRoots: cfg.get<string[]>("link.moduleRoots") ?? [],
       globalModules: cfg.get<string[]>("link.globalModules") ?? ["sub", "lib", "qry"],
     },
@@ -178,8 +178,8 @@ function collectSettings(): Record<string, unknown> {
     schema: {
       // P1-4：默认关闭（要用 `LIKE t.*` 成员校验/悬停字段说明时才开）。
       enable: cfg.get<boolean>("schema.enable") ?? false,
-      // P2-1：资料目录（默认 .project/.schema，由 tiptop schema import 生成）。
-      dataDir: cfg.get<string>("schema.dataDir") ?? ".project/.schema",
+      // P2-1/W6：资料目录（默认 .project/schema，由 tiptop schema import 生成；旧 .project/.schema 只读兼容）。
+      dataDir: cfg.get<string>("schema.dataDir") ?? ".project/schema",
     },
     // 忽略列表（P8）：文件/字段/表单 glob。
     ignore: {

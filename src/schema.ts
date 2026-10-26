@@ -1,7 +1,7 @@
 // 「数据库字段」视图与命令（PLUGIN-PLAN P2-1）。
 //
 // 数据全部来自语言服务器的两个自定义请求（bdl/schemaTables / bdl/schemaColumns）：
-// 插件不读 `.project/.schema/*.json`——schema 演进时只改一处，也让"正则过滤"
+// 插件不读 `.project/schema/*.json`——schema 演进时只改一处，也让"正则过滤"
 // 与"展开才加载"都发生在服务端（几千张表下视图不会卡）。
 //
 // 采集/同步一律交给 tiptop（与链接资料一致）：
@@ -11,7 +11,7 @@
 //
 // 原则（与链接资料相同）：
 //   - 只由用户显式触发，没有后台任务；
-//   - 会写项目资料的动作先 `-dry-run` 预演（把"新增/变更/未变/保留"摆出来），
+//   - 写项目资料的动作直接执行（W2：不再预演，预演只留给编译类命令），
 //     用户确认后再落盘；
 //   - 默认关闭（`bdl.schema.enable`），视图与命令都据此门控。
 import * as fs from "node:fs/promises";
@@ -19,6 +19,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 
 import { currentClient } from "./client";
+import { refreshDataContexts } from "./dbctx";
 import {
   oracleCfg,
   promptNoOracle,
@@ -83,11 +84,11 @@ export function schemaEnabled(): boolean {
     .get<boolean>("schema.enable", false);
 }
 
-/** 字段资料目录（相对工作区根，默认 `.project/.schema`）。 */
+/** 字段资料目录（相对工作区根，默认 `.project/schema`；W6，旧 `.project/.schema` 只读兼容）。 */
 function schemaDirName(): string {
   return (
     vscode.workspace.getConfiguration("bdl").get<string>("schema.dataDir") ||
-    ".project/.schema"
+    ".project/schema"
   );
 }
 
@@ -434,9 +435,9 @@ function tooltipFor(table: string, col: SchemaColumn): string {
 // 命令
 // ---------------------------------------------------------------------------
 
-/** gal_schema.csv 在项目里的落点（与 tiptop 的默认一致）。 */
+/** gal_schema.csv 在项目里的落点（与 tiptop 的默认一致）：`<schema 目录>/gal_schema.csv`。 */
 function schemaCSVPath(root: string): string {
-  return path.join(root, ".project", "gal_schema.csv");
+  return path.join(root, schemaDirName(), "gal_schema.csv");
 }
 
 async function exists(p: string): Promise<boolean> {
@@ -470,7 +471,7 @@ interface SyncOptions {
  * 来源选择：`force` 优先；否则配了 Oracle 就用数据库，否则用项目里的 CSV，
  * 都没有就提示用户（打开设置 / 从 CSV 导入）。
  *
- * 会写盘的动作一律先跑 `-dry-run`，把统计摆出来让用户确认。
+ * W2：会写盘的动作**直接执行**（不再预演）；预演只留给编译类命令。
  */
 async function syncSchema(
   provider: SchemaProvider,
@@ -555,26 +556,21 @@ async function syncSchema(
         ];
 
   const out = output();
-  const dry = await runTiptopWithProgress(root, [...base, "-dry-run"], `${options.label}：预演`);
-  if (dry.cancelled) {
-    vscode.window.setStatusBarMessage(`${options.label}已取消`, 3000);
-    return;
-  }
-  if (dry.code !== 0) {
-    out.show(true);
-    void vscode.window.showErrorMessage(
-      `${options.label}预演失败（退出码 ${dry.code ?? "?"}）：详见「Genero BDL 数据库字段」输出`,
+  // W2（Windows 实机反馈）：不再预演——dry-run 会把整份 CSV/查询跑两遍。
+  // 只有编译类命令允许预演。全量操作保留一次**不重新扫描**的静态确认；
+  // 单表 / 勾选批量 / 筛选批量直接执行。
+  const isFull = !options.tables || options.tables.length === 0;
+  if (isFull) {
+    const from = source === "db" ? "数据库" : "CSV";
+    const pick = await vscode.window.showWarningMessage(
+      `${options.label}：将从${from}重算全部字段资料。通常几分钟、也可能更长，` +
+        `请开「输出 → Genero BDL 数据库字段」看进度。继续？`,
+      { modal: true },
+      "开始",
     );
-    return;
-  }
-  const summary = parseSchemaSummary(dry.stdout);
-  const pick = await vscode.window.showWarningMessage(
-    `${options.label}：${describeSummary(summary)}。继续？`,
-    { modal: true },
-    "同步",
-  );
-  if (pick !== "同步") {
-    return;
+    if (pick !== "开始") {
+      return;
+    }
   }
   const res = await runTiptopWithProgress(root, base, options.label);
   if (res.cancelled) {
@@ -589,12 +585,14 @@ async function syncSchema(
     return;
   }
   void vscode.window.showInformationMessage(
-    `${options.label}完成：${describeSummary(parseSchemaSummary(res.stdout) ?? summary)}`,
+    `${options.label}完成：${describeSummary(parseSchemaSummary(res.stdout))}`,
   );
   provider.refresh();
+  // W3/W4：字段资料可能刚生成，刷新"局部更新按钮"的显隐条件。
+  void refreshDataContexts();
 }
 
-/** 从 CSV 导入：复制到 `.project/gal_schema.csv`，预演后确认再落盘。 */
+/** 从 CSV 导入：复制到 `.project/schema/gal_schema.csv`，确认后落盘。 */
 async function importSchema(provider: SchemaProvider): Promise<void> {
   const root = workspaceRoot();
   if (!root) {

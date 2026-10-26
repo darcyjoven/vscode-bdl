@@ -1,4 +1,4 @@
-// 部署配置合成（P1-5）：用户只改 VSCode 设置，插件是 `.project/deploy.json` 的
+// 部署配置合成（P1-5/W6）：用户只改 VSCode 设置，插件是 `.project/deploy/deploy.json` 的
 // **唯一写入者**——不再要求用户手写 JSON。
 //
 // 契约：tiptop 的配置模型（targets / upload / compile）不变，插件只是把
@@ -88,10 +88,11 @@ export function deployTargetName(v: DeployValues): string {
 }
 
 /**
- * 把设置合成为 `<root>/.project/deploy.json` 并返回路径。
+ * 把设置合成为 `<root>/.project/deploy/deploy.json` 并返回路径（W6）。
  *
- * 已经存在且**不是**本插件生成的文件（例如历史手写的 `.bdl-lsp/deploy.json`
- * 被人挪过来）会先备份成 `.bak`，避免用户的东西被无声覆盖。
+ * 已经存在且**不是**本插件生成的文件（例如历史手写的
+ * `.project/deploy.json` / `.bdl-lsp/deploy.json` 被挪过来）会先备份成 `.bak`，
+ * 避免用户的东西被无声覆盖。
  */
 export async function ensureDeployConfig(
   root: string,
@@ -140,7 +141,7 @@ export async function ensureDeployConfig(
     targets: { [target]: targetObj },
   };
 
-  const dest = path.join(root, ".project", "deploy.json");
+  const dest = path.join(root, ".project", "deploy", "deploy.json");
   let backup: string | undefined;
   try {
     const raw = await fs.readFile(dest, "utf8");
