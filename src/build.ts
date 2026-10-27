@@ -13,7 +13,12 @@ import * as vscode from "vscode";
 
 import { reportRunFailure, runTiptopWithProgress } from "./linktools";
 import { taskChannel } from "./output";
-import { buildCommandValue, buildEnabled } from "./settings";
+import {
+  buildCommandValue,
+  buildEnabled,
+  loginProfileForRegion,
+  serverRegion,
+} from "./settings";
 
 /** 四个占位符的取值。 */
 export interface BuildPlaceholders {
@@ -202,13 +207,25 @@ function flattenSymbols(list: vscode.DocumentSymbol[]): vscode.DocumentSymbol[] 
  *
  * `tiptop exec` 在生产服务器上执行命令，工作目录 = 生产根目录；`-file` 只用于
  * 打印上下文（命令里的 `${path}`/`${name}` 已在插件侧展开）。
+ *
+ * `region` / `loginProfile` 只在编译/链接/预览这类远端命令上传：tiptop 会先把
+ * 区号喂给远端登录菜单，再 source 环境脚本（必须在 `cd 生产根` 之前）。
  */
 export function buildTiptopArgs(
   root: string,
   rel: string,
   command: string,
+  region?: string,
+  loginProfile?: string,
 ): string[] {
-  return ["exec", "-workspace", root, "-file", rel, "-command", command];
+  const args = ["exec", "-workspace", root, "-file", rel, "-command", command];
+  if (region) {
+    args.push("-region", region);
+  }
+  if (loginProfile) {
+    args.push("-login-profile", loginProfile);
+  }
+  return args;
 }
 
 /** 执行一种编译方式。 */
@@ -217,6 +234,21 @@ async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
     void vscode.window.showWarningMessage(
       "编译/链接/预览功能未启用：请在设置「上传编译链接」里打开总开关",
     );
+    return;
+  }
+  // 远端登录菜单要的「区」：没配就不发命令（否则远端什么也不跑，只看得到空输出）。
+  const region = serverRegion();
+  if (!region) {
+    const pick = await vscode.window.showErrorMessage(
+      `${spec.title}需要先配置登录区域：设置 → 账号、生产环境、配置 → 生产服务器 → 登录区域（1-4）`,
+      "打开设置",
+    );
+    if (pick === "打开设置") {
+      await vscode.commands.executeCommand(
+        "workbench.action.openSettings",
+        "bdl.prod.deploy.region",
+      );
+    }
     return;
   }
   const doc = uri
@@ -271,6 +303,7 @@ async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
   const params = buildPlaceholders(doc, name);
   const command = expandBuildTemplate(tpl, params);
   const rel = relativePathFor(doc);
+  const loginProfile = loginProfileForRegion(region);
 
   const out = output();
   out.appendLine("");
@@ -280,12 +313,15 @@ async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
   );
   out.appendLine(`  模板：${tpl}`);
   out.appendLine(`  命令：${command}`);
+  out.appendLine(
+    `  登录区域：${region}；环境脚本：${loginProfile || "（不 source）"}`,
+  );
   out.show(true);
 
   // §0d：交给 tiptop 在**生产服务器**上执行（工作目录 = 生产根目录）。
   const res = await runTiptopWithProgress(
     root,
-    buildTiptopArgs(root, rel, command),
+    buildTiptopArgs(root, rel, command, region, loginProfile),
     spec.title,
     out,
   );

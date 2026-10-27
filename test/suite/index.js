@@ -1720,6 +1720,30 @@ async function run() {
         ],
         "编译命令应交给 tiptop exec",
       );
+      // 登录区域 + 环境脚本：远端登录菜单要先选区，再 source profile（在 cd 生产根之前）
+      assert.deepStrictEqual(
+        api.buildTiptopArgs(
+          "/ws",
+          "tiptop/apm/4gl/axcp500.4gl",
+          "r.l2 axcp500",
+          "2",
+          "/u1/usr/profile/profile.toptest",
+        ),
+        [
+          "exec",
+          "-workspace",
+          "/ws",
+          "-file",
+          "tiptop/apm/4gl/axcp500.4gl",
+          "-command",
+          "r.l2 axcp500",
+          "-region",
+          "2",
+          "-login-profile",
+          "/u1/usr/profile/profile.toptest",
+        ],
+        "登录区域与环境脚本应传给 tiptop exec",
+      );
     });
 
     // W5：六个按钮与设置键都写进 manifest，链接按钮带 MAIN 门控。
@@ -1752,6 +1776,11 @@ async function run() {
         // C10：不再有 per-command enable
         assert.ok(!props.includes(`${id}.enable`), `${id}.enable 应已删除（C10）`);
       }
+      // 编译/链接/预览的登录区域（只影响远端命令；默认 1）
+      assert.ok(
+        props.includes("bdl.prod.deploy.region"),
+        "应有登录区域设置 bdl.prod.deploy.region",
+      );
       // §0d：编译图标改成运行形状，视图按钮图标化
       const cmds = pkg.contributes.commands;
       const iconOf = (id) =>
@@ -1835,6 +1864,7 @@ async function run() {
         dest: "C:\\my proj",
         update: true,
         allowPassword: true,
+        region: "2",
       });
       assert.ok(
         ps.startsWith("powershell -NoProfile -ExecutionPolicy Bypass -File "),
@@ -1847,6 +1877,7 @@ async function run() {
         `脚本路径应带引号且是单个参数：${ps}`,
       );
       assert.ok(psNorm.includes('-Dest "C:/my proj"') && ps.includes("-Update"), ps);
+      assert.ok(ps.includes('-Region "2"'), `应透传登录区域：${ps}`);
       assert.ok(ps.includes("-AskPassword"), `应透传密码登录开关：${ps}`);
       assert.ok(!ps.includes("-Yes"), "终端里跑要保留脚本的交互（不应传 -Yes）");
 

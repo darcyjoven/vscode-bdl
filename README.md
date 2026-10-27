@@ -226,6 +226,7 @@ tiptop schema status -root .    # 表数 / 列数 / 导入时间
 | 上传编译链接 | `bdl.prod.deploy.transport` | `rsync`（主，失败退 scp）或 `scp` |
 | 上传编译链接 | `bdl.prod.deploy.remoteRoot` | 生产根目录，如 `/u1/topprod` |
 | 账号、生产环境、配置 | `bdl.prod.deploy.host` / `port` / `user` | 生产服务器 SSH（**只支持密钥，不支持密码**） |
+| 账号、生产环境、配置 | `bdl.prod.deploy.region` | 登录后要输入的「区」：`1`=topprod（默认）/ `2`=toptest / `3`=topstd / `4`=Browser-based。**只影响编译/链接/预览** |
 | 上传编译链接 | `bdl.build.enable` | `true`（六条编译/链接/预览命令） |
 
 还有六个命令模板（`bdl.build.<lang>.<mode>.command`）默认已按 TiTop 惯例填好，需要时再改，
@@ -565,6 +566,11 @@ code --list-extensions | grep -i 4gl
 规则：
 
 - 命令在**生产服务器**上执行（`tiptop exec`，工作目录 = 生产根）；stdout / stderr **原样**进「Genero BDL 任务」输出通道（含命令回显、耗时与退出码）；
+- **登录区域与环境脚本**：有的生产账号登录后 login shell 先问「区」，没人回答时远端命令等于没跑（退出码 0、没有输出）。
+  插件按设置 `bdl.prod.deploy.region` 把区号（`1`/`2`/`3`/`4`）作为第一行喂给远端菜单，随后 source 对应的环境脚本
+  （`1`→`/u1/usr/profile/profile.topprod`、`2`→`profile.toptest`、`3`→`profile.topstd`、`4`→ 不 source），
+  **再** `cd` 到生产根执行命令（`profile.*` 自己会改工作目录，所以顺序不能反）。文件不存在就跳过；
+  区域没配时命令**直接报错**并给出设置入口；初始化项目用的是它自己的 `-Region` 参数，与此无关；
 - 六种模板都能在设置里改（[§13.5](#135-设置键总表3-组-49-键) 组 3「上传编译链接」）；
 - `.4gl`「链接」**每次**弹出 `${name}` 输入框（预填文件名去扩展名，可改）；「编译」同样会弹；「预演编译」不弹、直接用默认名；
 - **没有 `MAIN` 程序块**的 `.4gl`：右上角「链接」按钮是**不可用**（灰）状态；直接执行命令也会本地报错"没有 MAIN 函数，不允许链接"，不会跑脚本；
@@ -1215,7 +1221,7 @@ VSCode 设置适合个人临时调整。
 - `limits.*`：超大型文件或诊断特别多的项目；
 - `server.path` / `tools.path` / `logLevel` / `trace.server`：安装与排障。
 
-### 13.5 设置键总表（3 组 49 键）
+### 13.5 设置键总表（3 组 50 键）
 
 #### 组 1：基础（22 键）
 
@@ -1261,7 +1267,7 @@ VSCode 设置适合个人临时调整。
 | `bdl.limits.maxIssues` | `200` | 单文件最多诊断条数 |
 | `bdl.limits.parseTimeoutMs` | `2000` | 单次解析超时（毫秒） |
 
-#### 组 2：账号、生产环境、配置（16 键；不配置就用不了采集/上传；只写 Workspace）
+#### 组 2：账号、生产环境、配置（17 键；不配置就用不了采集/上传；只写 Workspace）
 
 **Oracle 连接（4 键）**
 
@@ -1272,13 +1278,14 @@ VSCode 设置适合个人临时调整。
 | `bdl.prod.oracle.service` | `""` | 服务名（**连接必需**） |
 | `bdl.prod.oracle.user` | `""` | **应用 schema 账号**（字段资料默认 SQL 走 `USER_TAB_COLUMNS` + TiTop 字典；密码走环境变量或 `.project/secrets.json`） |
 
-**生产服务器（4 键）**
+**生产服务器（5 键）**
 
 | 键 | 默认 | 作用 |
 |---|---|---|
 | `bdl.prod.deploy.host` | `""` | SSH 主机（示例 `erp`） |
 | `bdl.prod.deploy.port` | `22` | SSH 端口 |
 | `bdl.prod.deploy.user` | `""` | SSH 账号（示例 `tiptop`；**只支持密钥登录**） |
+| `bdl.prod.deploy.region` | `1` | 登录后要输入的「区」：`1`=topprod / `2`=toptest / `3`=topstd / `4`=Browser-based；**只影响编译/链接/预览**（顺带 source 对应 `profile.*`） |
 | `bdl.prod.deploy.strictHostKey` | `true` | 严格校验 SSH host key（换主机后可关掉，走 accept-new） |
 
 **链接资料（4 键）**

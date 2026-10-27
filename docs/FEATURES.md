@@ -314,7 +314,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 
 ## 11. 配置项
 
-### 11.1 VSC 设置（3 组 49 键）
+### 11.1 VSC 设置（3 组 50 键）
 
 | 组 | 键 | 默认 | 作用 |
 |---|---|---|---|
@@ -332,6 +332,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | 基础 | `bdl.limits.maxFileBytes` / `maxFileLines` / `maxIssues` / `parseTimeoutMs` | `2097152` / `20000` / `200` / `2000` | 资源与报告上限 |
 | 账号、生产环境、配置 | `bdl.prod.oracle.host` / `port` / **`service`（新增）** / `user` | `1521`，其余空 | Oracle 连接（**账号须为应用 schema 账号**；密码走环境变量/secrets） |
 | 账号、生产环境、配置 | `bdl.prod.deploy.host` / `port` / `user` / `strictHostKey` | `22` / `true`，其余空 | 生产服务器（SSH 密钥登录，不支持密码） |
+| 账号、生产环境、配置 | `bdl.prod.deploy.region` | `1` | 登录后要输入的「区」（1=topprod / 2=toptest / 3=topstd / 4=Browser-based）：**只影响编译/链接/预览**，会先喂区号再 source 对应 `profile.*` |
 | 账号、生产环境、配置 | `bdl.link.mode` / `dataDir` / `moduleRoots` / `globalModules` | **`off`** / `.project/link` / `[]` / `["sub","lib","qry"]` | 链接资料三态（off/file/db）与跨模块可见性 |
 | 上传编译链接 | `bdl.deploy.enable` / `bdl.prod.deploy.transport` / `localRoot` / `remoteRoot` | **`false`** / **`off`** / `.` / 空 | 单文件上传：总开关 + 方式 + 目录映射 |
 | 账号、生产环境、配置 | `bdl.schema.mode` / `dataDir` / `batchSize` / `timeoutSec` | **`off`** / `.project/schema` / `200` / `120` | 字段资料三态；后两者是 W7 分批同步参数 |

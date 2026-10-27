@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "Genero BDL (4GL)",
   "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "publisher": "darcyjoven",
   "license": "MIT",
   "icon": "icon.png",
@@ -336,6 +336,26 @@
             "default": "",
             "scope": "window",
             "markdownDescription": "SSH 账号（示例 `tiptop`）。请配置 SSH 密钥，不要用密码明文登录。"
+          },
+          "bdl.prod.deploy.region": {
+            "type": "string",
+            "enum": [
+              "1",
+              "2",
+              "3",
+              "4",
+              ""
+            ],
+            "enumDescriptions": [
+              "topprod（正式区）：登录后输入 1，并 source /u1/usr/profile/profile.topprod",
+              "toptest（测试区）：登录后输入 2，并 source /u1/usr/profile/profile.toptest",
+              "topstd（标准区）：登录后输入 3，并 source /u1/usr/profile/profile.topstd",
+              "Browser-based：登录后输入 4，不 source 环境脚本",
+              "未配置：编译/链接/预览会直接报错（初始化项目不受影响）"
+            ],
+            "default": "1",
+            "scope": "window",
+            "markdownDescription": "登录后要输入的「区」：有的生产账号在 login shell 里先问区，没人回答时远端命令等于没跑。\n\n**只影响编译 / 链接 / 预览画面**（这些命令在生产服务器上执行）：会先输入该编号，再 source 对应的 `profile.*`，然后 cd 到生产根执行命令。\n\n初始化项目（`bdl.initProject`）用的是脚本自己的 `-Region` 参数，和这里无关。"
           },
           "bdl.prod.deploy.strictHostKey": {
             "type": "boolean",
