@@ -104,27 +104,8 @@ jobs:
           set -eux
           ls -l dist-vsix/*.vsix
           unzip -l dist-vsix/*.vsix
-          # 必须带上语法与语言配置，否则装上去等于没高亮
-          for f in extension/syntaxes/bdl.tmLanguage.json \
-                   extension/syntaxes/per.tmLanguage.json \
-                   extension/language-configuration/bdl.json \
-                   extension/language-configuration/per.json \
-                   extension/dist/extension.js; do
-            unzip -l dist-vsix/*.vsix | grep -q "$f" || { echo "VSIX 缺少 $f"; exit 1; }
-          done
-          # 不能夹带仓库内部文件（曾经把 .github/workflows 打进包里）
-          if unzip -l dist-vsix/*.vsix | grep -qE 'extension/(src|test|\.github|node_modules)/'; then
-            echo "VSIX 夹带了仓库内部文件："
-            unzip -l dist-vsix/*.vsix | grep -E 'extension/(src|test|\.github|node_modules)/'
-            exit 1
-          fi
-          # 文件数应保持在 10 个左右，暴涨说明 .vscodeignore 失效
-          count=$(unzip -l dist-vsix/*.vsix | tail -1 | awk '{print $2}')
-          echo "文件数：$count"
-          if [ "$count" -gt 15 ]; then
-            echo "VSIX 文件数异常（${count}），检查 .vscodeignore"
-            exit 1
-          fi
+          # 共享校验：必需文件（含初始化脚本）+ 禁止文件；不再用"文件数 ≤ N"的魔法数字
+          bash scripts/check-vsix.sh dist-vsix/*.vsix --dev
 
       - name: 上传 VSIX
         uses: actions/upload-artifact@v4

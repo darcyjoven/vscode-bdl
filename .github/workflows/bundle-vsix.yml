@@ -306,18 +306,8 @@ jobs:
           VSIX="$(ls dist-vsix/*.vsix)"
           ls -lh "$VSIX"
           unzip -l "$VSIX"
-          for f in "extension/bin/${{ matrix.binary }}" \
-                   "extension/bin/${{ matrix.tiptop_binary }}" \
-                   "extension/bin/BUILD-INFO.json" \
-                   "extension/dist/extension.js" \
-                   "extension/syntaxes/bdl.tmLanguage.json" \
-                   "extension/language-configuration/bdl.json"; do
-            unzip -l "$VSIX" | grep -q "$f" || { echo "VSIX 缺少 $f"; exit 1; }
-          done
-          if unzip -l "$VSIX" | grep -qE 'extension/(src|test|\.github|node_modules|scripts)/'; then
-            echo "VSIX 夹带了仓库内部文件"
-            exit 1
-          fi
+          # 共享校验：平台包必须含当前平台二进制 + 初始化脚本；仓库内部文件（除 scripts/init-project/）一律禁止
+          bash scripts/check-vsix.sh "$VSIX" --platform
 
       - name: 上传平台 VSIX
         uses: actions/upload-artifact@v4
