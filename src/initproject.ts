@@ -166,7 +166,8 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
   }
   const remoteRoot = await vscode.window.showInputBox({
     title: "初始化项目（2/4）：生产根目录",
-    prompt: "只取该目录下的 *.4gl / *.per / *.global（默认 /u1/topprod）",
+    prompt:
+      "只同步该目录下 tiptop / topcust 里的 4gl/*.4gl、per/*.per，以及任意目录的 *.global（默认 /u1/topprod）",
     value: last.remoteRoot ?? "/u1/topprod",
     ignoreFocusOut: true,
   });
