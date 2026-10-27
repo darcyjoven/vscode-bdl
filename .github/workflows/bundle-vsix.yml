@@ -383,13 +383,13 @@ jobs:
             echo "::error::缺少 secret VSCE_PAT（Azure DevOps PAT，Scope 选 Marketplace → Manage）"
             exit 1
           fi
-          # 文件名形如 4gl-full-1.0.0-win32-x64.vsix，目标平台就是末尾的 <os>-<arch>
+          # 平台信息已经在 vsix 清单里（打包时用了 `vsce package --target`），
+          # publish 只给 --packagePath；再传 --target 会被 vsce 直接拒绝。
           for f in dist/*.vsix; do
-            target="$(basename "$f" | sed -nE 's/.*-(win32|linux|darwin)-(x64|arm64)\.vsix$/\1-\2/p')"
-            if [ -z "$target" ]; then
+            if ! basename "$f" | grep -qE -- '-(win32|linux|darwin)-(x64|arm64)\.vsix$'; then
               echo "::error::认不出目标平台：$f"
               exit 1
             fi
-            echo "→ $target  $(basename "$f")"
-            npx --yes @vscode/vsce@4 publish --packagePath "$f" --target "$target" --skip-duplicate
+            echo "→ $(basename "$f")"
+            npx --yes @vscode/vsce@4 publish --packagePath "$f" --skip-duplicate
           done
