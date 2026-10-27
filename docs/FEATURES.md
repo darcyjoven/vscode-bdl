@@ -270,7 +270,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I15 | 预演策略 | VSC | 只有**编译类**允许预演（`tiptop deploy -dry-run`、W5 的本地「预演编译」）；link/schema 的同步与导入一律直接执行（避免整份扫描跑两遍） |
 | I16 | 数据库按钮门控 | VSC | context key `bdl.db.configured`（Oracle host/service/user 配齐）、`bdl.link.hasData`（links.jsonl 存在）、`bdl.schema.hasData`（tables.json 存在）；「链接资料」的 `从数据库更新` 需前两者，「数据库字段」的局部/批量同步需 configure+hasData |
 | I18 | 失败可见性与运行日志 | VSC | tiptop 输出进「Genero BDL 任务」通道（原来 6 个通道合并为 `Genero BDL`（服务器+追踪）与 `Genero BDL 任务`；每次运行前写一行 `> tiptop <子命令>` 以区分来源）；失败通知带 stderr 首行 + 「打开日志」；每次运行完整输出落盘到扩展 globalStorage 的 `last-run-<cmd>.log` |
-| I17 | 编译/链接/预览（生产端） | VSC | 命令面板 + 编辑器右上角按钮：`.4gl` 预演编译/编译/链接，`.per` 预演编译/编译/预览画面；命令交给 `tiptop exec` 在**生产服务器**（工作目录 = 生产根）通过 ssh 执行，stdout/stderr 原样进「Genero BDL 任务」通道；模板 `bdl.build.<lang>.<mode>.command` + 总开关 `bdl.build.enable`（去掉了各自的 enable）；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}`（分隔符恒 `/`）；**不自动上传**；无 `MAIN` 时「链接」不可用；**只有 4GL 链接**弹 `${name}`；Form 预览默认命令是 `cd ${fullpath} && r.gf ${name} 2 p`（三个参数） |
+| I17 | 编译/链接/预览（生产端） | VSC | 命令面板 + 编辑器右上角按钮：`.4gl` 预演编译/编译/链接，`.per` 预演编译/编译/预览画面；命令交给 `tiptop exec` 在**生产服务器**（工作目录 = 生产根）通过 ssh 执行，stdout/stderr 原样进「Genero BDL 任务」通道；模板 `bdl.build.<lang>.<mode>.command` + 总开关 `bdl.build.enable`（去掉了各自的 enable）；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}`（分隔符恒 `/`）；**不自动上传**；无 `MAIN` 时「链接」不可用；**只有 4GL 链接**弹 `${name}`；Form 预览默认命令是 `cd ${path} && r.gf ${name} 2 p`（三个参数） |
 
 ---
 

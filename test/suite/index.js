@@ -1692,7 +1692,7 @@ async function run() {
         );
         assert.strictEqual(
           api.buildCommandFor("4gl", "preview"),
-          "cd ${fullpath} && r.c2 ${name}",
+          "cd ${path} && r.c2 ${name}",
           "新键清空后应回退内置默认值",
         );
       } finally {
@@ -1703,7 +1703,7 @@ async function run() {
       // 内置默认值（Form 预览是三个参数：${name} 2 p）
       assert.strictEqual(
         api.buildCommandFor("per", "form"),
-        "cd ${fullpath} && r.gf ${name} 2 p",
+        "cd ${path} && r.gf ${name} 2 p",
         "Form 预览默认命令应含 '2 p'",
       );
       // 组装成 tiptop exec 参数（生产服务器执行；不自动上传）

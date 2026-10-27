@@ -60,20 +60,20 @@ const SPECS: readonly BuildSpec[] = [
 /**
  * 默认命令模板（键为 `<lang>.<mode>`；用户可在设置里覆盖）。
  *
- * 远端执行的是 `cd <生产根> && <命令>`，而模块目录有三层
- * （`topcust/cim/4gl`），所以命令里必须用 `${fullpath}` 才能进到模块目录；
- * `${path}` 只有两层，`cd axc/4gl` 会落到不存在的路径。
+ * 用 `${path}`（两层，如 `axc/4gl`）：生产根下 `axc`、`cim` 这些是**超链接**，
+ * 指向 `tiptop/`、`topcust/` 里对应的模块目录，所以从生产根 `cd axc/4gl` 就能
+ * 进到模块目录，不必写 `${fullpath}`。
  */
 export const BUILD_DEFAULTS: Readonly<Record<string, string>> = {
-  "4gl.preview": "cd ${fullpath} && r.c2 ${name}",
-  "4gl.compile": "cd ${fullpath} && r.c2 ${name}",
+  "4gl.preview": "cd ${path} && r.c2 ${name}",
+  "4gl.compile": "cd ${path} && r.c2 ${name}",
   "4gl.link": "r.l2 ${name}",
   "per.preview":
-    "cd ${fullpath} && fglform -M -W all ${fullname} && rm ${name}.42f",
+    "cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f",
   "per.compile":
-    "cd ${fullpath} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && " +
+    "cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && " +
     "gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/",
-  "per.form": "cd ${fullpath} && r.gf ${name} 2 p",
+  "per.form": "cd ${path} && r.gf ${name} 2 p",
 };
 
 let contextKeyTimer: NodeJS.Timeout | undefined;

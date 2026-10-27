@@ -72,7 +72,7 @@
 - **S-a** 接受建议：`bdl.prod.deploy.transport` = `off | rsync | scp`（`off` 时隐藏上传命令；`rsync` = 主 rsync、备 scp）。
 - **S-b** **只有 4GL「链接」弹 `${name}` 输入框**；4GL 编译、Form 预演编译/编译/预览都不弹。
 - **S-c** 远程执行会自行调起本地 GUI；我们只按命令执行并回传输出，不做特殊处理。
-- **S-d** `2 p` 不是笔误：Form「预览画面」默认命令字面为 `cd ${fullpath} && r.gf ${name} 2 p`。
+- **S-d** `2 p` 不是笔误：Form「预览画面」默认命令字面为 `cd ${path} && r.gf ${name} 2 p`。
 - **S-e** 基本设置（现有 22 键）全部维持不动。
 - **S-f** 沿用 `bdl.deploy.enable` 作为"上传编译链接"组的总开关。
 
