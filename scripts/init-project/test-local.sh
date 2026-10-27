@@ -13,12 +13,19 @@ bad()  { printf '  \033[31m✗\033[0m %s\n' "$1"; fail=$((fail+1)); }
 check(){ if eval "$2"; then ok "$1"; else bad "$1"; fi; }
 
 ROOT="$TMP/remote/topprod"; DEST="$TMP/local/topprod"
+# 远根下：topcust / tiptop 在范围内，other 在范围外；topcust/empty 里没有任何源文件
+# 文件级限制：任意目录的 *.global、*/4gl/*.4gl、*/per/*.per，其余一律不同步
 mkdir -p "$ROOT/topcust/aap/4gl" "$ROOT/topcust/aap/per" "$ROOT/topcust/aap/42f" \
-         "$ROOT/other/lib/4gl" "$ROOT/topcust/aap/bin" "$ROOT/.git" "$ROOT/.project/link"
+         "$ROOT/tiptop/lib/4gl" "$ROOT/other/lib/4gl" "$ROOT/topcust/empty/4gl" \
+         "$ROOT/topcust/aap/etc" "$ROOT/topcust/aap/bin" "$ROOT/.git" "$ROOT/.project/link"
 printf 'MAIN\n    DISPLAY "ok"\nEND MAIN\n' > "$ROOT/topcust/aap/4gl/axcp500.4gl"
-printf 'DEFINE g_globals\n' > "$ROOT/topcust/aap/4gl/glo.global"
+printf 'DEFINE g_globals\n' > "$ROOT/topcust/aap/glo.global"
 printf 'SCREEN s { }\n' > "$ROOT/topcust/aap/per/axcp500.per"
-printf 'MAIN\nEND MAIN\n' > "$ROOT/other/lib/4gl/libutil.4gl"
+printf 'MAIN\nEND MAIN\n' > "$ROOT/tiptop/lib/4gl/libutil.4gl"
+printf 'MAIN\nEND MAIN\n' > "$ROOT/other/lib/4gl/outside-scope.4gl"
+printf 'MAIN\nEND MAIN\n' > "$ROOT/topcust/aap/etc/odd.4gl"
+printf 'MAIN\nEND MAIN\n' > "$ROOT/topcust/aap/per/odd.4gl"
+printf 'SCREEN s { }\n'   > "$ROOT/topcust/aap/4gl/odd.per"
 python3 - "$ROOT/topcust/aap/4gl/zh.4gl" <<'PY'
 import sys
 open(sys.argv[1], "wb").write('MAIN\n    DISPLAY "料件编号"\nEND MAIN\n'.encode("gbk"))
@@ -70,7 +77,13 @@ check "没有 *.bak"      "[ ! -e '$DEST/topcust/aap/4gl/old.4gl.bak' ]"
 check "没有 bin/tool"   "[ ! -e '$DEST/topcust/aap/bin/tool' ]"
 check "没有 .project"   "[ ! -e '$DEST/.project' ]"
 check "没有 .git（远端的）" "[ ! -e '$DEST/.git/config' ] || git -C '$DEST' rev-parse --git-dir >/dev/null 2>&1"
-check "多模组都在"      "[ -e '$DEST/other/lib/4gl/libutil.4gl' ]"
+check "tiptop 与 topcust 两个目录都取到" "[ -e '$DEST/tiptop/lib/4gl/libutil.4gl' ] && [ -e '$DEST/topcust/aap/4gl/axcp500.4gl' ]"
+check "任意目录的 .global 取到"    "[ -e '$DEST/topcust/aap/glo.global' ]"
+check "范围外的 other/ 没被取"    "[ ! -e '$DEST/other' ]"
+check "非 4gl 目录里的 .4gl 不取"  "[ ! -e '$DEST/topcust/aap/etc' ]"
+check "per 目录里的 .4gl 不取"     "[ ! -e '$DEST/topcust/aap/per/odd.4gl' ]"
+check "4gl 目录里的 .per 不取"     "[ ! -e '$DEST/topcust/aap/4gl/odd.per' ]"
+check "没有源文件的目录不同步"     "[ ! -e '$DEST/topcust/empty' ]"
 
 echo "── 编码与行尾 ──"
 check "GBK 已转成合法 UTF-8" "iconv -f UTF-8 -t UTF-8 '$DEST/topcust/aap/4gl/zh.4gl' >/dev/null 2>&1"
@@ -119,8 +132,9 @@ check "保留其它本地文件（模板还在）" "[ -s '$DEST/.gitignore' ] &&
 echo "── 远端只读审计 ──"
 CMDS=$(INIT_PROJECT_SSH="$FAKE" INIT_PROJECT_RSYNC_SRC="$ROOT" "$SELF_DIR/init-project.sh" \
   --target fake@host --remote-root "$ROOT" --dest "$DEST" --print-remote 2>&1)
+# 注意：tiptop/topcust 现在就是取数目录名，所以不能再用 "tiptop" 子串判断有没有调上传/部署命令
 check "只有 find/ls/head/base64/rsync（无上传/部署）" \
-  "! printf '%s' \"\$CMDS\" | grep -qE 'tiptop|scp|curl|wget|upload|deploy'"
+  "! printf '%s' \"\$CMDS\" | grep -qE 'scp |curl|wget|upload|deploy|(^|[&|;]) *tiptop +(link|schema|compile|build)'"
 check "没有重定向写文件" "! printf '%s' \"\$CMDS\" | grep -qE '>>|>'"
 check "没有 rm/mkdir/mktemp/touch/cp/mv" \
   "! printf '%s' \"\$CMDS\" | grep -qE '(^|[^a-z])(rm|mkdir|mktemp|touch|tee|cp|mv) '"
@@ -133,7 +147,7 @@ INIT_TEST_SSH_LOG="$SSHLOG" INIT_TEST_PROBE=1 INIT_TEST_NO_KEY=1 \
   "$SELF_DIR/init-project.sh" --target fake@host --remote-root "$ROOT" \
   --dest "$DEST2" --from-encoding gbk --ask-password -y >"$TMP/runpw.log" 2>&1 \
   || { tail -20 "$TMP/runpw.log"; bad "无密钥+--ask-password 应能跑通"; }
-check "无密钥时用密码登录跑通"      "[ -e '$DEST2/other/lib/4gl/libutil.4gl' ]"
+check "无密钥时用密码登录跑通"      "[ -e '$DEST2/tiptop/lib/4gl/libutil.4gl' ]"
 check "提示已改用密码登录"          "grep -q '已改用密码登录' '$TMP/runpw.log'"
 check "探针只在前两次带 BatchMode（≤2）" "[ \"\$(grep -c 'BatchMode=yes' '$SSHLOG')\" -le 2 ]"
 check "最后一次远端调用不再带 BatchMode" "! tail -1 '$SSHLOG' | grep -q 'BatchMode=yes'"

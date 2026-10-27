@@ -1,7 +1,18 @@
 # init-project —— 从生产服务器初始化 4GL 项目仓库
 
-在本地把生产代码（`/u1/topprod` 下的 `*.4gl` / `*.global` / `*.per`）拉下来，整理成一个 **git 仓库**，
-并生成 `.gitignore` / `.gitattributes` / `.editorconfig` / 示例设置 / 来源说明。
+在本地把生产代码拉下来，整理成一个 **git 仓库**，并生成
+`.gitignore` / `.gitattributes` / `.editorconfig` / 示例设置 / 来源说明。
+
+**取数规则（两层限制，两个脚本一致）**
+
+1. **目录**：远根（默认 `/u1/topprod`，可改）下**只进 `tiptop` 和 `topcust` 两个顶层目录**，其它顶层目录不管；
+2. **文件**：只同步这三种，其余一律不取（`42f` 之类的产物、非 `4gl`/`per` 目录里的杂文件都不会来）：
+   - 任意目录的 `*.global`
+   - `4gl` 目录下的 `*.4gl`（`*/4gl/*.4gl`）
+   - `per` 目录下的 `*.per`（`*/per/*.per`）
+
+> 远根可改（`-RemoteRoot` / `-r`）；要取别的顶层目录用 `-Module a,b` / `-m a,b` 覆盖默认的 `tiptop,topcust`。
+> 远端**没有源文件的目录不会同步到本地**（Linux 用 `rsync --prune-empty-dirs`，Windows 只把文件列进 tar，不写目录项）。
 
 > **只在本地跑**（WSL/Linux 用 `init-project.sh`，Windows 用 `init-project.ps1`）；
 > 绝不要把这些脚本放到生产服务器上执行。对生产侧只做**只读**操作：
@@ -37,7 +48,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-project/init-pr
 
 ```
 连接（老服务器自动 legacy 重试）→ 只读 find 预检（文件数/字节）
-→ rsync 拉取（过滤规则只取 4gl/global/per；排除 .git/.project/42f/bin/tmp… 与 *~ *.bak）
+→ rsync 拉取（只扫 tiptop/topcust 两个顶层目录；过滤规则只取 4gl/global/per，
+  排除 .git/.project/42f/bin/tmp… 与 *~ *.bak；-m 剪掉没有源文件的目录）
 → 本地转 UTF-8（样本检测后问；已是 UTF-8 跳过）+ CRLF→LF
 → git init -b main + 模板 + core.autocrlf=false/core.eol=lf + 提交
 → 校验 git ls-files --eol 全是 i/lf w/lf
@@ -50,7 +62,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-project/init-pr
 连接 → 只读 find 预检 → 取样本判编码
 → 生产端 tar 打包到 /u1/out/<唯一名>.tar.gz（唯一写操作，不碰项目树，用管道喂 tar -T -，不留清单文件）
 → scp 回本地 <Dest>\.pack\src.tar.gz（.pack/ 已被 .gitignore 排除）
-→ 本地 tar 解压 → 转码/行尾（字节级 .NET，绝不走 Get-Content/Set-Content）
+→ 本地 tar 解压（find -type f 只列文件，所以空目录不会跟着落地）
+→ 转码/行尾（字节级 .NET，绝不走 Get-Content/Set-Content）
 → git init + 模板 + 三项换行配置 + 提交
 → finally：删远端 /u1/out 里那个包 + 本地 .pack 目录（成功失败都清）
 ```
@@ -74,7 +87,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-project/init-pr
 | `-t/--target` | `-Target` | `user@host` 或 `~/.ssh/config` 别名（只支持密钥/agent） |
 | `-r/--remote-root` | `-RemoteRoot` | 生产根，默认 `/u1/topprod` |
 | `-d/--dest` | `-Dest` | 目标目录 |
-| `-m/--module` | `-Module` | 只取某些顶层模组 |
+| `-m/--module` | `-Module` | 只取远根下这些顶层目录（默认 `tiptop,topcust`；其它目录不管） |
 | `--update` | `-Update` | 增量更新（默认模式检测：目标已存在时必须给） |
 | `--delete` | `-Delete` | 删除本地多余源文件（默认不删） |
 | `--from-encoding` | `-FromEncoding` | 跳过检测与询问（`utf-8` = 不转码） |
@@ -113,10 +126,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-project/init-pr
 scripts/init-project/test-local.sh
 ```
 
-造一棵"远端"fixture + 假 ssh，跑通 rsync 全链路并逐项断言：取数/排除、GBK→UTF-8、CRLF→LF、
-模板与换行配置、`git ls-files --eol` 全 LF、默认不删 / `--delete` 才删（含"答 n 保留"）、
-远端只读审计（无重定向、无 `rm/mkdir/mktemp/cp/mv`、无上传/部署）。
-当前 **36/36 通过**。
+造一棵"远端"fixture + 假 ssh，跑通 rsync 全链路并逐项断言：取数范围（只 tiptop/topcust）、
+文件级过滤（任意目录 `*.global` / `*/4gl/*.4gl` / `*/per/*.per`，其余不取）、空目录不同步、
+GBK→UTF-8、CRLF→LF、模板与换行配置、`git ls-files --eol` 全 LF、默认不删 / `--delete` 才删
+（含"答 n 保留"）、远端只读审计（无重定向、无 `rm/mkdir/mktemp/cp/mv`、无上传/部署）。
+当前 **46 项通过**；本机（Windows Git Bash）`git ls-files --eol` 那项失败是**既有环境问题**
+（改动前同样失败，见文末）。
 
 > Windows 版 `init-project.ps1` 已做静态检查（括号配平、无 PS7-only 语法），但**未在本机实跑**
 > （开发环境无 PowerShell）；建议先在非生产环境用 `-DryRun` 跑一遍。

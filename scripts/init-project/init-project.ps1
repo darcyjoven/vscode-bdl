@@ -4,6 +4,10 @@
 # ★ 服务器侧：只读 find 预检/取样 + 一次 tar 打包（写到 /u1/out，用完即删）；
 #    不修改项目树、不调用上传/部署。
 #
+# 取数范围：<远根>（默认 /u1/topprod，可改）下 **只取 tiptop、topcust 两个顶层目录** 的
+#           *.4gl / *.global / *.per；其它顶层目录不管。用 -Module a,b 可覆盖这两个目录名。
+#           远端没有源文件的目录不会同步到本地（只把文件列进 tar，不写目录项）。
+#
 # 流程：预检 → 取样本（判编码）→ 生产端 tar 打包（/u1/out）→ scp 回本地（<Dest>\.pack）
 #       → 解压 → 转码/行尾 → git 初始化与提交 → 清理两端中间文件（失败也清）
 #
@@ -36,6 +40,8 @@ param(
 $ErrorActionPreference = "Stop"
 $SelfDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $TplDir = Join-Path $SelfDir "templates"
+# 默认只取远根下的 tiptop 与 topcust（其余顶层目录不管）；-Module 可覆盖
+if (-not $Module) { $Module = "tiptop,topcust" }
 
 function Info($m) { [Console]::Error.WriteLine("==> $m") }
 function Warn2($m) { [Console]::Error.WriteLine("[警告] $m") }
@@ -96,13 +102,15 @@ function Enable-PasswordMode {
 $pruneNames = ".git", ".svn", "CVS", "node_modules", "42f", "4fd", "bin", "obj", "tmp", "backup", "bak", ".project", ".link", ".pack", "out"
 $prune = ($pruneNames | ForEach-Object { "-name '$_' -o" }) -join " "
 $junk = "! -name '*~' ! -name '*.bak' ! -name '*.orig' ! -name '*.rej' ! -name '*.swp' ! -name '*.swo' ! -name '.DS_Store' ! -name 'Thumbs.db'"
-$starts = "."
-if ($Module) { $starts = ($Module -split "," | Where-Object { $_ } | ForEach-Object { "'" + $_.Trim() + "'" }) -join " " }
-$nameFilter = "\\( -name '*.4gl' -o -name '*.global' -o -name '*.per' \\)"
+$starts = ($Module -split "," | Where-Object { $_.Trim() } | ForEach-Object { "'" + $_.Trim() + "'" }) -join " "
+if (-not $starts) { Die "-Module 为空：给远根下要取的顶层目录名（逗号分隔），例如 tiptop,topcust" }
+# 只要这三种：4gl 目录下的 *.4gl、per 目录下的 *.per、任意目录的 *.global
+#（所以 42f 之类的产物目录、非 4gl/per 目录里的杂文件都不会进来）
+$nameFilter = "\( -name '*.global' -o \( -path '*/4gl/*' -name '*.4gl' \) -o \( -path '*/per/*' -name '*.per' \) \)"
 function Remote-Find([string]$fmt) {
-  "cd '$RemoteRoot' && find $starts \\( $prune -false \\) -prune -o -type f $junk $nameFilter -printf '$fmt'"
+  "cd '$RemoteRoot' && find $starts \( $prune -false \) -prune -o -type f $junk $nameFilter -printf '$fmt'"
 }
-$cmdStats = (Remote-Find '%s\n') + " | awk '{n++; b+=`$1} END{print \"FILES \" n; print \"BYTES \" b}'"
+$cmdStats = (Remote-Find '%s\n') + " | awk '{n++; b+=`$1} END{print `"FILES `" n; print `"BYTES `" b}'"
 $cmdModules = "cd '$RemoteRoot' && ls -1 | head -40 | tr '\n' ',' | sed 's/,`$//'"
 $cmdSample = (Remote-Find '%p\n') + " | sed 's|^\./||' | head -n $Samples | while IFS= read -r f; do printf 'FILE %s\n' `"`$f`"; head -c 4096 `"`$f`" | base64 | tr -d '\n'; printf '\nEND\n'; done"
 $unique = "topprod-src-{0}-{1}.tar.gz" -f (Get-Date -Format "yyyyMMdd-HHmmss"), (Get-Random -Maximum 999999)
@@ -235,7 +243,7 @@ if ($enc) { Info "转码：$enc → UTF-8（已是 UTF-8 的文件跳过）" }
 # ── 4) 确认
 Write-Host ""
 Info "目标：$Target"
-if ($Module) { Info "远根：$RemoteRoot  模组：$Module" } else { Info "远根：$RemoteRoot" }
+Info "远根：$RemoteRoot   范围：$Module（*.4gl / *.global / *.per；其它顶层目录不取）"
 Info "源文件：$FILES 个（$mb MB）"
 Info "本地：$Dest   模式：$(if ($Update) { '增量更新' } else { '全新初始化' })$(if ($Delete) { '（含删除本地多余）' } else { '（只覆盖，不删）' })"
 Info "编码/行尾：$(if ($enc) { $enc } else { '不转码' }) / LF"
@@ -250,7 +258,7 @@ $localTar = Join-Path $packDir "src.tar.gz"
 $tarPath = ""
 $succeeded = $false
 try {
-  # ── 5) 生产端打包 → scp 回本地
+  # ── 5) 生产端打包 → scp 回本地（find -type f 只列文件，空目录进不了包 → 本地不会多出空目录）
   Progress2 "打包" "生产端 tar 打包（$RemoteTmpDir）"
   Info "远端打包（唯一写操作：$RemoteTmpDir/$unique）…"
   $packOut = Invoke-Remote $cmdPack
@@ -352,7 +360,7 @@ try {
     $tpl = [IO.File]::ReadAllText((Join-Path $TplDir "README-PROJECT.md"), [System.Text.Encoding]::UTF8)
     $tpl = $tpl.Replace("@PROJECT_NAME@", $ProjectName).Replace("@SOURCE_HOST@", $Target).
       Replace("@REMOTE_ROOT@", $RemoteRoot).
-      Replace("@SCOPE@", $(if ($Module) { $Module } else { "全部模组" }) + "（*.4gl / *.global / *.per）").
+      Replace("@SCOPE@", $Module + "（*.4gl / *.global / *.per）").
       Replace("@FILE_COUNT@", "$FILES").
       Replace("@INIT_AT@", (Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz")).
       Replace("@SOURCE_ENCODING@", $(if ($FromEncoding) { $FromEncoding } elseif ($enc) { $enc } else { "utf-8" }))

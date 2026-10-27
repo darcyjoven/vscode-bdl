@@ -5,7 +5,9 @@
 # ★ 对生产服务器**只读**：一条只读 find（预检/取样）+ rsync **拉取**（pull 方向，远端不写）。
 #    用 --print-remote 可以把要在服务器上执行的命令打印出来审计。
 #
-# 取数范围：<远根>（默认 /u1/topprod）下的 *.4gl / *.per / *.global。
+# 取数范围：<远根>（默认 /u1/topprod，可改）下 **只取 tiptop、topcust 两个顶层目录** 的
+#           *.4gl / *.per / *.global；其它顶层目录不管。用 -m/--module a,b 可覆盖这两个目录名。
+#           远端没有源文件的目录不会同步到本地（rsync --prune-empty-dirs）。
 # 更新语义：默认**只覆盖、不删**本地多余文件；要删加 --delete（会先列出待删再确认）。
 set -euo pipefail
 
@@ -53,7 +55,7 @@ usage() {
 
 取数（远端只读）:
   -r, --remote-root </u1/topprod>   生产根（默认 /u1/topprod）
-  -m, --module <a,b>                只取这些顶层模组（默认全部）
+  -m, --module <a,b>                只取远根下这些顶层目录（默认 tiptop,topcust；其它目录不管）
       --print-remote                打印将在服务器上执行的**只读**命令（审计）
 
 本地与 git:
@@ -106,6 +108,9 @@ done
 need() { command -v "$1" >/dev/null 2>&1 || die "缺少命令 $1"; }
 need ssh; need git; need iconv; need awk; need sed; need python3; need base64
 command -v "$RSYNC_BIN" >/dev/null 2>&1 || die "本机缺少 rsync（WSL: sudo apt install rsync）"
+
+# 默认只取远根下的 tiptop 与 topcust（其余顶层目录不管）；-m/--module 可覆盖
+[ -n "$MODULES" ] || MODULES="tiptop,topcust"
 
 ask() {
   local prompt=$1 def=${2:-} ans
@@ -172,18 +177,16 @@ remote_find() {
   for j in '*~' '*.bak' '*.orig' '*.rej' '*.swp' '*.swo' .DS_Store Thumbs.db; do
     junk="$junk ! -name $(q "$j")"
   done
-  printf 'cd %s && find %s \( %s -false \) -prune -o -type f %s \( -name %s -o -name %s -o -name %s \) -printf %s%s' \
+  # 只要这三种：任意目录的 *.global、4gl 目录下的 *.4gl、per 目录下的 *.per
+  #（所以 42f 之类的产物目录、非 4gl/per 目录里的杂文件都不会进来）
+  printf 'cd %s && find %s \( %s -false \) -prune -o -type f %s \( -name %s -o \( -path %s -name %s \) -o \( -path %s -name %s \) \) -printf %s%s' \
     "$(q "$REMOTE_ROOT")" "$starts" "$prune" "$junk" \
-    "$(q '*.4gl')" "$(q '*.global')" "$(q '*.per')" "$(q "$fmt")" "$suffix"
+    "$(q '*.global')" "$(q '*/4gl/*')" "$(q '*.4gl')" "$(q '*/per/*')" "$(q '*.per')" "$(q "$fmt")" "$suffix"
 }
 r_cmd_stats()   { remote_find '%s\n' " | awk '{n++; b+=\$1} END{print \"FILES \" n; print \"BYTES \" b}'"; }
 r_cmd_modules() { printf 'cd %s && ls -1 | head -40 | tr "\\n" "," | sed "s/,\$//"' "$(q "$REMOTE_ROOT")"; }
 r_cmd_sample()  {
   remote_find '%p\n' " | sed 's|^\\./||' | head -n $SAMPLES | while IFS= read -r f; do printf 'FILE %s\\n' \"\$f\"; head -c 4096 \"\$f\" | base64 | tr -d '\\n'; printf '\\nEND\\n'; done"
-}
-
-rsync_filter() {
-  printf '%s' "$1"
 }
 
 print_remote_commands() {
@@ -194,7 +197,13 @@ print_remote_commands() {
   echo "  4) $RSYNC_BIN ${RSYNC_FILTER_DISPLAY} -e 'ssh (连接参数)' $TARGET:$REMOTE_ROOT/ \"$DEST/\""
   echo "  （没有其它命令；不写文件、不上传、不部署）"
 }
-RSYNC_FILTER_DISPLAY="$(rsync_filter '-a ... -f"- .git/" -f"- .project/" … -f"+ */" -f"+ *.4gl" -f"+ *.global" -f"+ *.per" -f"- *"')"
+# 审计显示用：把 -m 指定的顶层目录也带上（和实际 RSYNC_ARGS 同一份来源）
+RSYNC_FILTER_DISPLAY='-a -m … -f"- .git/" -f"- .project/" …'
+for _m in $(printf '%s' "$MODULES" | tr ',' ' '); do
+  [ -n "$_m" ] && RSYNC_FILTER_DISPLAY="$RSYNC_FILTER_DISPLAY -f\"+ /$_m/\""
+done
+RSYNC_FILTER_DISPLAY="$RSYNC_FILTER_DISPLAY -f\"- /*\" -f\"+ */\" -f\"+ *.global\" -f\"+ **/4gl/*.4gl\" -f\"+ **/per/*.per\" -f\"- *\""
+unset _m
 
 if [ "$PRINT_REMOTE" = 1 ]; then print_remote_commands; exit 0; fi
 
@@ -271,7 +280,7 @@ fi
 # ── 4) 确认
 echo; echo "──────────────────────────────────────────────"
 echo " 目标        : $TARGET"
-echo " 远根        : $REMOTE_ROOT${MODULES:+   模组: $MODULES}"
+echo " 远根        : $REMOTE_ROOT   范围: $MODULES（*.4gl / *.global / *.per；其它顶层目录不取）"
 echo " 源文件      : $FILES 个（$(awk -v b="$BYTES" 'BEGIN{printf "%.2f MB", b/1048576}')）"
 echo " 本地目标    : $DEST"
 echo " 模式        : $([ "$UPDATE" = 1 ] && echo 增量更新 || echo 全新初始化)$([ "$DELETE" = 1 ] && echo '（含删除本地多余）' || echo '（只覆盖，不删）')  分支: $BRANCH"
@@ -284,12 +293,22 @@ if [ -e "$DEST" ] && [ "$UPDATE" != 1 ] && [ "$FORCE" != 1 ]; then
   die "目标已存在：$DEST（增量更新加 --update；要混着用加 --force，谨慎）"
 fi
 
-# ── 5) rsync 拉取（过滤规则 = 只要 4gl/global/per；排除 dirs 与垃圾文件）
-RSYNC_ARGS=(-a --info=progress2
+# ── 5) rsync 拉取
+# 规则顺序（先匹配先生效）：
+#   1) 垃圾/VCS/产物目录与文件：丢
+#   2) 只放进 tiptop / topcust 两个顶层目录，其它顶层条目直接丢（连扫都不扫）
+#   3) 目录都放进去（第 2 步已挡掉范围外的），否则无法往下走
+#   4) 只要：任意目录的 *.global、4gl 目录下的 *.4gl、per 目录下的 *.per
+# -m/--prune-empty-dirs：没有源文件的目录不进文件列表 → 本地不会多出空目录
+RSYNC_ARGS=(-a -m --info=progress2
   -f'- .git/' -f'- .svn/' -f'- CVS/' -f'- node_modules/' -f'- 42f/' -f'- 4fd/'
   -f'- bin/' -f'- obj/' -f'- tmp/' -f'- backup/' -f'- bak/' -f'- .project/' -f'- .link/' -f'- .pack/'
-  -f'- *~' -f'- *.bak' -f'- *.orig' -f'- *.rej' -f'- *.swp' -f'- *.swo' -f'- .DS_Store' -f'- Thumbs.db'
-  -f'+ */' -f'+ *.4gl' -f'+ *.global' -f'+ *.per' -f'- *')
+  -f'- *~' -f'- *.bak' -f'- *.orig' -f'- *.rej' -f'- *.swp' -f'- *.swo' -f'- .DS_Store' -f'- Thumbs.db')
+for m in $(printf '%s' "$MODULES" | tr ',' ' '); do
+  [ -n "$m" ] && RSYNC_ARGS+=(-f"+ /$m/")
+done
+RSYNC_ARGS+=(-f'- /*' -f'+ */'
+  -f'+ *.global' -f'+ **/4gl/*.4gl' -f'+ **/per/*.per' -f'- *')
 [ "$VERBOSE" = 1 ] && RSYNC_ARGS+=(-v)
 
 if [ -n "$RSYNC_SRC_OVERRIDE" ]; then
