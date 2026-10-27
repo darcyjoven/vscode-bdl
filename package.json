@@ -5,6 +5,7 @@
   "version": "0.6.2",
   "publisher": "darcyjoven",
   "license": "MIT",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.91.0"
   },

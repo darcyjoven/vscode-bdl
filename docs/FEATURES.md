@@ -401,6 +401,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | L15 | `npm run typecheck` / `build` / `package` | 类型检查、esbuild bundle、打平台 VSIX（需先构建两个二进制） |
 | L16 | `npm run test:e2e` | 无头 VSCode 端到端 49 用例 |
 | L17 | `scripts/package-vsix.mjs` | 平台 VSIX 打包，内置对应平台二进制与 `BUILD-INFO.json` |
+| L17b | 扩展图标 | 根目录 `icon.png`（256×256 PNG，`package.json` 的 `icon` 字段引用）；`check-vsix.sh` 把它列为**必需文件**，缺了出包就失败 |
 | L18 | CI 自检 | 构建 + 单测 + 二进制自检 + VSIX 内容自检（`scripts/check-vsix.sh`，CI 与本地同一份：**必需文件**含 `scripts/init-project/**`，**禁止** `docs/`（只留 `docs/images/` 截图）与 `src/test/.github/node_modules`，`scripts/` 只允许 `init-project/`；不再用「文件数 ≤ N」的魔法数字，只留暴涨护栏 ≤60）；`bundle-vsix.yml` 出 4 平台包（`win32-x64` / `linux-x64` / `darwin-x64` / `darwin-arm64`） |
 | L19 | 项目初始化（从生产服务器拉取代码） | VSC | 命令 `bdl.initProject`（面板，需打开工作区）：先问用哪个脚本（自动/强制），再收集 SSH 目标/生产根（默认 `/u1/topprod`）/目标目录/选项/编码，**在集成终端里执行**。脚本：Linux/WSL `init-project.sh`（只读 find + **rsync 拉取**；默认只覆盖不删，`--delete` 才删并先列清单确认）；Windows `init-project.ps1`（只读 find + 生产端 **tar** 到 `/u1/out` → **scp** 回 `<Dest>\.pack` → 解压 → **清理两端临时包**）。两者都支持「没配密钥时在过程中输入密码」（密码只交给 ssh，不保存；上传/编译仍需密钥）；转 UTF-8（样本检测+询问）、归一行尾、生成 `.gitignore`/`.gitattributes`/`.editorconfig`/示例设置/来源段落，并设 `core.autocrlf=false`/`core.eol=lf`；跑完校验 `git ls-files --eol` 全 `i/lf w/lf`。离线自测 `test-local.sh`（36 项） |
 

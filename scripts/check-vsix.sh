@@ -25,7 +25,7 @@ require_glob() {
 require_glob 'package\.json'
 require_glob '(README|readme)\.md'
 require_glob '(LICENSE|license)(\.txt)?'
-for f in dist/extension.js \
+for f in icon.png dist/extension.js \
          syntaxes/bdl.tmLanguage.json syntaxes/per.tmLanguage.json \
          language-configuration/bdl.json language-configuration/per.json \
          scripts/init-project/init-project.sh \
