@@ -961,6 +961,7 @@
     "test:e2e": "npm run build && node test/runTest.js",
     "grammars": "node ../bdl-lsp/scripts/generate-tm-grammars.mjs",
     "grammars:check": "node ../bdl-lsp/scripts/generate-tm-grammars.mjs --check",
+    "lint:sh": "node ../bdl-lsp/scripts/check-sh-utf8-vars.mjs .",
     "package": "npm run package:platform",
     "vscode:prepublish": "npm run typecheck && npm run build",
     "package:platform": "npm run typecheck && npm run build && node scripts/package-vsix.mjs",

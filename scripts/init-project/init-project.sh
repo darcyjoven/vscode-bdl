@@ -101,7 +101,7 @@ while [ $# -gt 0 ]; do
     --samples) SAMPLES=${2:-6}; shift 2 ;;
     -v|--verbose) VERBOSE=1; shift ;;
     -h|--help) usage; exit 0 ;;
-    *) die "未知参数：$1（用 -h 看帮助）" ;;
+    *) die "未知参数：${1}（用 -h 看帮助）" ;;
   esac
 done
 
@@ -208,7 +208,7 @@ unset _m
 if [ "$PRINT_REMOTE" = 1 ]; then print_remote_commands; exit 0; fi
 
 # ── 1) 连通性（老服务器自动 legacy 重试）
-prog "连接" "连接 $TARGET（远端只读）"
+prog "连接" "连接 ${TARGET}（远端只读）"
 if [ "$TEST_SSH" = 0 ] || [ "${INIT_TEST_PROBE:-0}" = 1 ]; then
   info "连接 $TARGET …（先试密钥）"
   if ! ssh_run true 2>/dev/null; then
@@ -239,7 +239,7 @@ STATS=$(ssh_run "$(r_cmd_stats)") || die "远端预检失败"
 FILES=$(printf '%s\n' "$STATS" | awk '/^FILES /{print $2}')
 BYTES=$(printf '%s\n' "$STATS" | awk '/^BYTES /{print $2}')
 MODS=$(ssh_run "$(r_cmd_modules)" || true)
-[ "${FILES:-0}" -gt 0 ] || die "没有匹配到源文件：确认 --remote-root（$REMOTE_ROOT）"
+[ "${FILES:-0}" -gt 0 ] || die "没有匹配到源文件：确认 --remote-root（${REMOTE_ROOT}）"
 info "找到 $FILES 个源文件，共 $(awk -v b="$BYTES" 'BEGIN{printf "%.2f MB", b/1048576}')"
 dim "顶层目录：${MODS:-（无）}"
 
@@ -267,10 +267,10 @@ EOF
   printf '%s\n' "$REPORT" | sed 's/^/    /'
   GUESS=$(printf '%s\n' "$REPORT" | awk -F'\t' '/^FILE\t/{print $4}' | sort | uniq -c | sort -rn | head -1 | awk '{print $2}')
   if [ "$GUESS" = "utf-8" ]; then info "样本都是合法 UTF-8 → 不转码"; ENC=""
-  elif [ "$ASSUME_YES" = 1 ]; then ENC=$GUESS; info "按检测结果使用 $ENC（--yes 不询问）"
+  elif [ "$ASSUME_YES" = 1 ]; then ENC=$GUESS; info "按检测结果使用 ${ENC}（--yes 不询问）"
   else
     echo; echo "源文件不是 UTF-8。请选择源编码（上方 alt 行可对比解码预览）："
-    echo "  1) gbk（检测建议：$GUESS）   2) big5   3) euc-cn   4) 不转码"
+    echo "  1) gbk（检测建议：${GUESS}）   2) big5   3) euc-cn   4) 不转码"
     read -r -p "选择 [1]: " pick || true
     case "${pick:-1}" in 1) ENC=gbk;; 2) ENC=big5;; 3) ENC=euc-cn;; 4) ENC="";; *) ENC=$GUESS;; esac
   fi
@@ -280,7 +280,7 @@ fi
 # ── 4) 确认
 echo; echo "──────────────────────────────────────────────"
 echo " 目标        : $TARGET"
-echo " 远根        : $REMOTE_ROOT   范围: $MODULES（*.4gl / *.global / *.per；其它顶层目录不取）"
+echo " 远根        : $REMOTE_ROOT   范围: ${MODULES}（*.4gl / *.global / *.per；其它顶层目录不取）"
 echo " 源文件      : $FILES 个（$(awk -v b="$BYTES" 'BEGIN{printf "%.2f MB", b/1048576}')）"
 echo " 本地目标    : $DEST"
 echo " 模式        : $([ "$UPDATE" = 1 ] && echo 增量更新 || echo 全新初始化)$([ "$DELETE" = 1 ] && echo '（含删除本地多余）' || echo '（只覆盖，不删）')  分支: $BRANCH"
@@ -290,7 +290,7 @@ echo "────────────────────────�
 if [ "$DRY_RUN" = 1 ]; then info "dry-run：到此为止，未拉取、未写盘"; print_remote_commands; exit 0; fi
 confirm "继续？" || { info "已取消"; exit 0; }
 if [ -e "$DEST" ] && [ "$UPDATE" != 1 ] && [ "$FORCE" != 1 ]; then
-  die "目标已存在：$DEST（增量更新加 --update；要混着用加 --force，谨慎）"
+  die "目标已存在：${DEST}（增量更新加 --update；要混着用加 --force，谨慎）"
 fi
 
 # ── 5) rsync 拉取
@@ -322,11 +322,12 @@ mkdir -p "$DEST"
 
 if [ "$DELETE" = 1 ]; then
   info "先列出将被删除的本地多余文件（--delete 预演）…"
-  if [ -n "$RSYNC_SRC_OVERRIDE" ]; then
-    mapfile -t WOULD_DELETE < <("$RSYNC_BIN" "${RSYNC_ARGS[@]}" --dry-run --delete -i "$SRC" "$DEST/" | awk '/^\*deleting/{print $2}')
-  else
-    mapfile -t WOULD_DELETE < <("$RSYNC_BIN" "${RSYNC_ARGS[@]}" --dry-run --delete -i -e "$SSH_CMD" "$SRC" "$DEST/" | awk '/^\*deleting/{print $2}')
-  fi
+  # 不用 mapfile/readarray：macOS 自带的 bash 3.2 没有（readarray 是 bash 4.0+）。
+  DELETE_ARGS=("${RSYNC_ARGS[@]}" --dry-run --delete -i)
+  [ -n "$RSYNC_SRC_OVERRIDE" ] || DELETE_ARGS+=(-e "$SSH_CMD")
+  WOULD_DELETE=()
+  while IFS= read -r entry; do WOULD_DELETE+=("$entry"); done \
+    < <("$RSYNC_BIN" "${DELETE_ARGS[@]}" "$SRC" "$DEST/" | awk '/^\*deleting/{print $2}')
   if [ ${#WOULD_DELETE[@]} -gt 0 ]; then
     info "发现 ${#WOULD_DELETE[@]} 个本地多余文件（需要你确认后才删除）"
     printf '  %s\n' "${WOULD_DELETE[@]:0:20}"
@@ -353,16 +354,19 @@ info "本地现有 $GOT 个源文件"
 
 # ── 6) 规范化：行尾 + 编码（本地做）
 SRC_PRED=(-name '*.4gl' -o -name '*.global' -o -name '*.per')
-mapfile -t SRC_FILES < <(find "$DEST" -type f \( "${SRC_PRED[@]}" \) -print)
+# 同上：read 循环代替 mapfile；空数组在 set -u + bash 3.2 下展开要加 ${arr[@]+...} 保护
+SRC_FILES=()
+while IFS= read -r src_file; do SRC_FILES+=("$src_file"); done \
+  < <(find "$DEST" -type f \( "${SRC_PRED[@]}" \) -print)
 prog "规范化" "转码/行尾（${#SRC_FILES[@]} 个源文件）"
 conv=0; skip=0; crlf=0
-for f in "${SRC_FILES[@]}"; do
+for f in ${SRC_FILES[@]+"${SRC_FILES[@]}"}; do
   if LC_ALL=C grep -q $'\r' "$f" 2>/dev/null; then sed -i 's/\r$//' "$f"; crlf=$((crlf+1)); fi
   [ -z "$ENC" ] && continue
   if iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1; then skip=$((skip+1)); continue; fi
   tmp="$f.utf8tmp"
   if iconv -f "$ENC" -t UTF-8 "$f" > "$tmp" 2>/dev/null; then mv "$tmp" "$f"; conv=$((conv+1))
-  else rm -f "$tmp"; warn "转码失败（按 $ENC）：$f"; fi
+  else rm -f "$tmp"; warn "转码失败（按 ${ENC}）：$f"; fi
 done
 dim "行尾转换 $crlf 个；转码 $conv 个；本来就是 UTF-8 跳过 $skip 个"
 

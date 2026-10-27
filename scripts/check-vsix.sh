@@ -55,7 +55,7 @@ fi
 
 # 暴涨护栏：只防"忽略规则整体失效"，不当作精确值
 count=$(unzip -l "$VSIX" | tail -1 | awk '{print $2}')
-echo "VSIX 内容自检通过（$MODE）：$count 个条目"
+echo "VSIX 内容自检通过（${MODE}）：$count 个条目"
 if [ "$count" -gt 60 ]; then
-  echo "VSIX 条目数暴涨（$count），检查 .vscodeignore"; exit 1
+  echo "VSIX 条目数暴涨（${count}），检查 .vscodeignore"; exit 1
 fi

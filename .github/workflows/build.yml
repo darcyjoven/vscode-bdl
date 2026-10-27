@@ -64,6 +64,11 @@ jobs:
       - name: 校验高亮切分
         run: node bdl-lsp/scripts/verify-tm-grammars.mjs
 
+      # shell 脚本里变量紧跟中文标点必须写 ${VAR}：macOS 的 ctype 会让 bash 把
+      # 后面 UTF-8 字符的首字节吞进变量名（set -u → unbound variable，check-vsix.sh 曾中招）。
+      - name: 校验 shell 脚本（变量紧跟非 ASCII）
+        run: node bdl-lsp/scripts/check-sh-utf8-vars.mjs vscode-extension bdl-lsp
+
   # -------------------------------------------------------- 构建与打包
   package:
     name: 类型检查 / 构建 / VSIX

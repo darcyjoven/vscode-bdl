@@ -800,6 +800,8 @@ npx vsce publish --target darwin-arm64 --packagePath dist-vsix/4gl-full-<version
 - **不要提交二进制**：`bin/` 与 `dist-vsix/` 已在 `.gitignore`。
 - **Windows 运行库**：先试 `-static`；失败则动态构建并复制 `libwinpthread-1.dll`、`libgcc_s_seh-1.dll` 到 `bin/`。
 - **macOS runner**：用 `macos-15-intel`（Intel）与 `macos-15`（Apple Silicon）；`darwin-arm64` 不能跑在 Intel Mac 上。
+- **bash 脚本里变量紧跟中文标点必须写 `${VAR}`**：bash 用 libc 的 `isalnum()`（按当前 locale 的 ctype 表）找变量名结尾；macOS 上 `$MODE（` 的首字节 `EF` 会被吞进变量名 → `set -u` 报 `unbound variable`，不带 `-u` 则静默丢字符。仓库级检查：`npm run lint:sh`（= `node ../bdl-lsp/scripts/check-sh-utf8-vars.mjs .`），CI 的 verify job 也会跑。
+- **`init-project.sh` 要能在 macOS 自带 bash 3.2 上跑**：不能用 `mapfile`/`readarray`（bash 4.0+）；空数组在 `set -u` 下展开要写 `${arr[@]+"${arr[@]}"}`。改动后用 `scripts/init-project/test-local.sh` 在 bash 3.2 下回归（当前 47/47，全绿）。
 - **装错平台包**：扩展读 `BUILD-INFO.json` 的 `target`，与当前平台不符时跳过内置二进制并回退外部路径。
 - **覆盖内置二进制**：用户可用 `bdl.server.path` / `BDL_LSP_PATH` / 工作区 `.bdl-lsp/bin/`，见 [`README.md`](../README.md) 安装一节。
 
