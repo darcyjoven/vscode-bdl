@@ -22,7 +22,7 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法
 
 1. 在 VSCode 扩展市场（扩展面板）搜索 `Genero BDL (4GL)`（扩展 ID `darcyjoven.4gl-full`），点**安装**；
    市场会按你的系统/芯片分发对应平台包。
-2. 或下载平台 `.vsix`（如 `4gl-full-0.6.4-win32-x64.vsix`），在"扩展 → … → 从 VSIX 安装"中选择该文件。
+2. 或下载平台 `.vsix`（如 `4gl-full-1.0.0-win32-x64.vsix`），在"扩展 → … → 从 VSIX 安装"中选择该文件。
 
 装好后：
 
