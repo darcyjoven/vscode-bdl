@@ -488,13 +488,13 @@
           },
           "bdl.build.4gl.preview.command": {
             "type": "string",
-            "default": "cd ${path} && r.c2 ${name}",
+            "default": "cd ${fullpath} && r.c2 ${name}",
             "scope": "window",
             "markdownDescription": "4gl 预演编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           },
           "bdl.build.4gl.compile.command": {
             "type": "string",
-            "default": "cd ${path} && r.c2 ${name}",
+            "default": "cd ${fullpath} && r.c2 ${name}",
             "scope": "window",
             "markdownDescription": "4gl 编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           },
@@ -506,19 +506,19 @@
           },
           "bdl.build.per.preview.command": {
             "type": "string",
-            "default": "cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f",
+            "default": "cd ${fullpath} && fglform -M -W all ${fullname} && rm ${name}.42f",
             "scope": "window",
             "markdownDescription": "per 预演编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           },
           "bdl.build.per.compile.command": {
             "type": "string",
-            "default": "cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/",
+            "default": "cd ${fullpath} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/",
             "scope": "window",
             "markdownDescription": "per 编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           },
           "bdl.build.per.form.command": {
             "type": "string",
-            "default": "cd ${path} && r.gf ${name} 2 p",
+            "default": "cd ${fullpath} && r.gf ${name} 2 p",
             "scope": "window",
             "markdownDescription": "per 预览画面命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
           }

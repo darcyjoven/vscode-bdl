@@ -579,10 +579,10 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Check
 > 前置：`bdl.build.enable` 打开（默认关）。命令通过 `tiptop exec` 在**生产根目录**下执行，
 > stdout/stderr 原样进「Genero BDL 任务」通道。**编译前不会自动上传**。
 
-- [ ] 5.2.1 `4GL：预演编译` / `4GL：编译`：远端执行 `cd ${path} && r.c2 ${name}`，输出完整（含命令回显与退出码）
+- [ ] 5.2.1 `4GL：预演编译` / `4GL：编译`：远端执行 `cd ${fullpath} && r.c2 ${name}`，输出完整（含命令回显与退出码）
 - [ ] 5.2.2 `4GL：链接`：弹 `${name}` 确认框（**只有这条弹**）；**没有 MAIN 的文件按钮置灰、不发 ssh**
 - [ ] 5.2.3 `Form：预演编译` / `Form：编译`：`fglform` + `gsform` 按模板执行，产物按模板落到 `../42f/`、`../4fd/`
-- [ ] 5.2.4 `Form：预览画面`：远端执行 `cd ${path} && r.gf ${name} 2 p`（三个参数，会调起本地 GUI）
+- [ ] 5.2.4 `Form：预览画面`：远端执行 `cd ${fullpath} && r.gf ${name} 2 p`（三个参数，会调起本地 GUI）
 - [ ] 5.2.5 改完文件**不点上传**直接编译 → 服务器上仍是旧代码（确认这与文档一致：上传是独立动作）
 - [ ] 5.2.6 失败时通知带 stderr 首行；点「打开日志」打开 `last-run-exec.log`
 - [ ] 5.2.7 输出通道只有两个：`Genero BDL`（服务器 + 追踪）与 `Genero BDL 任务`（上传/编译/链接/字段）

@@ -1692,7 +1692,7 @@ async function run() {
         );
         assert.strictEqual(
           api.buildCommandFor("4gl", "preview"),
-          "cd ${path} && r.c2 ${name}",
+          "cd ${fullpath} && r.c2 ${name}",
           "新键清空后应回退内置默认值",
         );
       } finally {
@@ -1703,38 +1703,20 @@ async function run() {
       // 内置默认值（Form 预览是三个参数：${name} 2 p）
       assert.strictEqual(
         api.buildCommandFor("per", "form"),
-        "cd ${path} && r.gf ${name} 2 p",
+        "cd ${fullpath} && r.gf ${name} 2 p",
         "Form 预览默认命令应含 '2 p'",
       );
       // 组装成 tiptop exec 参数（生产服务器执行；不自动上传）
       assert.deepStrictEqual(
-        api.buildTiptopArgs("/ws", "tiptop/apm/4gl/axcp500.4gl", "r.l2 axcp500"),
-        [
-          "exec",
-          "-workspace",
-          "/ws",
-          "-file",
-          "tiptop/apm/4gl/axcp500.4gl",
-          "-command",
-          "r.l2 axcp500",
-        ],
+        api.buildTiptopArgs("r.l2 axcp500"),
+        ["exec", "-command", "r.l2 axcp500"],
         "编译命令应交给 tiptop exec",
       );
       // 登录区域 + 环境脚本：远端登录菜单要先选区，再 source profile（在 cd 生产根之前）
       assert.deepStrictEqual(
-        api.buildTiptopArgs(
-          "/ws",
-          "tiptop/apm/4gl/axcp500.4gl",
-          "r.l2 axcp500",
-          "2",
-          "/u1/usr/profile/profile.toptest",
-        ),
+        api.buildTiptopArgs("r.l2 axcp500", "2", "/u1/usr/profile/profile.toptest"),
         [
           "exec",
-          "-workspace",
-          "/ws",
-          "-file",
-          "tiptop/apm/4gl/axcp500.4gl",
           "-command",
           "r.l2 axcp500",
           "-region",

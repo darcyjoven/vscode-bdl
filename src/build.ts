@@ -57,17 +57,23 @@ const SPECS: readonly BuildSpec[] = [
   { id: "bdl.build.per.form", lang: "per", mode: "form", title: "Form：预览画面", promptName: false, needMain: false },
 ];
 
-/** 默认命令模板（键为 `<lang>.<mode>`；用户可在设置里覆盖）。 */
+/**
+ * 默认命令模板（键为 `<lang>.<mode>`；用户可在设置里覆盖）。
+ *
+ * 远端执行的是 `cd <生产根> && <命令>`，而模块目录有三层
+ * （`topcust/cim/4gl`），所以命令里必须用 `${fullpath}` 才能进到模块目录；
+ * `${path}` 只有两层，`cd axc/4gl` 会落到不存在的路径。
+ */
 export const BUILD_DEFAULTS: Readonly<Record<string, string>> = {
-  "4gl.preview": "cd ${path} && r.c2 ${name}",
-  "4gl.compile": "cd ${path} && r.c2 ${name}",
+  "4gl.preview": "cd ${fullpath} && r.c2 ${name}",
+  "4gl.compile": "cd ${fullpath} && r.c2 ${name}",
   "4gl.link": "r.l2 ${name}",
   "per.preview":
-    "cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f",
+    "cd ${fullpath} && fglform -M -W all ${fullname} && rm ${name}.42f",
   "per.compile":
-    "cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && " +
+    "cd ${fullpath} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && " +
     "gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/",
-  "per.form": "cd ${path} && r.gf ${name} 2 p",
+  "per.form": "cd ${fullpath} && r.gf ${name} 2 p",
 };
 
 let contextKeyTimer: NodeJS.Timeout | undefined;
@@ -205,20 +211,24 @@ function flattenSymbols(list: vscode.DocumentSymbol[]): vscode.DocumentSymbol[] 
 /**
  * 组装交给 tiptop 的参数（导出给 e2e 断言）。
  *
- * `tiptop exec` 在生产服务器上执行命令，工作目录 = 生产根目录；`-file` 只用于
- * 打印上下文（命令里的 `${path}`/`${name}` 已在插件侧展开）。
+ * 远端实际执行的就是 `cd <生产根> && <command>`：要进哪个模块目录由命令自己
+ * `cd`（模板里的 `${fullpath}`），tiptop 不替命令切目录，所以这里只需要传命令本身。
+ *
+ * 不传 `-workspace` / `-file`：
+ *   - `-workspace` 只用于本地找 `.project/deploy/deploy.json`，调用方已经把进程
+ *     工作目录设成工作区根，tiptop 缺省按 cwd 找；
+ *   - `-file` 在 exec 里只打印一行上下文，命令里已经带了路径。
+ * 上传（`tiptop upload`）仍然要 `-file`，那是另一条路，不受影响。
  *
  * `region` / `loginProfile` 只在编译/链接/预览这类远端命令上传：tiptop 会先把
  * 区号喂给远端登录菜单，再 source 环境脚本（必须在 `cd 生产根` 之前）。
  */
 export function buildTiptopArgs(
-  root: string,
-  rel: string,
   command: string,
   region?: string,
   loginProfile?: string,
 ): string[] {
-  const args = ["exec", "-workspace", root, "-file", rel, "-command", command];
+  const args = ["exec", "-command", command];
   if (region) {
     args.push("-region", region);
   }
@@ -332,7 +342,7 @@ async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
   // §0d：交给 tiptop 在**生产服务器**上执行（工作目录 = 生产根目录）。
   const res = await runTiptopWithProgress(
     root,
-    buildTiptopArgs(root, rel, command, region, loginProfile),
+    buildTiptopArgs(command, region, loginProfile),
     spec.title,
     out,
   );
