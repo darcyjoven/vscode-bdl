@@ -1,6 +1,6 @@
 {
   "name": "4gl-full",
-  "displayName": "4gl (4GL)",
+  "displayName": "4gl-full",
   "description": "4gl（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
   "version": "0.9.0",
   "publisher": "darcyjoven",
