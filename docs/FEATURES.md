@@ -87,7 +87,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | B7 | 重命名 | LSP | `prepare` + `rename`；**只改当前文件**、大小写不敏感、不动字符串 |
 | B8 | 快速修复（Code Action） | LSP | 仅 `quickfix`：字段名写错时的改名建议 |
 | B9 | 语义高亮 | LSP（VSC 渲染） | `semanticTokens/full`；只发**用户自定义符号**（关键字/字符串交给 TextMate）；函数 `declaration`、常量 `readonly`、GLOBALS 块 `static` |
-| B10 | 格式化 | LSP | `.4gl` / `.global`；`bdl.format.keywords`（unchanged/upper/lower）+ `indentStyle` + `indentSize`；安全守卫：有 `ERROR` 不格式化、幂等；**`.per` 一律不格式化** |
+| B10 | 格式化 | LSP | `.4gl` / `.global`；`bdl.format.keywords`（unchanged/upper/lower，`lower` 同时作用于关键字补全）+ `indentStyle` + `indentSize`；安全守卫：有 `ERROR` 不格式化、幂等；**`.per` 一律不格式化** |
 | B11 | 游标 / PREPARE 符号 | LSP | `PREPARE` / `DECLARE CURSOR` 声明；`EXECUTE`/`FETCH`/`OPEN`/`CLOSE`/`FOREACH` 悬停与跳转；同步接入大纲/补全/语义高亮 |
 
 > VSC 侧快捷键由 VSCode 提供：`F12` 跳转、`Shift+F12` 引用、`F2` 重命名、`Ctrl+.` 快速修复、`Shift+Alt+F` 格式化。
@@ -323,7 +323,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | 基础 | `bdl.trace.server` | `off` | LSP 消息追踪（off/messages/verbose） |
 | 基础 | `bdl.generoVersion` | `2.50` | 目标 Genero 版本 |
 | 基础 | `bdl.diagnostics` | `{}` | 逐诊断码调级（唯一入口） |
-| 基础 | `bdl.format.keywords` / `indentStyle` / `indentSize` | `unchanged` / `auto` / `0` | 格式化行为 |
+| 基础 | `bdl.format.keywords` / `indentStyle` / `indentSize` | `unchanged` / `auto` / `0` | 格式化行为（`keywords=lower` 也让补全关键字小写） |
 | 基础 | `bdl.index.enable` | `true` | 后台工作区符号索引 |
 | 基础 | `bdl.globals.searchPaths` | `[]` | GLOBALS 附加解析根 |
 | 基础 | `bdl.perRoots` | `[]` | `.per` 附加查找根 |

@@ -170,7 +170,7 @@
             ],
             "default": "unchanged",
             "scope": "window",
-            "markdownDescription": "格式化时关键字的大小写处理：`unchanged` 保持不变、`upper` 转大写、`lower` 转小写。\n\n仅改写关键字本身，不动空白、标点与换行；含语法错误的文件整体跳过格式化。"
+            "markdownDescription": "格式化时关键字的大小写处理：`unchanged` 保持不变、`upper` 转大写、`lower` 转小写。\n\n设为 `lower` 时，关键字补全也用同样的小写字形；其它取值补全保持原字形。\n\n仅改写关键字本身，不动空白、标点与换行；含语法错误的文件整体跳过格式化。"
           },
           "bdl.format.indentStyle": {
             "type": "string",

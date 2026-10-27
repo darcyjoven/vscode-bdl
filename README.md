@@ -518,7 +518,7 @@ code --list-extensions | grep -i 4gl
 
 ```jsonc
 {
-  "bdl.format.keywords": "unchanged", // unchanged / upper / lower
+  "bdl.format.keywords": "unchanged", // unchanged / upper / lower（lower 时补全也给小写）
   "bdl.format.indentStyle": "auto",   // auto / tab / space
   "bdl.format.indentSize": 0          // 0 表示按原文件推断
 }
@@ -1232,7 +1232,7 @@ VSCode 设置适合个人临时调整。
 | 键 | 默认 | 作用 |
 |---|---|---|
 | `bdl.diagnostics` | `{}` | 按诊断码覆盖级别；唯一诊断入口 |
-| `bdl.format.keywords` | `unchanged` | 关键字大小写：`unchanged`/`upper`/`lower` |
+| `bdl.format.keywords` | `unchanged` | 关键字大小写：`unchanged`/`upper`/`lower`；`lower` 同时让补全的关键字用小写 |
 | `bdl.format.indentStyle` | `auto` | 缩进风格：`auto`/`tab`/`space` |
 | `bdl.format.indentSize` | `0` | 缩进宽度；0 表示按原文件推断 |
 
