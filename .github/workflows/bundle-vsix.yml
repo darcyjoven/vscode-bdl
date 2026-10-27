@@ -446,28 +446,33 @@ jobs:
           # 平台信息在 VSIX 清单里（打包时 `vsce package --target` 写入），
           # publish 只给 --packagePath：再传 --target 会被 vsce 直接拒绝。
           # 也不用 --skip-duplicate——那会把 409 吞成成功，正是 v0.9.0 缺包的原因。
+          #
+          # 注意：市场索引/校验是异步的，vsce 报 Published 之后条目还要几分钟
+          # 才会出现在查询接口里（0.9.0 约 8 分钟）。所以这里只判断"vsce 是否
+          # 接受"，是否真的上架交给后面的 verify job 轮询。
+          OK=0
           for attempt in $(seq 1 20); do
             echo "→ 第 ${attempt} 次发布 $V / $TARGET"
             if npx --yes @vscode/vsce@4 publish --packagePath "$VSIX"; then
+              OK=1
               break
             fi
             if published; then
-              echo "市场已出现 $V / $TARGET"
+              OK=1
               break
             fi
             if [ "$attempt" -eq 20 ]; then
-              echo "::error::$V / $TARGET 连续 20 次发布失败"
-              exit 1
+              break
             fi
             echo "本次失败，30 秒后重试"
             sleep 30
           done
 
-          if ! published; then
-            echo "::error::发布结束但市场里查不到 $V / $TARGET"
+          if [ "$OK" -ne 1 ]; then
+            echo "::error::$V / $TARGET 连续 20 次发布失败"
             exit 1
           fi
-          echo "✅ $V / $TARGET 已上架"
+          echo "✅ vsce 已接受 $V / $TARGET（市场索引稍后可见）"
 
   # 兜底断言：四个平台缺一个就红，避免再出现「job 绿但 Windows 装不上」。
   verify:
@@ -482,16 +487,25 @@ jobs:
         run: |
           set -euo pipefail
           V="$(node -p "require('./package.json').version")"
-          curl -sS --max-time 20 -X POST \
-            "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery" \
-            -H "Accept: application/json;api-version=7.2-preview.1" \
-            -H "Content-Type: application/json" \
-            -d '{"filters":[{"criteria":[{"filterType":7,"value":"darcyjoven.4gl-full"}],"pageNumber":1,"pageSize":1}],"flags":1}' \
-          > /tmp/market.json
-          # 打印已有平台（stderr），并把缺失平台列表输出到 stdout
-          MISSING="$(python3 -c 'import json,sys; v=sys.argv[1]; want={"win32-x64","linux-x64","darwin-x64","darwin-arm64"}; ext=json.load(open("/tmp/market.json"))["results"][0]["extensions"][0]; have={x.get("targetPlatform") or "universal" for x in ext.get("versions") or [] if x.get("version")==v}; print(f"{v} 已有平台：{sorted(have)}", file=sys.stderr); print(" ".join(sorted(want-have)))' "$V")"
-          if [ -n "$MISSING" ]; then
-            echo "::error::$V 缺少平台：$MISSING"
-            exit 1
-          fi
-          echo "四平台齐全"
+
+          # 市场校验是异步的，轮询最多 20 分钟（每 30 秒一次）
+          ready() {
+            curl -sS --max-time 20 -X POST \
+              "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery" \
+              -H "Accept: application/json;api-version=7.2-preview.1" \
+              -H "Content-Type: application/json" \
+              -d '{"filters":[{"criteria":[{"filterType":7,"value":"darcyjoven.4gl-full"}],"pageNumber":1,"pageSize":1}],"flags":1}' \
+            > /tmp/market.json || return 1
+            python3 -c 'import json,sys; v=sys.argv[1]; want={"win32-x64","linux-x64","darwin-x64","darwin-arm64"}; ext=json.load(open("/tmp/market.json"))["results"][0]["extensions"][0]; have={x.get("targetPlatform") or "universal" for x in ext.get("versions") or [] if x.get("version")==v}; miss=sorted(want-have); print(f"  已有 {sorted(have)}，缺 {miss}", file=sys.stderr); sys.exit(1 if miss else 0)' "$V"
+          }
+
+          for i in $(seq 1 40); do
+            echo "第 ${i} 次检查（最多 40 次 / 20 分钟）"
+            if ready; then
+              echo "四平台齐全"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "::error::$V 在 20 分钟内仍未凑齐四平台"
+          exit 1
