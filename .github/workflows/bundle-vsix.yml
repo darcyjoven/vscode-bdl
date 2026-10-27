@@ -322,14 +322,22 @@ jobs:
           if-no-files-found: error
 
   # ------------------------------------------------------------------ 发布
-  # tag（v*）推送后：4 个平台的 vsix 挂到 GitHub Release，再逐个发布到 VS Code 市场。
-  # 手动触发时默认**不**发布，要勾 publish。
+  # tag（v*）推送后：4 个平台的 vsix 挂到 GitHub Release，再由 4 个独立 job
+  # 分别发布到 VS Code 市场。手动触发时默认**不**发布，要勾 publish。
+  #
+  # 为什么按平台拆成独立 job：
+  #   市场按（版本号, targetPlatform）存版本。第一次发某个版本号时，扩展创建后
+  #   还要异步校验，紧接着上传其它平台会被当成「版本已存在」拒绝（409）。之前
+  #   在一个 job 里循环 4 个包，只有第一个成功、其余被 --skip-duplicate 吞掉，
+  #   job 仍是绿的，结果 Windows 用户装不上（v0.9.0 就是这么丢的）。
+  #   现在每平台一个 job、串行执行：避开首包竞态，单个失败不影响其它平台，
+  #   且失败会显性报出来。
   #
   # 需要的仓库 secret：
   #   VSCE_PAT      Azure DevOps PAT，Scope = Marketplace → Manage（发布市场必需）
   #   TIPTOP_TOKEN  只有当 tiptop 是私有仓库时才需要（preflight/bundle 已用）
   release:
-    name: 发布（Release + 市场）
+    name: 发布（GitHub Release）
     needs: bundle
     if: startsWith(github.ref, 'refs/tags/v') || inputs.publish == true
     runs-on: ubuntu-24.04
@@ -374,22 +382,116 @@ jobs:
             gh release upload "$TAG" dist/*.vsix --repo "$GITHUB_REPOSITORY" --clobber
           fi
 
+  # 每个平台一个 job；max-parallel: 1 让它们串行，避免同版本首包竞态。
+  # win32-x64 放在最前：Windows 用户是这次的主要缺口。
+  publish:
+    name: 发布 ${{ matrix.target }}
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publish == true
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        target: [win32-x64, linux-x64, darwin-x64, darwin-arm64]
+    steps:
+      - name: 检出扩展（只读版本号）
+        uses: actions/checkout@v4
+
+      - name: 安装 Node（vsce 需要 20+）
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 取本平台 VSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: vsix-${{ matrix.target }}
+          path: dist
+
       - name: 发布到 VS Code 市场
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          TARGET: ${{ matrix.target }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           if [ -z "${VSCE_PAT:-}" ]; then
             echo "::error::缺少 secret VSCE_PAT（Azure DevOps PAT，Scope 选 Marketplace → Manage）"
             exit 1
           fi
-          # 平台信息已经在 vsix 清单里（打包时用了 `vsce package --target`），
-          # publish 只给 --packagePath；再传 --target 会被 vsce 直接拒绝。
-          for f in dist/*.vsix; do
-            if ! basename "$f" | grep -qE -- '-(win32|linux|darwin)-(x64|arm64)\.vsix$'; then
-              echo "::error::认不出目标平台：$f"
+
+          V="$(node -p "require('./package.json').version")"
+          VSIX="$(find dist -maxdepth 1 -name '*.vsix' -print -quit)"
+          if [ -z "$VSIX" ]; then
+            echo "::error::没找到 $TARGET 的 VSIX"
+            exit 1
+          fi
+          echo "版本 $V，包 $VSIX，平台 $TARGET"
+
+          # 市场查询：该 (版本, 平台) 是否已经在架
+          published() {
+            curl -sS --max-time 20 -X POST \
+              "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery" \
+              -H "Accept: application/json;api-version=7.2-preview.1" \
+              -H "Content-Type: application/json" \
+              -d '{"filters":[{"criteria":[{"filterType":7,"value":"darcyjoven.4gl-full"}],"pageNumber":1,"pageSize":1}],"flags":1}' \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); vs=d["results"][0]["extensions"][0].get("versions") or []; sys.exit(0 if any(x.get("version")==sys.argv[1] and (x.get("targetPlatform") or "universal")==sys.argv[2] for x in vs) else 1)' "$V" "$TARGET"
+          }
+
+          if published; then
+            echo "已在市场：$V / $TARGET，跳过"
+            exit 0
+          fi
+
+          # 平台信息在 VSIX 清单里（打包时 `vsce package --target` 写入），
+          # publish 只给 --packagePath：再传 --target 会被 vsce 直接拒绝。
+          # 也不用 --skip-duplicate——那会把 409 吞成成功，正是 v0.9.0 缺包的原因。
+          for attempt in $(seq 1 20); do
+            echo "→ 第 ${attempt} 次发布 $V / $TARGET"
+            if npx --yes @vscode/vsce@4 publish --packagePath "$VSIX"; then
+              break
+            fi
+            if published; then
+              echo "市场已出现 $V / $TARGET"
+              break
+            fi
+            if [ "$attempt" -eq 20 ]; then
+              echo "::error::$V / $TARGET 连续 20 次发布失败"
               exit 1
             fi
-            echo "→ $(basename "$f")"
-            npx --yes @vscode/vsce@4 publish --packagePath "$f" --skip-duplicate
+            echo "本次失败，30 秒后重试"
+            sleep 30
           done
+
+          if ! published; then
+            echo "::error::发布结束但市场里查不到 $V / $TARGET"
+            exit 1
+          fi
+          echo "✅ $V / $TARGET 已上架"
+
+  # 兜底断言：四个平台缺一个就红，避免再出现「job 绿但 Windows 装不上」。
+  verify:
+    name: 校验四平台
+    needs: publish
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 检出扩展（只读版本号）
+        uses: actions/checkout@v4
+
+      - name: 断言 4 个平台都在市场
+        run: |
+          set -euo pipefail
+          V="$(node -p "require('./package.json').version")"
+          curl -sS --max-time 20 -X POST \
+            "https://marketplace.visualstudio.com/_apis/public/gallery/extensionquery" \
+            -H "Accept: application/json;api-version=7.2-preview.1" \
+            -H "Content-Type: application/json" \
+            -d '{"filters":[{"criteria":[{"filterType":7,"value":"darcyjoven.4gl-full"}],"pageNumber":1,"pageSize":1}],"flags":1}' \
+          > /tmp/market.json
+          # 打印已有平台（stderr），并把缺失平台列表输出到 stdout
+          MISSING="$(python3 -c 'import json,sys; v=sys.argv[1]; want={"win32-x64","linux-x64","darwin-x64","darwin-arm64"}; ext=json.load(open("/tmp/market.json"))["results"][0]["extensions"][0]; have={x.get("targetPlatform") or "universal" for x in ext.get("versions") or [] if x.get("version")==v}; print(f"{v} 已有平台：{sorted(have)}", file=sys.stderr); print(" ".join(sorted(want-have)))' "$V")"
+          if [ -n "$MISSING" ]; then
+            echo "::error::$V 缺少平台：$MISSING"
+            exit 1
+          fi
+          echo "四平台齐全"
