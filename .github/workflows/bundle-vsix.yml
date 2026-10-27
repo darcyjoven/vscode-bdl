@@ -28,6 +28,11 @@ on:
         required: true
         default: main
         type: string
+      publish:
+        description: "构建完是否发布（GitHub Release + VS Code 市场）；tag 推送时总是发布"
+        required: false
+        default: false
+        type: boolean
   push:
     tags:
       - "v*"
@@ -315,3 +320,78 @@ jobs:
           name: vsix-${{ matrix.target }}
           path: vscode-extension/dist-vsix/*.vsix
           if-no-files-found: error
+
+  # ------------------------------------------------------------------ 发布
+  # tag（v*）推送后：4 个平台的 vsix 挂到 GitHub Release，再逐个发布到 VS Code 市场。
+  # 手动触发时默认**不**发布，要勾 publish。
+  #
+  # 需要的仓库 secret：
+  #   VSCE_PAT      Azure DevOps PAT，Scope = Marketplace → Manage（发布市场必需）
+  #   TIPTOP_TOKEN  只有当 tiptop 是私有仓库时才需要（preflight/bundle 已用）
+  release:
+    name: 发布（Release + 市场）
+    needs: bundle
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.publish == true
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write        # 建 Release 需要
+    steps:
+      - name: 检出扩展（只读版本号）
+        uses: actions/checkout@v4
+        with:
+          path: vscode-extension
+
+      - name: 安装 Node（vsce 需要 20+）
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: 收齐四个平台包
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: vsix-*
+          merge-multiple: true
+
+      - name: 发布到 GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          V="$(node -p "require('./vscode-extension/package.json').version")"
+          # tag 推送就用 tag 名；手动触发按 package.json 版本补一个 v 前缀
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            TAG="${GITHUB_REF_NAME}"
+            if [ "$TAG" != "v${V}" ]; then
+              echo "::error::tag ${TAG} 与 package.json 版本 v${V} 不一致：先改版本再打 tag"
+              exit 1
+            fi
+          else
+            TAG="v${V}"
+          fi
+          ls -lh dist
+          echo "→ Release $TAG"
+          if ! gh release create "$TAG" dist/*.vsix --title "$TAG" --generate-notes; then
+            echo "Release 已存在，改为覆盖上传"
+            gh release upload "$TAG" dist/*.vsix --clobber
+          fi
+
+      - name: 发布到 VS Code 市场
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${VSCE_PAT:-}" ]; then
+            echo "::error::缺少 secret VSCE_PAT（Azure DevOps PAT，Scope 选 Marketplace → Manage）"
+            exit 1
+          fi
+          # 文件名形如 4gl-full-1.0.0-win32-x64.vsix，目标平台就是末尾的 <os>-<arch>
+          for f in dist/*.vsix; do
+            target="$(basename "$f" | sed -nE 's/.*-(win32|linux|darwin)-(x64|arm64)\.vsix$/\1-\2/p')"
+            if [ -z "$target" ]; then
+              echo "::error::认不出目标平台：$f"
+              exit 1
+            fi
+            echo "→ $target  $(basename "$f")"
+            npx --yes @vscode/vsce@4 publish --packagePath "$f" --target "$target" --skip-duplicate
+          done
