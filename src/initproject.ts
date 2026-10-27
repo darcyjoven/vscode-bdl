@@ -161,8 +161,15 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
   }
   const flavor = scriptFlavorFor(process.platform, flavorPick.value);
 
+  // 步骤编号按实际会问的题数算：区域只有 PowerShell（tar + scp）流程会问。
+  const askRegion = flavor === "powershell";
+  const totalSteps = askRegion ? 5 : 4;
+  let step = 0;
+  const stepTitle = (name: string): string =>
+    `初始化项目（${++step}/${totalSteps}）：${name}`;
+
   const target = await vscode.window.showInputBox({
-    title: "初始化项目（1/4）：SSH 目标",
+    title: stepTitle("SSH 目标"),
     prompt:
       "user@host 或 ~/.ssh/config 别名；有密钥优先用密钥；没配密钥时可在过程中输入密码（上传/编译仍需密钥）",
     value: last.target ?? "",
@@ -171,8 +178,30 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
   if (!target) {
     return;
   }
+
+  // 登录区域：只有 tar + scp 的 PowerShell 流程会给远端登录菜单喂这一行（rsync 流程不需要）
+  let region: string | undefined;
+  if (askRegion) {
+    const regionInput = await vscode.window.showInputBox({
+      title: stepTitle("登录区域"),
+      prompt:
+        "登录后要输入的「区」（1/2/3/4）。留空 = 什么都不输入，直接登录（服务器没有这个菜单时）",
+      value: last.region ?? "1",
+      placeHolder: "1",
+      ignoreFocusOut: true,
+      validateInput: (v) =>
+        v.trim() === "" || /^\d$/.test(v.trim())
+          ? undefined
+          : "只接受 1-9 这样的单个数字，或留空",
+    });
+    if (regionInput === undefined) {
+      return;
+    }
+    region = regionInput.trim();
+  }
+
   const remoteRoot = await vscode.window.showInputBox({
-    title: "初始化项目（2/4）：生产根目录",
+    title: stepTitle("生产根目录"),
     prompt:
       "只同步该目录下 tiptop / topcust 里的 4gl/*.4gl、per/*.per，以及任意目录的 *.global（默认 /u1/topprod）",
     value: last.remoteRoot ?? "/u1/topprod",
@@ -190,7 +219,7 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
         : []),
       { label: "选择文件夹…", value: "__pick__" },
     ],
-    { title: "初始化项目（3/4）：拉到哪里？", ignoreFocusOut: true },
+    { title: stepTitle("拉到哪里？"), ignoreFocusOut: true },
   );
   if (!destPick) {
     return;
@@ -227,7 +256,7 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
       },
     ],
     {
-      title: "初始化项目（4/4）：选项（可多选）",
+      title: stepTitle("选项（可多选）"),
       canPickMany: true,
       ignoreFocusOut: true,
     },
@@ -247,27 +276,6 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
   );
   if (!encPick) {
     return;
-  }
-
-  // 登录区域：只有 tar + scp 的 PowerShell 流程会给远端登录菜单喂这一行（rsync 流程不需要）
-  let region: string | undefined;
-  if (flavor === "powershell") {
-    const regionInput = await vscode.window.showInputBox({
-      title: "初始化项目：登录区域（SCP 方式）",
-      prompt:
-        "登录后要输入的「区」（1/2/3/4）。留空 = 什么都不输入，直接登录（服务器没有这个菜单时）",
-      value: last.region ?? "1",
-      placeHolder: "1",
-      ignoreFocusOut: true,
-      validateInput: (v) =>
-        v.trim() === "" || /^\d$/.test(v.trim())
-          ? undefined
-          : "只接受 1-9 这样的单个数字，或留空",
-    });
-    if (regionInput === undefined) {
-      return;
-    }
-    region = regionInput.trim();
   }
 
   const opts: InitProjectOptions = {
