@@ -299,7 +299,9 @@ async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
     return;
   }
 
-  const tpl = buildCommandFor(spec.lang, spec.mode);
+  // 设置键/默认值用 `4gl`（bdl.build.4gl.compile.command），而语言 id 是 `bdl`。
+  const cfgLang = spec.lang === "bdl" ? "4gl" : "per";
+  const tpl = buildCommandFor(cfgLang, spec.mode);
   const params = buildPlaceholders(doc, name);
   const command = expandBuildTemplate(tpl, params);
   const rel = relativePathFor(doc);
@@ -317,6 +319,15 @@ async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
     `  登录区域：${region}；环境脚本：${loginProfile || "（不 source）"}`,
   );
   out.show(true);
+
+  // 模板为空就别往下走：否则 tiptop 只会回一句 "必须给 -command"，看不出是设置问题
+  if (command.trim() === "") {
+    out.appendLine(`✗ 命令模板为空（检查设置 bdl.build.${cfgLang}.${spec.mode}.command）`);
+    void vscode.window.showErrorMessage(
+      `${spec.title}：命令模板为空，检查设置 bdl.build.${cfgLang}.${spec.mode}.command`,
+    );
+    return;
+  }
 
   // §0d：交给 tiptop 在**生产服务器**上执行（工作目录 = 生产根目录）。
   const res = await runTiptopWithProgress(
