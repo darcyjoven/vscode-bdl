@@ -11,12 +11,18 @@
 # 流程：预检 → 取样本（判编码）→ 生产端 tar 打包（/u1/out）→ scp 回本地（<Dest>\.pack）
 #       → 解压 → 转码/行尾 → git 初始化与提交 → 清理两端中间文件（失败也清）
 #
+# 登录区域：有些生产账号登录后由 login shell 先问"区"（1/2/3/4，默认 1），
+#   这时非交互 ssh 会把命令当成没人回答的菜单 → 什么也取不到。
+#   -Region 1..9 会在每条 ssh/scp 连接建立后先把这一行喂给远端菜单；
+#   -Region ""（空）＝ 不喂（没有这种菜单的服务器，保持老行为）。
+#
 # 进度：按 tiptop 同款协议把 `进度<TAB>阶段<TAB>信息[<TAB>i<TAB>n]` 写到 stderr，
 #       VSCode 命令据此显示通知栏进度。
 [CmdletBinding()]
 param(
   [string]$Target = $env:INIT_PROJECT_TARGET,
   [string]$RemoteRoot = "/u1/topprod",
+  [string]$Region = "1",
   [string]$Dest = "",
   [string]$Module = "",
   [int]$Port = 0,
@@ -71,6 +77,10 @@ foreach ($c in @("ssh", "scp", "tar", "git")) {
 
 if (-not $Target) { $Target = Read-Host "SSH 目标（user@host 或 ~/.ssh/config 别名）" }
 if (-not $Target) { Die "必须给 -Target" }
+if ($Region -and $Region -notmatch '^\d$') { Die "-Region 只接受 1-9（如 1/2/3/4）；服务器没有这个菜单就传空字符串" }
+# 远端登录菜单要的"区"：末尾补一个 LF（PowerShell 给原生程序还会再补 CRLF），
+# 这样远端 `read` 先读到干净的一行（否则会读到 "1\r"，菜单认不出来）。
+$regionInput = if ($Region) { "$Region`n" } else { "" }
 if (-not $Dest) { $Dest = Join-Path $HOME ("projects\" + (Split-Path -Leaf $RemoteRoot)) }
 $ProjectName = Split-Path -Leaf $Dest
 
@@ -85,7 +95,11 @@ $legacy = @("-o", "HostkeyAlgorithms=+ssh-rsa", "-o", "PubkeyAcceptedAlgorithms=
             "-o", "KexAlgorithms=+diffie-hellman-group14-sha1,diffie-hellman-group1-sha1", "-o", "MACs=+hmac-sha1")
 $sshArgs = $sshCommon
 $passwordMode = $false
-function Invoke-Remote([string]$cmd) { & $sshExe @sshArgs $Target $cmd }
+function Invoke-Remote([string]$cmd) {
+  # 有区域就先喂一行给远端登录菜单，再让 ssh 跑命令
+  if ($script:regionInput) { $script:regionInput | & $sshExe @sshArgs $Target $cmd }
+  else { & $sshExe @sshArgs $Target $cmd }
+}
 
 # 关掉 BatchMode，改成"密码优先"的交互登录（密码由 ssh 自己提示，不保存、不进命令行）
 function Enable-PasswordMode {
@@ -119,6 +133,7 @@ $cmdPack = "set -e; mkdir -p '$RemoteTmpDir'; " + (Remote-Find '%p\n') + " | sed
 
 if ($PrintRemote) {
   Info "将在服务器上执行的命令（只读 find + 一次 tar 打包到 $RemoteTmpDir，用完即删）："
+  Dim2 "0) 每条 ssh/scp 连接先送一行登录区域：$(if ($Region) { $Region } else { '（不送）' })"
   Dim2 "1) $cmdStats"
   Dim2 "2) $cmdModules"
   Dim2 "3) $cmdSample"
@@ -148,6 +163,7 @@ if (-not $env:INIT_PROJECT_SSH) {
       Enable-PasswordMode
       if ($LegacySsh) { $script:sshArgs += $legacy }
       Warn2 "已改用密码登录：接下来每一步远端操作都会提示输入密码（只交给 ssh，不保存）"
+      if ($Region) { Warn2 "同时要把登录区域（$Region）喂给远端菜单；若密码提示被 stdin 干扰，先配好密钥再跑" }
       Invoke-Remote "true" | Out-Null
       if ($LASTEXITCODE -ne 0) { Die "密码登录也失败：确认账号/密码，或服务器不允许密码认证" }
     }
@@ -166,7 +182,9 @@ foreach ($line in $stats) {
   if ($line -match '^FILES (\d+)') { $FILES = [int]$Matches[1] }
   if ($line -match '^BYTES (\d+)') { $BYTES = [long]$Matches[1] }
 }
-if ($FILES -le 0) { Die "没有匹配到源文件：确认 -RemoteRoot（$RemoteRoot）" }
+if ($FILES -le 0) {
+  Die "没有匹配到源文件：确认 -RemoteRoot（$RemoteRoot）；若该账号登录后要选区，加 -Region 1（或 2/3/4）再试"
+}
 $mb = [math]::Round($BYTES / 1MB, 2)
 Info "找到 $FILES 个源文件，共 $mb MB"
 try { $mods = (Invoke-Remote $cmdModules) } catch { $mods = "" }
@@ -244,6 +262,7 @@ if ($enc) { Info "转码：$enc → UTF-8（已是 UTF-8 的文件跳过）" }
 Write-Host ""
 Info "目标：$Target"
 Info "远根：$RemoteRoot   范围：$Module（*.4gl / *.global / *.per；其它顶层目录不取）"
+Info "登录区域：$(if ($Region) { "$Region（每条连接建立后先输入这一行）" } else { '不输入（直接登录）' })"
 Info "源文件：$FILES 个（$mb MB）"
 Info "本地：$Dest   模式：$(if ($Update) { '增量更新' } else { '全新初始化' })$(if ($Delete) { '（含删除本地多余）' } else { '（只覆盖，不删）' })"
 Info "编码/行尾：$(if ($enc) { $enc } else { '不转码' }) / LF"
@@ -281,7 +300,8 @@ try {
     }
     if ($LegacySsh) { $scpArgs += $legacy }
   }
-  & scp @scpArgs "$($Target):$tarPath" $localTar
+  if ($regionInput) { $regionInput | & scp @scpArgs "$($Target):$tarPath" $localTar }
+  else { & scp @scpArgs "$($Target):$tarPath" $localTar }
   if ($LASTEXITCODE -ne 0) { Die "scp 失败（exit=$LASTEXITCODE）" }
 
   # ── 6) 解压
@@ -406,4 +426,4 @@ $eolBad = (& git -C $Dest ls-files --eol) | Where-Object { $_ -notmatch 'i/lf\s+
 if ($eolBad) { Warn2 "以下文件不是 LF（检查 .gitattributes / core.autocrlf）："; $eolBad | ForEach-Object { Dim2 $_ } }
 else { Info "换行校验通过：git ls-files --eol 全是 i/lf w/lf" }
 Write-Host ""
-Info "下一步：1) git log --oneline -1  2) 复制 .vscode/settings.example.json → settings.json  3) tiptop link/schema sync 采集资料  4) 更新：init-project.ps1 -Target '$Target' -RemoteRoot '$RemoteRoot' -Dest '$Dest' -Update"
+Info "下一步：1) git log --oneline -1  2) 复制 .vscode/settings.example.json → settings.json  3) tiptop link/schema sync 采集资料  4) 更新：init-project.ps1 -Target '$Target' -RemoteRoot '$RemoteRoot' -Dest '$Dest' -Region '$Region' -Update"

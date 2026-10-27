@@ -26,6 +26,12 @@ export interface InitProjectOptions {
   dryRun?: boolean;
   /** 源编码；空 = 自动（脚本取样检测后在终端里问你） */
   fromEncoding?: string;
+  /**
+   * 登录区域（只有 PowerShell 脚本用）：有些生产账号登录后 login shell 会先问"区"（1/2/3/4）。
+   * - 省略：不给 -Region，脚本默认 1；
+   * - 空字符串：显式 `-Region ""`，登录后不输入任何东西（服务器没这个菜单时）。
+   */
+  region?: string;
   /** 没配密钥时允许改用密码登录（只有初始化脚本；上传/编译仍需密钥） */
   allowPassword?: boolean;
 }
@@ -91,6 +97,7 @@ export function buildInitProjectCommandLine(
     if (opts.noCommit) parts.push("-NoCommit");
     if (opts.dryRun) parts.push("-DryRun");
     if (opts.fromEncoding) parts.push("-FromEncoding", psDoubleQuote(opts.fromEncoding));
+    if (opts.region !== undefined) parts.push("-Region", psDoubleQuote(opts.region));
     if (opts.allowPassword) parts.push("-AskPassword");
     return parts.join(" ");
   }
@@ -242,6 +249,27 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
 
+  // 登录区域：只有 tar + scp 的 PowerShell 流程会给远端登录菜单喂这一行（rsync 流程不需要）
+  let region: string | undefined;
+  if (flavor === "powershell") {
+    const regionInput = await vscode.window.showInputBox({
+      title: "初始化项目：登录区域（SCP 方式）",
+      prompt:
+        "登录后要输入的「区」（1/2/3/4）。留空 = 什么都不输入，直接登录（服务器没有这个菜单时）",
+      value: last.region ?? "1",
+      placeHolder: "1",
+      ignoreFocusOut: true,
+      validateInput: (v) =>
+        v.trim() === "" || /^\d$/.test(v.trim())
+          ? undefined
+          : "只接受 1-9 这样的单个数字，或留空",
+    });
+    if (regionInput === undefined) {
+      return;
+    }
+    region = regionInput.trim();
+  }
+
   const opts: InitProjectOptions = {
     target: target.trim(),
     remoteRoot: remoteRoot.trim(),
@@ -251,12 +279,14 @@ async function runWizard(context: vscode.ExtensionContext): Promise<void> {
     noCommit: values.has("nocommit"),
     dryRun: values.has("dryrun"),
     fromEncoding: encPick.value || undefined,
+    region,
     allowPassword: values.has("askpass"),
   };
   await context.workspaceState.update(STATE_KEY, {
     target: opts.target,
     remoteRoot: opts.remoteRoot,
     dest: opts.dest,
+    region,
   });
 
   const commandLine = buildInitProjectCommandLine(

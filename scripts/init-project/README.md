@@ -27,6 +27,7 @@
    - Windows 宿主 → PowerShell 脚本；Linux / macOS / **Remote-WSL / Remote-SSH** 宿主 → bash 脚本；
 2. 依次填：SSH 目标、生产根（默认 `/u1/topprod`）、目标目录（默认当前工作区/可选文件夹）；
 3. 选项（多选）：增量更新、删除本地多余、不自动提交、只预演；再选源编码（自动检测 / GBK / BIG5 / 不转码）；
+   走 PowerShell（tar + scp）流程时还会问**登录区域**（见下节，预填 `1`，清空 = 不输入）；
 4. 命令会**打开集成终端执行**脚本 —— 进度、编码报告、删除确认都在终端里完成；
    命令行同时写入「Genero BDL 任务」输出通道，方便复制重跑。
 
@@ -59,7 +60,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-project/init-pr
 ### Windows（`init-project.ps1`，tar + scp）
 
 ```
-连接 → 只读 find 预检 → 取样本判编码
+连接（登录菜单要选区就先喂一行 `-Region`）→ 只读 find 预检 → 取样本判编码
 → 生产端 tar 打包到 /u1/out/<唯一名>.tar.gz（唯一写操作，不碰项目树，用管道喂 tar -T -，不留清单文件）
 → scp 回本地 <Dest>\.pack\src.tar.gz（.pack/ 已被 .gitignore 排除）
 → 本地 tar 解压（find -type f 只列文件，所以空目录不会跟着落地）
@@ -96,7 +97,27 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-project/init-pr
 | `--dry-run` | `-DryRun` | 只预检/检测，不拉取不写盘 |
 | `-y/--yes` | `-Yes` | 不再交互确认（在终端里跑时通常**不要**加，保留编码/删除确认） |
 | `--ask-password` | `-AskPassword` | 没配密钥时允许用密码登录（每步会提示输入密码；密码只交给 ssh，不保存） |
+| —（rsync 不需要） | `-Region` | 登录后要输入的「区」（1-9，默认 `1`；空字符串 = 不输入）。见下节 |
 | `--progress-protocol` | `-ProgressProtocol` | 进度改成 `进度\t阶段\t信息` 机器格式（默认是终端可读的 `[阶段] 信息`） |
+
+## 登录区域（只有 tar + scp 流程需要）
+
+有些生产账号在 login shell 里会先问你「区」（`1`/`2`/`3`/`4`，直接回车 = 1）。
+非交互 ssh 不会有人回答这个菜单，**远端命令就相当于没跑**——典型现象是
+
+```
+[错误] 没有匹配到源文件：确认 -RemoteRoot（/u1/topprod）
+```
+
+处理：给 `-Region` 一个值，脚本在**每条** ssh / scp 连接建立后先把这一行喂给远端菜单：
+
+```powershell
+... -Target tiptop@host -RemoteRoot /u1/topprod -Dest D:\cache\tiptopgp -Region 2 -Update
+```
+
+- 不写 `-Region` ＝ 默认 `1`（适合"默认选 1"的服务器）；
+- `-Region ""`（空字符串）＝ 什么都不输入，跟以前的直接登录一样——服务器没有这个菜单时用；
+- 只作用在 `init-project.ps1`（tar + scp）：`init-project.sh` 走 rsync，不需要这个参数。
 
 ## 密码登录（本阶段允许，仅初始化脚本）
 
@@ -114,6 +135,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/init-project/init-pr
 | 现象 | 处理 |
 |---|---|
 | `no matching host key type / kex` | 老服务器：脚本自动 legacy 重试；也可显式 `--legacy-ssh` / `-LegacySsh` |
+| `没有匹配到源文件`，但远根确实有文件 | 该账号登录后要选区：加 `-Region 1`（或 2/3/4）；确认没有这种菜单就用 `-Region ""` |
 | `Permission denied (publickey)` | 没配密钥时：初始化脚本会问是否改用密码登录（或加 `--ask-password`）；**上传/编译**必须先配密钥（`ssh-copy-id` 或 ssh-agent） |
 | 中文乱码 | 先用 `--dry-run`/`-DryRun` 看编码报告（含候选与预览），再用 `--from-encoding big5` 重跑 |
 | Windows 组策略禁止脚本 | 命令会把命令行写进输出通道，复制到终端手工执行（或让管理员放开 ExecutionPolicy） |

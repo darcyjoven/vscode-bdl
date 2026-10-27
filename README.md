@@ -59,6 +59,7 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法
 | 4/4 目标目录 | 默认**当前工作区**，也可以选别的文件夹 |
 | 选项（多选） | 增量更新、删除本地多余、不自动提交、只预演；**允许在过程中输入密码**（默认勾选） |
 | 源编码 | 自动（按服务器样本检测并在终端里问你）/ GBK / BIG5 / 不转码 |
+| 登录区域（仅 PowerShell 流程） | 登录后要输入的「区」（1/2/3/4，预填 `1`）；**留空 = 不输入**（服务器没这个菜单时） |
 
 确认后命令会**打开集成终端执行**脚本：进度、编码报告、删除确认都在终端里完成；命令行同时写进「Genero BDL 任务」输出通道，方便复制重跑。
 上次填过的 SSH 目标/生产根/目标目录会**自动预填**（只存在本机 workspaceState，不含密码）。
@@ -95,6 +96,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\init-project\init-pr
 | 只取某些模组 | `--module topcust,other` | `-Module topcust,other` |
 | 跳过编码询问 | `--from-encoding gbk` | `-FromEncoding gbk` |
 | 没配密钥时用密码登录 | `--ask-password` | `-AskPassword` |
+| 登录后要先选「区」（1-4，默认 1；空 = 不输入） | —（rsync 不需要） | `-Region 1` |
 
 > 对生产端只做**只读**操作：Linux 是"只读 find + rsync 拉取"；Windows 是"只读 find + 一次 tar 打包到 `/u1/out`（用完即删）"。
 > 两者都不会调用上传/部署，也不修改生产端项目树。用 `--print-remote` 可以逐条审计。
