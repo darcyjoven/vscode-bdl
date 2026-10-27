@@ -338,8 +338,6 @@ jobs:
     steps:
       - name: 检出扩展（只读版本号）
         uses: actions/checkout@v4
-        with:
-          path: vscode-extension
 
       - name: 安装 Node（vsce 需要 20+）
         uses: actions/setup-node@v4
@@ -358,7 +356,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          V="$(node -p "require('./vscode-extension/package.json').version")"
+          V="$(node -p "require('./package.json').version")"
           # tag 推送就用 tag 名；手动触发按 package.json 版本补一个 v 前缀
           if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
             TAG="${GITHUB_REF_NAME}"
@@ -371,9 +369,9 @@ jobs:
           fi
           ls -lh dist
           echo "→ Release $TAG"
-          if ! gh release create "$TAG" dist/*.vsix --title "$TAG" --generate-notes; then
+          if ! gh release create "$TAG" dist/*.vsix --repo "$GITHUB_REPOSITORY" --title "$TAG" --generate-notes; then
             echo "Release 已存在，改为覆盖上传"
-            gh release upload "$TAG" dist/*.vsix --clobber
+            gh release upload "$TAG" dist/*.vsix --repo "$GITHUB_REPOSITORY" --clobber
           fi
 
       - name: 发布到 VS Code 市场
