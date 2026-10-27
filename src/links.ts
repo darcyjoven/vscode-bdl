@@ -187,7 +187,7 @@ export class LinkTreeProvider implements vscode.TreeDataProvider<Node> {
         {
           kind: "info",
           label: "链接资料功能已关闭",
-          tooltip: "设置「链接资料 → 模式」为「不启用」后不加载资料、不启用相关诊断。\n改模式后执行「Genero BDL: 重启语言服务器」生效。",
+          tooltip: "设置「链接资料 → 模式」为「不启用」后不加载资料、不启用相关诊断。\n改模式后执行「4gl: 重启语言服务器」生效。",
         },
       ];
     }

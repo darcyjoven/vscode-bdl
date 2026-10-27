@@ -7,7 +7,7 @@
 | 文件 | 类型 | 拍什么 |
 |---|---|---|
 | `01-three-modes.png` | 截图/示意图 | 三档用法总览（轻量 / 本地文件 / 全功能），可直接拿 README 里那张表改图 |
-| `02-install.png` | 截图 | 扩展面板里已安装的 `Genero BDL (4GL)`（显示版本与"已安装"） |
+| `02-install.png` | 截图 | 扩展面板里已安装的 `4gl (4GL)`（显示版本与"已安装"） |
 | `03-jump-hover.gif` | 录屏 | 函数名 `F12` 跳定义 + 悬停变量看来源 |
 | `04-outline.png` | 截图 | 大纲面板展开一个 `.4gl`（MAIN / FUNCTION / DEFINE 层级） |
 | `05-export-csv.png` | 截图 | 生产端导出的两份 CSV（GAL_FILE 与表字段）文件名列表 |

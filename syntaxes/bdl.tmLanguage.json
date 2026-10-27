@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
-  "name": "Genero BDL",
+  "name": "4gl",
   "scopeName": "source.4gl",
   "fileTypes": [
     "4gl",

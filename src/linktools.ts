@@ -168,7 +168,7 @@ function writeRunLog(
   const cmd = (args[0] ?? "tiptop").replace(/[^a-zA-Z0-9_-]/g, "");
   const file = path.join(runLogDir, `last-run-${cmd || "tiptop"}.log`);
   const body = [
-    `# Genero BDL 本地运行日志`,
+    `# 4gl 本地运行日志`,
     `# 时间：${new Date().toISOString()}`,
     `# 命令：tiptop ${args.join(" ")}`,
     `# 退出码：${code ?? "?"}${cancelled ? "（已取消）" : ""}`,
@@ -404,7 +404,7 @@ export async function promptNoOracle(root: string): Promise<void> {
   // W6：secrets.json 始终在 `.project` 根（不随 link 资料目录走）。
   const secrets = path.join(root, PROJECT_DIR, "secrets.json");
   const pick = await vscode.window.showWarningMessage(
-    `还没有配置数据库连接：在「Genero BDL: 生产环境」里填主机 / 服务名 / 只读账号，` +
+    `还没有配置数据库连接：在「4gl: 生产环境」里填主机 / 服务名 / 只读账号，` +
       `密码放 ${secrets}（chmod 600）或环境变量 BDL_ORA_PASSWORD；` +
       `也可以先导出一份 CSV，用「链接资料：从 CSV 导入」更新。`,
     "打开设置",
@@ -530,7 +530,7 @@ async function syncWithConfirm(
     const from = oracle ? "数据库" : "CSV";
     const pick = await vscode.window.showWarningMessage(
       `${label}：将从${from}重算全部链接资料。通常几分钟、也可能更长，` +
-        `请开「输出 → Genero BDL 任务」看进度。继续？`,
+        `请开「输出 → 4gl 任务」看进度。继续？`,
       { modal: true },
       "开始",
     );

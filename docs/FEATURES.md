@@ -1,4 +1,4 @@
-# 功能总清单（Genero BDL 工具链）
+# 功能总清单（4gl 工具链）
 
 > **面向开发者**的功能索引：把 **vscode-bdl（VSCode 插件）/ bdl-lsp（语言服务）/ tiptop（采集与部署 CLI）**
 > 三个组件的全部已实现能力，**按功能类型**整理成可快速浏览的清单，可直接当验收表或二次开发入口用。
@@ -70,7 +70,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | A6 | 解析资源上限 | LSP | `bdl.limits.maxFileBytes` / `maxFileLines` / `maxIssues` / `parseTimeoutMs`；超限 → `file-too-large` / `parse-timeout` |
 | A7 | 强制解析当前文件 | LSP + VSC | 自定义请求 `bdl/forceParse`；编辑器标题栏按钮（上下文 `bdl.parseSkipped`）；**后台不限时**解析（`Timeout 0`），完成回执 `bdl/parseDone` → 自动刷新大纲并显示实测耗时 |
 | A8 | 解析检查 CLI | LSP | `bdl-lsp check [--json] [--max-issues N] [-q] <文件...>` |
-| A9 | Genero 版本基线 | LSP | `bdl.generoVersion`（默认 `2.50`）；5.0 暂不排期 |
+| A9 | 4gl 版本基线 | LSP | `bdl.generoVersion`（默认 `2.50`）；5.0 暂不排期 |
 
 ---
 
@@ -245,7 +245,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | H7 | 上传命令（只允许单文件） | VSC | `上传当前文件` / `预演上传`；入口：命令面板 + **编辑器右上角按钮 + 编辑器右键菜单**（`.4gl`/`.global`/`.per` 且 `bdl.upload.enabled` 时出现）；`bdl.deploy.enable=false` 或 `transport=off` 时全部隐藏、直接调用也只提示不执行。**整包部署与列出目标已删除**（批量走 `tiptop deploy` 命令行） |
 | H8 | 配置合成 | VSC | 从 `bdl.prod.deploy.*` 合成 `<项目>/.project/deploy/deploy.json`（带 `createdBy: "vscode-bdl <版本>"`）；手写文件被覆盖前先备份 `deploy.json.bak` |
 | H9 | 部署当前文件 | VSC | 先保存脏文档，只把当前 `.4gl`/`.global`/`.per` 交给 `tiptop deploy`；Zed 用 task `$ZED_FILE`（Zed 侧暂停） |
-| H10 | 编译诊断回传 | VSC | 部署结果解析为编辑器诊断；输出写入「Genero BDL」通道 |
+| H10 | 编译诊断回传 | VSC | 部署结果解析为编辑器诊断；输出写入「4gl」通道 |
 
 ---
 
@@ -260,7 +260,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I5 | 命令（32 条） | VSC | 完整操作清单见 [COMMANDS.md](COMMANDS.md)（面板/按钮/后台）；命令表见 [§10.3](#103-vscode-命令32-条) |
 | I6 | 侧边栏视图（2 个） | VSC | 「链接资料」、「数据库字段」TreeView，按开关显隐 |
 | I7 | 进度通知 | VSC | 解析 tiptop stderr 进度协议，展示阶段与计数，支持取消 |
-| I8 | 输出与追踪 | VSC | 「Genero BDL」输出通道 + 「Genero BDL 追踪」LSP 消息通道（`bdl.trace.server`：off/messages/verbose） |
+| I8 | 输出与追踪 | VSC | 「4gl」输出通道 + 「4gl 追踪」LSP 消息通道（`bdl.trace.server`：off/messages/verbose） |
 | I9 | 语言服务器信息 | VSC | 命令「显示语言服务器信息」展示生效设置、版本、资料状态 |
 | I10 | 编辑器标题栏按钮 | VSC | `bdl.parseSkipped` 时显示「强制解析当前文件」 |
 | I11 | 激活时机 | VSC | `onLanguage:bdl` / `onLanguage:per` / 相关命令按需激活 |
@@ -269,8 +269,8 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I14 | 端到端测试 | VSC | `npm run test:e2e`，无头 VSCode（`--ozone-platform=headless`）**49 个用例** |
 | I15 | 预演策略 | VSC | 只有**编译类**允许预演（`tiptop deploy -dry-run`、W5 的本地「预演编译」）；link/schema 的同步与导入一律直接执行（避免整份扫描跑两遍） |
 | I16 | 数据库按钮门控 | VSC | context key `bdl.db.configured`（Oracle host/service/user 配齐）、`bdl.link.hasData`（links.jsonl 存在）、`bdl.schema.hasData`（tables.json 存在）；「链接资料」的 `从数据库更新` 需前两者，「数据库字段」的局部/批量同步需 configure+hasData |
-| I18 | 失败可见性与运行日志 | VSC | tiptop 输出进「Genero BDL 任务」通道（原来 6 个通道合并为 `Genero BDL`（服务器+追踪）与 `Genero BDL 任务`；每次运行前写一行 `> tiptop <子命令>` 以区分来源）；失败通知带 stderr 首行 + 「打开日志」；每次运行完整输出落盘到扩展 globalStorage 的 `last-run-<cmd>.log` |
-| I17 | 编译/链接/预览（生产端） | VSC | 命令面板 + 编辑器右上角按钮：`.4gl` 预演编译/编译/链接，`.per` 预演编译/编译/预览画面；命令交给 `tiptop exec` 在**生产服务器**（工作目录 = 生产根）通过 ssh 执行，stdout/stderr 原样进「Genero BDL 任务」通道；模板 `bdl.build.<lang>.<mode>.command` + 总开关 `bdl.build.enable`（去掉了各自的 enable）；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}`（分隔符恒 `/`）；**不自动上传**；无 `MAIN` 时「链接」不可用；**只有 4GL 链接**弹 `${name}`；Form 预览默认命令是 `cd ${path} && r.gf ${name} 2 p`（三个参数） |
+| I18 | 失败可见性与运行日志 | VSC | tiptop 输出进「4gl 任务」通道（原来 6 个通道合并为 `4gl`（服务器+追踪）与 `4gl 任务`；每次运行前写一行 `> tiptop <子命令>` 以区分来源）；失败通知带 stderr 首行 + 「打开日志」；每次运行完整输出落盘到扩展 globalStorage 的 `last-run-<cmd>.log` |
+| I17 | 编译/链接/预览（生产端） | VSC | 命令面板 + 编辑器右上角按钮：`.4gl` 预演编译/编译/链接，`.per` 预演编译/编译/预览画面；命令交给 `tiptop exec` 在**生产服务器**（工作目录 = 生产根）通过 ssh 执行，stdout/stderr 原样进「4gl 任务」通道；模板 `bdl.build.<lang>.<mode>.command` + 总开关 `bdl.build.enable`（去掉了各自的 enable）；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}`（分隔符恒 `/`）；**不自动上传**；无 `MAIN` 时「链接」不可用；**只有 4GL 链接**弹 `${name}`；Form 预览默认命令是 `cd ${path} && r.gf ${name} 2 p`（三个参数） |
 
 ---
 
@@ -321,7 +321,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | 基础 | `bdl.server.path` / `bdl.tools.path` | 空 | 覆盖内置二进制路径 |
 | 基础 | `bdl.server.logLevel` | `info` | 服务器日志级别 |
 | 基础 | `bdl.trace.server` | `off` | LSP 消息追踪（off/messages/verbose） |
-| 基础 | `bdl.generoVersion` | `2.50` | 目标 Genero 版本 |
+| 基础 | `bdl.generoVersion` | `2.50` | 目标 4gl 版本 |
 | 基础 | `bdl.diagnostics` | `{}` | 逐诊断码调级（唯一入口） |
 | 基础 | `bdl.format.keywords` / `indentStyle` / `indentSize` | `unchanged` / `auto` / `0` | 格式化行为（`keywords=lower` 也让补全关键字小写） |
 | 基础 | `bdl.index.enable` | `true` | 后台工作区符号索引 |
@@ -424,13 +424,13 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 
 | # | 不做 | 原因 |
 |---|---|---|
-| N1 | Genero 编译器 / 运行时 / 数据库访问 | 超出 LSP 范围（部署归 tiptop） |
+| N1 | 4gl 编译器 / 运行时 / 数据库访问 | 超出 LSP 范围（部署归 tiptop） |
 | N2 | 100% 语义正确 | 无法静态确定时明确降级，宁可不报 |
 | N3 | 完整 IDE（调试器、GUI 设计器） | 不做 |
 | N4 | 替代 `fglform` / `fglcomp` | 编辑期辅助，编译才是最终验证 |
 | N5 | 移动端 / Web IDE | v1 不支持 |
 | N6 | 纯 Go SFTP | 已选 rsync/scp |
-| N7 | Genero 5.0 语法 | 暂不排期 |
+| N7 | 4gl 5.0 语法 | 暂不排期 |
 | N8 | GitHub Release / 自动下载 / 市场与注册表发布 | 暂不排期 |
 | N9 | 把内置函数/变量写进 grammar | 内置名变关键字会冒充用户自定义同名符号 |
 | N10 | 用 `documentSymbol` 做跨文件跳转 | 该结构无 URI/target 字段；跨文件需扁平 `SymbolInformation` |

@@ -1,7 +1,7 @@
 // 统一输出通道（清理项 C6）：从 6 个通道收敛成 2 个。
 //
-//   Genero BDL       —— 语言服务器日志 + LSP 追踪（同一通道）
-//   Genero BDL 任务  —— 链接资料 / 数据库字段 / 上传 / 编译·链接·预览（tiptop 输出）
+//   4gl       —— 语言服务器日志 + LSP 追踪（同一通道）
+//   4gl 任务  —— 链接资料 / 数据库字段 / 上传 / 编译·链接·预览（tiptop 输出）
 //
 // 合并后仍能区分来源：每次任务运行前会写一行 `> tiptop <子命令> …`（见
 // runTiptopWithProgress），且完整输出另落盘到 globalStorage 的
@@ -16,7 +16,7 @@ let task: vscode.OutputChannel | undefined;
 /** 语言服务器日志与 LSP 追踪共用的通道。 */
 export function serverChannel(): vscode.LogOutputChannel {
   if (!server) {
-    server = vscode.window.createOutputChannel("Genero BDL", { log: true });
+    server = vscode.window.createOutputChannel("4gl", { log: true });
   }
   return server;
 }
@@ -24,7 +24,7 @@ export function serverChannel(): vscode.LogOutputChannel {
 /** 任务输出通道：链接资料 / 数据库字段 / 上传 / 编译链接预览共用。 */
 export function taskChannel(): vscode.OutputChannel {
   if (!task) {
-    task = vscode.window.createOutputChannel("Genero BDL 任务");
+    task = vscode.window.createOutputChannel("4gl 任务");
   }
   return task;
 }

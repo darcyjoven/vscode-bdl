@@ -1,7 +1,7 @@
-# Genero BDL (4GL) for VSCode
+# 4gl (4GL) for VSCode
 
-Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法高亮、定义/引用跳转、符号大纲、悬停、补全、格式化、语法诊断**。
-本项目适配鼎捷 TiTop-GP 版 ERP，可用功能有**跨模块函数可见性**、**数据库字段说明**与**远程部署**；其它版本的项目需要二次开发才能使用这些功能。
+4gl（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法高亮、定义/引用跳转、符号大纲、悬停、补全、格式化、语法诊断**。
+本项目适配 TiTop-GP 版 ERP，可用功能有**跨模块函数可见性**、**数据库字段说明**与**远程部署**；其它版本的项目需要二次开发才能使用这些功能。
 
 > 本项目包含两个二进制执行文件：[bdl-lsp 语言服务器](https://github.com/darcyjoven/bdl-lsp)、[tiptop 专用于 TiTop-GP 的工具](https://github.com/darcyjoven/tiptop)。
 
@@ -20,14 +20,14 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法
 
 两种方式任选：
 
-1. 在 VSCode 扩展市场（扩展面板）搜索 `Genero BDL (4GL)`（扩展 ID `darcyjoven.4gl-full`），点**安装**；
+1. 在 VSCode 扩展市场（扩展面板）搜索 `4gl (4GL)`（扩展 ID `darcyjoven.4gl-full`），点**安装**；
    市场会按你的系统/芯片分发对应平台包。
 2. 或下载平台 `.vsix`（如 `4gl-full-1.0.0-win32-x64.vsix`），在"扩展 → … → 从 VSIX 安装"中选择该文件。
 
 装好后：
 
 1. 打开你的项目文件夹（`.4gl` / `.per` 所在目录）；
-2. 打开任意一个 `.4gl`，右下角状态栏出现 **Genero BDL** 表示就绪。
+2. 打开任意一个 `.4gl`，右下角状态栏出现 **4gl** 表示就绪。
 
 ![alttext](https://qn.darven.top/extension.png)
 
@@ -50,7 +50,7 @@ Genero BDL（`.4gl` / `.global`）与 Form（`.per`）的语言支持：**语法
 
 ### 2.1 VSCode 中直接运行
 
-命令面板中搜 **`Genero BDL: 初始化项目（从生产服务器拉取代码）`**
+命令面板中搜 **`4gl: 初始化项目（从生产服务器拉取代码）`**
 
 ![init](https://qn.darven.top/init.png)
 
@@ -136,7 +136,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\init-project\init-pr
 | 中文乱码 | 先用 `--dry-run`/`-DryRun` 看编码报告（含候选与预览），再用 `--from-encoding big5` 重跑 |
 | 提示"目标已存在" | 二次拉取要加 `--update`/`-Update` |
 | 远端 `/u1/out` 里有残留包 | 上次被强杀（清理没跑到），删掉即可；脚本每次用唯一名，不会冲突 |
-| Windows 组策略禁止脚本 | 从「Genero BDL 任务」通道复制命令行，在终端里手动执行 |
+| Windows 组策略禁止脚本 | 从「4gl 任务」通道复制命令行，在终端里手动执行 |
 
 ## 3. 链接资料、数据库字段初始化
 

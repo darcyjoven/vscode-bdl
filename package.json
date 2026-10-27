@@ -1,7 +1,7 @@
 {
   "name": "4gl-full",
-  "displayName": "Genero BDL (4GL)",
-  "description": "Genero BDL（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
+  "displayName": "4gl (4GL)",
+  "description": "4gl（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
   "version": "0.6.6",
   "publisher": "darcyjoven",
   "license": "MIT",
@@ -14,7 +14,6 @@
     "Linters"
   ],
   "keywords": [
-    "genero",
     "bdl",
     "4gl",
     "per",
@@ -63,7 +62,6 @@
       {
         "id": "bdl",
         "aliases": [
-          "Genero BDL",
           "bdl",
           "4gl"
         ],
@@ -76,7 +74,7 @@
       {
         "id": "per",
         "aliases": [
-          "Genero Form",
+          "4gl Form",
           "per"
         ],
         "extensions": [
@@ -132,7 +130,7 @@
               "verbose"
             ],
             "default": "off",
-            "description": "记录客户端与语言服务器之间的 LSP 消息（输出到「Genero BDL 追踪」通道）。"
+            "description": "记录客户端与语言服务器之间的 LSP 消息（输出到「4gl 追踪」通道）。"
           },
           "bdl.generoVersion": {
             "type": "string",
@@ -143,7 +141,7 @@
             ],
             "default": "2.50",
             "scope": "window",
-            "markdownDescription": "目标 Genero 版本。当前语法基线为 **2.50**；更高版本的差异尚未实现。"
+            "markdownDescription": "目标 4gl 版本。当前语法基线为 **2.50**；更高版本的差异尚未实现。"
           },
           "bdl.diagnostics": {
             "type": "object",
@@ -219,7 +217,7 @@
             "type": "boolean",
             "default": true,
             "scope": "window",
-            "markdownDescription": "是否启用内置符号表（Genero 自带的变量/函数/类名）。\n\n关闭后 `STATUS`/`SQLCA`/`INT_FLAG`/`fgl_*`/`ui.*` 等名字会重新报“无法确定变量来源”（即 P7-C 之前的行为），一般不需要关。"
+            "markdownDescription": "是否启用内置符号表（4gl 自带的变量/函数/类名）。\n\n关闭后 `STATUS`/`SQLCA`/`INT_FLAG`/`fgl_*`/`ui.*` 等名字会重新报“无法确定变量来源”（即 P7-C 之前的行为），一般不需要关。"
           },
           "bdl.builtins.paths": {
             "type": "array",
@@ -490,37 +488,37 @@
             "type": "string",
             "default": "cd ${path} && r.c2 ${name}",
             "scope": "window",
-            "markdownDescription": "4gl 预演编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
+            "markdownDescription": "4gl 预演编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「4gl 编译」。"
           },
           "bdl.build.4gl.compile.command": {
             "type": "string",
             "default": "cd ${path} && r.c2 ${name}",
             "scope": "window",
-            "markdownDescription": "4gl 编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
+            "markdownDescription": "4gl 编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「4gl 编译」。"
           },
           "bdl.build.4gl.link.command": {
             "type": "string",
             "default": "r.l2 ${name}",
             "scope": "window",
-            "markdownDescription": "4gl 链接命令模板。4GL 链接：文件不含 `MAIN` 程序块时本地直接报错、不执行；每次点会弹 `${name}` 确认。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
+            "markdownDescription": "4gl 链接命令模板。4GL 链接：文件不含 `MAIN` 程序块时本地直接报错、不执行；每次点会弹 `${name}` 确认。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「4gl 编译」。"
           },
           "bdl.build.per.preview.command": {
             "type": "string",
             "default": "cd ${path} && fglform -M -W all ${fullname} && rm ${name}.42f",
             "scope": "window",
-            "markdownDescription": "per 预演编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
+            "markdownDescription": "per 预演编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「4gl 编译」。"
           },
           "bdl.build.per.compile.command": {
             "type": "string",
             "default": "cd ${path} && fglform -M -W all ${fullname} && mv ${name}.42f ../42f/ && gsform -M -W all -i -import ${fullname} && mv ${name}.4fd ../4fd/",
             "scope": "window",
-            "markdownDescription": "per 编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
+            "markdownDescription": "per 编译命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「4gl 编译」。"
           },
           "bdl.build.per.form.command": {
             "type": "string",
             "default": "cd ${path} && r.gf ${name} 2 p",
             "scope": "window",
-            "markdownDescription": "per 预览画面命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「Genero BDL 编译」。"
+            "markdownDescription": "per 预览画面命令模板。占位符：`${path}` 两层目录（如 `axc/4gl`）、`${fullpath}` 三层目录（如 `tiptop/axc/4gl`）、`${name}` 去扩展名、`${fullname}` 含扩展名；分隔符恒为 `/`。命令在**生产服务器**上执行（工作目录 = 生产根目录），stdout/stderr 原样进「4gl 编译」。"
           }
         }
       }
@@ -534,181 +532,181 @@
       {
         "command": "bdl.restartServer",
         "title": "重启语言服务器",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.showServerInfo",
         "title": "显示语言服务器信息",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.deployCurrentFile",
         "title": "上传当前文件",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "bdl.deployDryRun",
         "title": "预演上传",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "bdl.links.refresh",
         "title": "刷新",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(refresh)"
       },
       {
         "command": "bdl.links.references",
         "title": "反查引用程序",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(search)"
       },
       {
         "command": "bdl.links.moreRefs",
         "title": "显示更多反查结果",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.forceParseCurrentFile",
         "title": "强制解析当前文件",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(refresh)"
       },
       {
         "command": "bdl.migrateLinkDir",
         "title": "迁移项目资料目录",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.link.importCsv",
         "title": "链接资料：从 CSV 导入",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.link.syncModules",
         "title": "链接资料：按模组更新",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.link.syncAll",
         "title": "链接资料：全量更新",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.link.status",
         "title": "链接资料：查看状态",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.link.updateFromDb",
         "title": "从数据库更新",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(cloud-download)"
       },
       {
         "command": "bdl.build.4gl.preview",
         "title": "4GL：预演编译",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(beaker)"
       },
       {
         "command": "bdl.build.4gl.compile",
         "title": "4GL：编译",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(play)"
       },
       {
         "command": "bdl.build.4gl.link",
         "title": "4GL：链接",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(link)"
       },
       {
         "command": "bdl.build.per.preview",
         "title": "Form：预演编译",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(beaker)"
       },
       {
         "command": "bdl.build.per.compile",
         "title": "Form：编译",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(play)"
       },
       {
         "command": "bdl.build.per.form",
         "title": "Form：预览画面",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(eye)"
       },
       {
         "command": "bdl.schema.import",
         "title": "数据库字段：从 CSV 导入",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(file-add)"
       },
       {
         "command": "bdl.schema.refresh",
         "title": "数据库字段：刷新",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(refresh)"
       },
       {
         "command": "bdl.schema.filter",
         "title": "数据库字段：正则过滤表名",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(filter)"
       },
       {
         "command": "bdl.schema.clearFilter",
         "title": "数据库字段：清除过滤",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.schema.syncTable",
         "title": "数据库字段：同步选中的表",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.schema.copyColumn",
         "title": "数据库字段：复制列定义",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.schema.openTable",
         "title": "数据库字段：打开表资料文件",
-        "category": "Genero BDL"
+        "category": "4gl"
       },
       {
         "command": "bdl.schema.syncAll",
         "title": "数据库字段：从数据库同步",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(database)"
       },
       {
         "command": "bdl.schema.syncSelected",
         "title": "数据库字段：同步已选中的表",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(cloud-upload)"
       },
       {
         "command": "bdl.schema.selectAll",
         "title": "数据库字段：全选当前列表",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(checklist)"
       },
       {
         "command": "bdl.schema.clearSelection",
         "title": "数据库字段：清除勾选",
-        "category": "Genero BDL",
+        "category": "4gl",
         "icon": "$(close)"
       },
       {
         "command": "bdl.initProject",
         "title": "初始化项目（从生产服务器拉取代码）",
-        "category": "Genero BDL"
+        "category": "4gl"
       }
     ],
     "views": {
@@ -718,14 +716,14 @@
           "name": "链接资料",
           "when": "workspaceFolderCount > 0 && bdl.link.enabled",
           "icon": "$(link)",
-          "contextualTitle": "Genero BDL 链接资料"
+          "contextualTitle": "4gl 链接资料"
         },
         {
           "id": "bdlSchema",
           "name": "数据库字段",
           "when": "workspaceFolderCount > 0 && bdl.schema.enabled",
           "icon": "$(database)",
-          "contextualTitle": "Genero BDL 数据库字段"
+          "contextualTitle": "4gl 数据库字段"
         }
       ]
     },

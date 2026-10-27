@@ -605,7 +605,7 @@ async function syncSchema(
     const from = source === "db" ? "数据库" : "CSV";
     const pick = await vscode.window.showWarningMessage(
       `${options.label}：将从${from}重算全部字段资料。通常几分钟、也可能更长，` +
-        `请开「输出 → Genero BDL 任务」看进度。继续？`,
+        `请开「输出 → 4gl 任务」看进度。继续？`,
       { modal: true },
       "开始",
     );

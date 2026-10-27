@@ -215,7 +215,7 @@ function registerCommands(context: vscode.ExtensionContext): void {
       if (outcome.ok) {
         attachParseDoneHandler();
         informedFailure = false;
-        vscode.window.showInformationMessage("Genero BDL 语言服务器已重启。");
+        vscode.window.showInformationMessage("4gl 语言服务器已重启。");
         return;
       }
       await reportStartFailure(context, outcome, true);

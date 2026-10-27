@@ -13,7 +13,7 @@
 | 编辑器右键菜单（`editor/context`） | **2** | 上传当前文件 / 预演上传（`.4gl`/`.global`/`.per` 且启用上传时） |
 | 视图标题栏按钮（`view/title`） | **8** | 链接资料 2 + 数据库字段 6 |
 | 视图项按钮/右键（`view/item/context`） | **4** | 链接反查 1 + 字段表/列 3 |
-| 输出通道 | **2** | `Genero BDL`（服务器+追踪）与 `Genero BDL 任务`（链接/字段/上传/编译） |
+| 输出通道 | **2** | `4gl`（服务器+追踪）与 `4gl 任务`（链接/字段/上传/编译） |
 | 激活事件（`activationEvents`） | **27** | 2 条 `onLanguage` + 25 条 `onCommand` |
 | 上下文键（`when` 依据） | **11** | 见 §6 |
 
@@ -137,8 +137,8 @@
 
 | 通道 | 谁在写 | 怎么区分来源 |
 |---|---|---|
-| `Genero BDL` | LSP 服务器日志 + `bdl.trace.server` 打开的 LSP 消息 | — |
-| `Genero BDL 任务` | 链接资料 / 数据库字段 / 上传 / 编译·链接·预览（`tiptop` 输出原样） | 每次运行前写一行 `> tiptop <子命令> …`；另有 `last-run-<cmd>.log` |
+| `4gl` | LSP 服务器日志 + `bdl.trace.server` 打开的 LSP 消息 | — |
+| `4gl 任务` | 链接资料 / 数据库字段 / 上传 / 编译·链接·预览（`tiptop` 输出原样） | 每次运行前写一行 `> tiptop <子命令> …`；另有 `last-run-<cmd>.log` |
 
 > C6：原来 6 个通道（服务器/追踪/编译/部署/链接资料/数据库字段）合并成 2 个；
 > 失败通知仍带 stderr 首行，并可点「打开日志」直接打开 globalStorage 里的完整日志文件。
@@ -150,7 +150,7 @@
 | 行为 | 触发 | 说明 |
 |---|---|---|
 | 语言服务器启动 | 打开 `.4gl`/`.per` | `bdl-lsp` stdio；索引、诊断、补全、悬停、跳转、引用、大纲、格式化、GLOBALS、表单校验都在服务器里 |
-| 工作区符号索引 | 启动后 | 后台建索引（进度见「Genero BDL」通道） |
+| 工作区符号索引 | 启动后 | 后台建索引（进度见「4gl」通道） |
 | 资料热加载 | 文件变化 | 监听 `links.jsonl` / `tables.json`（含旧布局 glob），变了就刷新视图与上下文 |
 | 上下文键更新 | 设置/文件夹/诊断/活动编辑器变化 | `bdl.db.configured`、`bdl.link.enabled/modeDb/hasData`、`bdl.schema.enabled/modeDb/hasData`、`bdl.upload.enabled`、`bdl.build.enabled`、`bdl.parseSkipped`、`bdl.build.hasMain` |
 | MAIN 门控刷新 | 切换/编辑文档（300ms 防抖） | 决定 4GL「链接」是否置灰 |
@@ -169,7 +169,7 @@
 | C3 | 反查引用 3 处 | 视图按钮 + 视图项保留；面板条目加 `editorLangId == 4gl` |
 | C4 | 强制解析面板常显 | 加 `when: bdl.parseSkipped` |
 | C5 | 显示输出 / 显示服务器信息 | 删 `bdl.showOutput`；信息里加「打开日志」动作 |
-| C6 | 6 个输出通道 | 合并为 2 个（`Genero BDL` / `Genero BDL 任务`） |
+| C6 | 6 个输出通道 | 合并为 2 个（`4gl` / `4gl 任务`） |
 | C7 | `migrateLinkDir` 隐藏 | 保持隐藏（通知触发）；README 写明手动迁移路径 |
 | C8 | 复制列定义 / 打开表资料 | 只留右键/内联（面板 `when: false`） |
 | C9 | 显示更多反查结果 | 保持隐藏（内部） |

@@ -120,7 +120,7 @@ function workspaceCwd(): string | undefined {
 
 /** 构造客户端选项。 */
 function clientOptionsFor(): LanguageClientOptions {
-  // C6：服务器日志与 LSP 追踪共用同一个通道（"Genero BDL"）。
+  // C6：服务器日志与 LSP 追踪共用同一个通道（"4gl"）。
   const outputChannel = serverChannel();
   traceChannel = outputChannel;
 
@@ -243,7 +243,7 @@ export async function startClient(
 
   const instance = new LanguageClient(
     "bdl",
-    "Genero BDL 语言服务器",
+    "4gl 语言服务器",
     serverOptions,
     clientOptions,
   );
@@ -342,7 +342,7 @@ export function registerConfigWatcher(
     vscode.workspace.onDidChangeConfiguration(async (event) => {
       if (RESTART_KEYS.some((key) => event.affectsConfiguration(key))) {
         const choice = await vscode.window.showInformationMessage(
-          "Genero BDL 设置已修改，需要重启语言服务器才能生效。",
+          "4gl 设置已修改，需要重启语言服务器才能生效。",
           "立即重启",
           "稍后",
         );

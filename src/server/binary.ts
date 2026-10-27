@@ -350,7 +350,7 @@ function buildHint(attempts: string[], kind: BinaryKind): string {
     "从源码运行扩展时，可先在 bdl-lsp 仓库执行：",
     "  make build   # 产出 bdl-lsp/artifacts/bin/bdl-lsp",
     "",
-    "设置修改后执行命令「Genero BDL: 重启语言服务器」生效。",
+    "设置修改后执行命令「4gl: 重启语言服务器」生效。",
   ];
   return lines.join("\n");
 }

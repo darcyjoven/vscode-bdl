@@ -14,17 +14,17 @@
 | D-03 | T5 人工标注（误报率基线） | `scripts/globals-audit.sh` **未做**；从未抽 100 处人工标注算误报率 | 中：是 D-01 拍板的取证手段 | 是否排期这次标注、由谁执行？【建议】先抽 100 处标注，再据此定 D-01 |
 | D-04 | `expression name:` 跳过规则逐条复核 | 规则已修，但未逐条复核是否误伤 | 低-中：可能仍有同类漏报/误报未被发现 | 是否做一次语料差异清单人工抽查？【建议】与 D-03 合并做一次 |
 | D-05 | 崩溃回归测试进 CI（P0-1b） | P0-1 崩溃修复目前只靠 `scripts/repro-index-crash.py` 人工证明；脚本依赖真实语料，CI 里没有 | 中：无自动化回归守护，同类"后台回调改文档树"问题可能复发 | 是否排期做"合成工作区"（伪 `.link/links.jsonl` + 预热窗口 + 大文件）的 CI 回归？【建议】排期做，属可自动化的确定性回归 |
-| D-06 | Genero 5.0 语法支持何时启动 | 目标版本区间 2.50–5.0，当前基线 2.50；5.0 在清单里是"**暂不排期**"（`bdl-lsp/docs/FEATURES.md` #15 / N7） | 低（当前无明确 5.0 项目诉求）；一旦启动涉及 grammar 与语料投入 | 何时启动 5.0 适配？是否需要先拿到真实 5.0 语料与编译样本？【建议】维持暂缓，等有真实 5.0 项目再立项 |
+| D-06 | 4gl 5.0 语法支持何时启动 | 目标版本区间 2.50–5.0，当前基线 2.50；5.0 在清单里是"**暂不排期**"（`bdl-lsp/docs/FEATURES.md` #15 / N7） | 低（当前无明确 5.0 项目诉求）；一旦启动涉及 grammar 与语料投入 | 何时启动 5.0 适配？是否需要先拿到真实 5.0 语料与编译样本？【建议】维持暂缓，等有真实 5.0 项目再立项 |
 | D-07 | 工作区索引是否跳过超大文件 | 索引目前解析全部文件，包括 `limits` 已排除诊断的超大文件；现况 7756 文件约 24.7 s | 低-中：大工程索引耗时与内存 | 是否让索引按阈值跳过超大文件？阈值沿用 `bdl.limits.maxFileBytes` 还是新增独立键？【建议】沿用 `bdl.limits.*`，等性能需要时再开 |
 
 ## 2. 发布与平台
 | P-01 | Windows 真机验收的排期与机器来源 | 从未有人在真机上装过插件；CI 只覆盖"构建 + 单测 + 自检"（§2）。验收按 [docs/TODO.md](TODO.md) 附录 A 共 71 项 | 高：直接决定"能不能交付给别人用" | 谁在什么时间做？机器从哪来？【建议】先定一台 Windows 机与一个验收窗口 |
 | P-02 | macOS 真机验收的排期与机器来源 | CI 已产出 `darwin-x64` / `darwin-arm64` 两个包，但无人装过；CI 能构建 ≠ 能装上跑起来 | 高：同一交付门槛 | 是否需要验证？Intel 还是 Apple Silicon（或两者都要）？机器谁提供？【建议】至少验一台 Apple Silicon，做工抽样 |
-| P-03 | 真实 Genero 服务器验证 | 无本机 `fglcomp` / `fglform`；"ssh 通 + 单文件部署 + 远程编译"整条链路未实跑 | 中-高：远程编译结果回到 Problems 是模式①卖点 | 能否提供一台可 ssh 的 Genero 环境？何时？【建议】与 P-01 同批约机器 |
+| P-03 | 真实 4gl 服务器验证 | 无本机 `fglcomp` / `fglform`；"ssh 通 + 单文件部署 + 远程编译"整条链路未实跑 | 中-高：远程编译结果回到 Problems 是模式①卖点 | 能否提供一台可 ssh 的 4gl 环境？何时？【建议】与 P-01 同批约机器 |
 | P-04 | Oracle 真库验证（直连采集） | D1 `tiptop schema sync -source golang`、D2 `tiptop link sync -source golang` 只验了 SQL 生成 / `-source file` 全链路 / 密码来源与参数校验的单测；沙箱无 Oracle | 中-高：直连库是模式①主路径，未跑过真库就不算验证 | 只读库账号与主机谁提供？何时实跑？【建议】与 P-03 同批，使用只读账号并核对表数/列数与 DBA 导出一致 |
 | P-05 | tag 与 GitHub Release 何时落地 | `bdl-lsp` 至今无 tag，`tiptop/go.mod` 靠 `replace ../bdl-lsp`，CI 只能追 `main`（版本漂移 F1/F9）；`bundle-vsix.yml` 只有 `workflow_dispatch`，**没有 release job**，现有 Actions artifact 90 天过期 | 高：决定能否 `go install` 分发、产物是否可复现 | 何时打三个 tag（`bdl-lsp v0.3.13` / `tiptop v0.1.8` / `vscode-bdl v0.6.2`）？Release 用 tag push 还是手动触发？是否同时把 `replace` 换成版本号？【建议】P-01/P-02 全绿后立刻执行，Release 支持 tag push + 手动输入 |
 | P-06 | 市场（vsce）/ Open VSX 发布启动时机 | "暂缓"本身是已定决定，但**何时启动**没定 | 中：决定用户获取方式（VSIX 手动装 vs 市场一键装） | 什么时候启动 `vsce publish` + Open VSX？【建议】Release 稳定一版后再启动 |
-| P-07 | README 与发布状态口径不一致 | [README.md](../README.md) 开头已写"扩展市场里搜 `Genero BDL (4GL)`（扩展 id `4gl-full`，发布者 `darcyjoven`）即可安装"，而市场发布尚未启动（P-06） | 中：用户照 README 去市场会搜不到，属对外口径问题 | 是先发布，还是把 README 改成"目前用 VSIX 安装，市场即将上线"？【建议】先改 README 口径，避免死链式体验 |
+| P-07 | README 与发布状态口径不一致 | [README.md](../README.md) 开头已写"扩展市场里搜 `4gl (4GL)`（扩展 id `4gl-full`，发布者 `darcyjoven`）即可安装"，而市场发布尚未启动（P-06） | 中：用户照 README 去市场会搜不到，属对外口径问题 | 是先发布，还是把 README 改成"目前用 VSIX 安装，市场即将上线"？【建议】先改 README 口径，避免死链式体验 |
 | P-08 | Zed 注册表发布 | 未排期；且 Zed 扩展本体是否恢复也待定（见 E-01） | 低 | 是否随 Zed 恢复一起排？【建议】等 E-01 定论后再定 |
 | P-09 | 二进制自动下载 / 校验 / 缓存 | "无感"体验增强，未排期（`bdl-lsp/docs/FEATURES.md` #13）；前置是 P-05 的 GitHub Release | 中：决定用户要不要手工编译/指定路径 | 是否排期？【建议】P-05 完成后再做，先保证内置二进制路径可用 |
 | P-10 | 三个二进制的版本兼容矩阵 | 扩展与 LSP/tiptop 版本各自独立递增，**没有兼容矩阵**，客户端与服务端错配时无回退策略 | 中：用户混装版本后症状隐蔽 | 是否要定"插件 ↔ 后端最低/最高版本"策略？错配时如何提示？【建议】出一张兼容表 + 服务器启动时校验版本并给一次性提示 |
@@ -40,7 +40,7 @@
 | E-03 | Z-B1 `workspace/executeCommand` 通道（需授权改 bdl-lsp） | 需在 `ServerCapabilities` 加 `ExecuteCommandProvider`，并把 `bdl/linkTree` / `bdl/linkReferences` / `bdl/forceParse` 转接为标准命令 | 中：Zed 侧命令点击的前置 | 是否授权改动 `bdl-lsp`？【建议】授权；VSCode 侧继续用自定义请求，不受影响 |
 | E-04 | Z-B2 Code Lens 服务端实现（需授权、两端共用） | `textDocument/codeLens`：链内子文件各一条 lens 挂在 MAIN 头上，`bdl.link.lensMax` 默认 10；与 §P 的 P1-8（E-05）**是同一份实现**（§P P1-8） | 中-高：VSCode 与 Zed 共用的能力 | 是否授权？是否与 VSCode 侧一起做？【建议】授权并只实现一份，两端共用 |
 | E-05 | VSCode 侧链接资料 Code Lens（P1-8）何时排期 | P1-8 未完成：作为侧边栏 TreeView 的**补充视图**（就地看，不切面板），可点、可分页；依赖 E-04 的服务端实现 | 中：TreeView 之外的体验提升 | 是否排期做？"与 TreeView 并存、不互相替代"的定位是否认可？【建议】排期，与 E-04 同批 |
-| E-06 | Zed 语义高亮的默认状态 | 需加 `languages/bdl/semantic_token_rules.json`；Zed 默认 **off**，用户必须自己写 `{"languages":{"Genero BDL":{"semantic_tokens":"combined"}}}` 才生效 | 低-中：默认关等于多数用户看不到该能力 | 是否接受默认关（靠文档教用户开）？【建议】接受默认关，但在 [README.md](../README.md) 写清开启方法 |
+| E-06 | Zed 语义高亮的默认状态 | 需加 `languages/bdl/semantic_token_rules.json`；Zed 默认 **off**，用户必须自己写 `{"languages":{"4gl":{"semantic_tokens":"combined"}}}` 才生效 | 低-中：默认关等于多数用户看不到该能力 | 是否接受默认关（靠文档教用户开）？【建议】接受默认关，但在 [README.md](../README.md) 写清开启方法 |
 | E-07 | Zed dev extension 手工加载验证（B4） | 无图形界面：`zed: install dev extension` 能否加载、LSP 能否起、大纲层级是否正确，均未验 | 低 | 是否安排这次验证（可与 E-02 同机）？【建议】与 E-02 同批做 |
 | E-08 | ABI 15 ↔ Zed tree-sitter 运行时兼容 | 未在 Zed 实机验证 | 中：直接影响 Zed 侧语法高亮能否用 | 是否纳入 Zed 恢复后的首次实机检查？【建议】纳入 |
 

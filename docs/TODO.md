@@ -47,7 +47,7 @@
 
 | # | 事项 | 现状 | 要做什么 |
 |---|---|---|---|
-| **B3** | 真实 Genero 服务器 | 无本机 `fglcomp`/`fglform`，远程编译整链路没实跑过 | `ssh` 通、`fglcomp`/`fglform` 可用；`tiptop upload` + `tiptop exec` 实跑一次（配置合成见 [`README.md`](../README.md) 附录 A；逐条清单见本文件附录 A §5） |
+| **B3** | 真实 4gl 服务器 | 无本机 `fglcomp`/`fglform`，远程编译整链路没实跑过 | `ssh` 通、`fglcomp`/`fglform` 可用；`tiptop upload` + `tiptop exec` 实跑一次（配置合成见 [`README.md`](../README.md) 附录 A；逐条清单见本文件附录 A §5） |
 | **B4** | Zed dev extension 手工加载 | 无图形界面 | `zed: install dev extension` 能加载、LSP 起来、大纲层级正确（与 §3.5 的 Zed 追平一起做） |
 | **D3** | 上传 + 生产端编译/链接/预览 | 沙箱没有可达的生产服务器 | 按附录 A §5.0–§5.2 逐条：预演上传的路径映射、**只传单文件**、**不自动上传**、4GL 链接弹 `${name}`、无 MAIN 时置灰、Form 预览 `r.gf ${name} 2 p`、失败时 `last-run-exec.log` |
 | **D4** | 全量 schema sync（慢链路，分批） | 沙箱没有 Oracle | 慢链路上跑一次全量：进度要有 `共 N 张表，按每批 200 张分 M 批`、`批次 i/M`，**不再出现 `ORA-01013`**；列说明来自 TiTop 字典（附录 A 5.4.8/5.4.9） |
@@ -63,7 +63,7 @@
 | # | 事项 | 现状 | 要做的事（命令 / 文件） | 验收 |
 |---|---|---|---|---|
 | **P0-1b** | 崩溃回归进 CI | P0-1（链接预热回调关文档树导致 SIGSEGV）已修复并人工验证，但 `bdl-lsp/scripts/repro-index-crash.py` 依赖真实语料（CI 没有），修复只靠人工脚本证明 | 造一个**合成工作区**：`.project/links.jsonl`（或 `.link/`）+ 全局模组文件（拉开索引预热窗口）+ 一个 4 万行大文件，断言"不崩、能出大纲"；接进 CI | CI 里能复现并拦住回归；等价于 `scripts/repro-index-crash.py` 的退出码语义（0=OK / 1=崩溃） |
-| **P0-2b** | T5 剩余量级（**等你拍板**） | `variable-source-unresolved` 全语料 19580 条，主体是**跨模块的模块级变量**（`L_AC` 1828、`G_RVV` 1715、`G_SFS` 1128…）：它们在别的模块里确有 `DEFINE`，但不在当前文件或其 GLOBALS 里 | 先确认语义：若"模块级 `DEFINE` 不跨模块可见"（Genero 手册常规理解）→ 这些是**真报**，工具不动；若这套项目构建方式让它们跨模块可见 → 需按模块/库聚合可见性（类似链接可见性矩阵，改动不小）。口径与证据建议归档到 `docs/OPEN-ITEMS.md` | 用户给定口径；若确认是噪声，另开一项并给出"改动后全语料 T5 下降、`function-not-found` / `field-not-in-form` 不变"的对比 |
+| **P0-2b** | T5 剩余量级（**等你拍板**） | `variable-source-unresolved` 全语料 19580 条，主体是**跨模块的模块级变量**（`L_AC` 1828、`G_RVV` 1715、`G_SFS` 1128…）：它们在别的模块里确有 `DEFINE`，但不在当前文件或其 GLOBALS 里 | 先确认语义：若"模块级 `DEFINE` 不跨模块可见"（4gl 手册常规理解）→ 这些是**真报**，工具不动；若这套项目构建方式让它们跨模块可见 → 需按模块/库聚合可见性（类似链接可见性矩阵，改动不小）。口径与证据建议归档到 `docs/OPEN-ITEMS.md` | 用户给定口径；若确认是噪声，另开一项并给出"改动后全语料 T5 下降、`function-not-found` / `field-not-in-form` 不变"的对比 |
 | **F1/F9** | 版本漂移 | `tiptop` 依赖 `bdl-lsp` 公开包但用 `replace ../bdl-lsp`（无 tag）；`tiptop` CI 只能追 `main` | C1 打 tag 后：把 `tiptop/go.mod` 的 `replace` 换成版本号依赖（`require github.com/darcyjoven/bdl-lsp v0.3.13`），并让 CI 按 tag 校验（tag 与 `go.mod` 版本一致） | `go install github.com/darcyjoven/tiptop@latest` 可用；CI 在 tag 上校验通过；任一侧改公开包签名会构建失败而非静默漂移 |
 | **P2-1+** | schema 增量采集 | 目前 `schema sync`（直连）与 `import`（CSV）都是"全量查询 → 逐表逐字节比较只写变化的表"；2648 表 2.4 s，够用 | 可加"按表 diff（只查变化的表）"或 `-since` 时间戳过滤；接口在 `tiptop`（`internal/schemacli`、`internal/oradb`），可选 `-source golang` 那套 | 增量路径有单测；大库重跑时间明显下降且结果与全量一致 |
 | **P1-8** | 链接资料 **Code Lens**（**补充视图**，与 TreeView 并存） | 未做。VSCode 已有侧边栏「链接资料」TreeView；服务端尚无 `textDocument/codeLens` | 服务端（`bdl-lsp`）实现 `textDocument/codeLens`：链内**子文件各一条 lens**，全部挂在该文件 **MAIN 函数头**，每条带自己的 `command` 可分别点击；数量上限 `bdl.link.lensMax`（默认 10），超出给一条「…共 N 个」汇总；函数级反查（每个函数定义上方「🔗 被 N 处调用」，调用点来自 `wsindex.CallsOf`）。数据来自 `link.Resolver.Tree()`（纯内存查询）。VSCode 侧作为补充视图与 TreeView 并存 | 协议级测试 + e2e；点击 lens 能打开目标文件；与 Zed 侧 **Z-B2 共用同一份服务端实现**（见 §3.5，Z-A6 的实机结论决定实现方式） |
@@ -72,7 +72,7 @@
 
 | # | 事项 | 现状 | 要做的事 | 验收 |
 |---|---|---|---|---|
-| **S1** | 语言服务器异常退出兜底 | 「Genero BDL」通道里对**非 0 退出码**没有明确日志、不自动重启、不通知用户 | 插件侧：异常退出时写明确日志 + **自动重启一次** + 通知用户（配合 P0-1 已修好的崩溃） | 手工 kill 服务器后能看到日志与通知，并自动重启一次；日志进「Genero BDL」通道（或「显示语言服务器信息」→「打开日志」） |
+| **S1** | 语言服务器异常退出兜底 | 「4gl」通道里对**非 0 退出码**没有明确日志、不自动重启、不通知用户 | 插件侧：异常退出时写明确日志 + **自动重启一次** + 通知用户（配合 P0-1 已修好的崩溃） | 手工 kill 服务器后能看到日志与通知，并自动重启一次；日志进「4gl」通道（或「显示语言服务器信息」→「打开日志」） |
 | **S2** | `parseMu` 同类异步路径审计 | 只有链接预热回调这一条"从外部改文档树"的路径已纳入纪律；结论只在文档里 | 把审计结论写进代码注释（`parseMu` 的说明）：后续新增任何"后台 → 文档树"的路径都必须走 `requestRediagnose()` 一类入口（`internal/server`） | 注释落地；新增异步路径有 lock 纪律单测（参考 `internal/server/lock_test.go`） |
 | **S3** | 工作区索引是否跳过超大文件 | 工作区索引现在解析一切，包括 `bdl.limits.*` 已排除诊断的文件 | 评估让索引跳过超大文件（性能优化，**不是**崩溃原因） | 大项目索引耗时下降且跳转/符号搜索不明显变差 |
 | **F3** | 扩展与 LSP/tiptop 版本错配的回退策略 | 三个二进制版本独立递增，没有兼容矩阵 | 定义兼容矩阵与错配时的回退/提示策略（`BUILD-INFO.json` 已有 `target`，可扩展记录所需版本） | 文档 + `BUILD-INFO.json` 校验；错配时给出可操作的提示 |
@@ -108,7 +108,7 @@
 |---|---|---|---|
 | Z-A1 | 文档纠错（9 条） | `bdl-lsp link/deploy` → `tiptop link/deploy`（这两个子命令 0.3.2 已移除）；删 `link.maxAgeDays` 与整块 `link.sync.*`；`link.dataDir` 默认 `.project/link`；VSCode 侧已改成 `link.mode`/`schema.mode` 三态（Zed 侧仍用布尔 `link.enable`/`schema.enable`，需补默认 **false**）；诊断码表同步 14 个码；补 `prod.*` 说明；修「Zed 不支持任意命令」「不消费语义 token」两处错误结论；版本号 0.3.0→0.3.13 | `zed-extension/README.md` + 本仓库 `README.md`；全文 grep 无过期命令名 |
 | Z-A2 | **补轻量档默认**（真实行为差异） | VSCode 客户端现在下发 `link/schema.mode = off`；Zed 侧原样透传用户设置，服务端在两者都缺时兜底返回 `true` → Zed 开箱即用时链接资料与 schema **是开着的**。修法：在 `language_server_workspace_configuration` 返回前把缺失的三开关补成 `false` | Zed 开箱即轻量档；与服务端兜底逻辑一致（兜底仍"开"，是无客户端设置时的安全兜底） |
-| Z-A3 | 语义高亮落地 | 加 `languages/bdl/semantic_token_rules.json`（+ `per/`）；文档教用户开 `{"languages":{"Genero BDL":{"semantic_tokens":"combined"}}}`（**默认 off**，写清）；`verify-manifest.py` 加校验防误删 | 开 `semantic_tokens` 后自定义符号着色；`verify-manifest.py` 全绿 |
+| Z-A3 | 语义高亮落地 | 加 `languages/bdl/semantic_token_rules.json`（+ `per/`）；文档教用户开 `{"languages":{"4gl":{"semantic_tokens":"combined"}}}`（**默认 off**，写清）；`verify-manifest.py` 加校验防误删 | 开 `semantic_tokens` 后自定义符号着色；`verify-manifest.py` 全绿 |
 | Z-A4 | slash command 入口 | 实现 `run_slash_command` + `extension.toml` 声明 `[slash_commands.*]`；4 条：`/bdl-link-status`、`/bdl-deploy-dry-run`、`/bdl-deploy-list`、`/bdl-force-parse`；走 `zed::process::Command` 调 tiptop（需新增「定位 tiptop」四级查找）；**采集/导入类（会写盘）不进 slash command**，只给 task | 命令面板/Agent 面板可用；新增校验：`extension.toml` 声明与 Rust `match` 分支一一对应（写错名不编译错、只会静默不响应） |
 | Z-A5 | task 模板更新 | 命令名改 `tiptop`；补 `deploy -list`；补 4 条链接资料 task | `zed-extension/README.md` 的 task 模板 + 本仓库 `README.md` |
 | Z-A6 | Code Lens **实机验证**（**先做**） | 两个关键行为决定实现方式：① `code_lens: "on"` 时**多条同 range 的 lens 是否各占一行**；② 点击 lens 的 `command` 能否打开目标文件 | **有 GUI 的机器**上实测（沙箱做不了）；结论回写本文件与 `zed-extension/docs/PLAN.md` |
@@ -133,7 +133,7 @@
 | **E3** | 使用处语义着色 | 未排期；需要全文件符号解析，成本高收益低 | 有明确用户需求再评估 |
 | **E4** | Code Action 批量修复（fix all） | 未排期 | 有需求再排 |
 | **E5** | 纯 Go SFTP | 仅在确有需求时评估（现有 rsync 主 / scp 备） | 需求出现再评估 |
-| **E6** | Genero 5.0 语法 | 未排期（当前 2.50 基线） | 拿到 5.0 语料/语法变化清单后再排 |
+| **E6** | 4gl 5.0 语法 | 未排期（当前 2.50 基线） | 拿到 5.0 语料/语法变化清单后再排 |
 | **E7** | 单文件远程编译超时；编译产物 `.42m` 是否拉回 | 现属 `tiptop`，**待确认** | 确认真实需求后定行为（超时值 / 是否回传产物） |
 | **C6** | 二进制自动下载 / 校验 / 缓存 | "无感"体验，**未排期**（与 Z-B3 同源） | 需求出现再做；前置是 C1/C2 |
 | **C7** | Zed 注册表发布 | **未排期** | 与市场发布（C3）一起评估 |
@@ -173,7 +173,7 @@
 | 结论 | ⬜ 全部通过 ⬜ 有失败（见 §9） |
 
 > 标记说明：**⭐** = 2026-10-23 这一轮（0.3.5–0.3.8 / 0.1.3 / 0.5.1–0.5.3）刚改的点，最值得盯；
-> **[需服务器]** = 要有真实 SSH + Genero 编译机的环境才能做，没有就跳过并如实标注。
+> **[需服务器]** = 要有真实 SSH + 4gl 编译机的环境才能做，没有就跳过并如实标注。
 
 ---
 
@@ -291,7 +291,7 @@ Format-Hex "$ws\topcust\config\globals_defs.global" | Select-Object -First 1
 >         -Filter "darcyjoven.4gl-full-*" | Sort-Object Name | Select-Object -Last 1).FullName
 > ```
 
-> **取证提示**：出问题时先执行命令 `Genero BDL: 显示输出`（输出通道），
+> **取证提示**：出问题时先执行命令 `4gl: 显示输出`（输出通道），
 > 里面是语言服务器 stderr 与客户端日志；失败项请把整段贴进 §9。
 
 ---
@@ -348,7 +348,7 @@ Get-Content    "$ext\bin\BUILD-INFO.json"
   - 记录：____
 - [ ] 1.3 两个 exe 直接运行**不报缺 DLL**（`0xc0000135` 之类）
   - 记录：____
-- [ ] 1.4 `Genero BDL: 显示语言服务器信息` 命令输出的「路径 / 来源」指向扩展内置 `bin\bdl-lsp.exe`
+- [ ] 1.4 `4gl: 显示语言服务器信息` 命令输出的「路径 / 来源」指向扩展内置 `bin\bdl-lsp.exe`
   - 记录：____
 
 ### 1.5 在 VSCode 里打开工作区
@@ -357,13 +357,13 @@ Get-Content    "$ext\bin\BUILD-INFO.json"
 code "$ws"
 ```
 
-- [ ] 1.5 打开 `$ws` 后，状态栏/输出里语言服务器**运行中**（命令 `Genero BDL: 显示语言服务器信息`）
+- [ ] 1.5 打开 `$ws` 后，状态栏/输出里语言服务器**运行中**（命令 `4gl: 显示语言服务器信息`）
   - 记录：____
 - [ ] 1.6 重启机器或重启 VSCode 后再打开一次，服务器仍能起来（排除"只在首次会话可用"）
 - [ ] 1.7 **轻量档默认（P1-4）**：侧边栏**没有**「链接资料」视图；命令面板里搜
-      `Genero BDL: 链接资料` 一条都没有（默认关）；工作区里**没有**被新建 `.project/` 目录
+      `4gl: 链接资料` 一条都没有（默认关）；工作区里**没有**被新建 `.project/` 目录
 - [ ] 1.8 设置界面里设置分成 **5 组**：基础 / 生产环境 / 链接资料 / 部署 / 数据库字段
-      （组标题不再带 "Genero BDL: " 前缀）
+      （组标题不再带 "4gl: " 前缀）
   - 记录：____
 
 ---
@@ -426,7 +426,7 @@ New-Item -ItemType Directory -Force -Path "$ws\.project" | Out-Null
 [IO.File]::WriteAllText("$ws\.project\links.jsonl", "{这不是 JSON}`n")
 ```
 
-- [ ] 3.4 触发重载（重新打开工作区或执行 `Genero BDL: 重启语言服务器`）后，Problems 面板出现 `link-data-invalid`
+- [ ] 3.4 触发重载（重新打开工作区或执行 `4gl: 重启语言服务器`）后，Problems 面板出现 `link-data-invalid`
   - 记录：____
 - [ ] 3.5 该诊断**归属文件是 `.project\links.jsonl`**（点它能在编辑器里打开那个文件，而不是一个不存在的路径）
   - 记录：____
@@ -461,7 +461,7 @@ New-Item -ItemType Directory -Force -Path "$ws\.link" | Out-Null
 - [ ] 3.2b.1 重新打开工作区后：链接视图/跨文件跳转**照旧可用**（不是"突然没有资料"）
 - [ ] 3.2b.2 Problems 面板出现 `link-data-legacy-dir`（归属文件是**旧目录**的 `.link\links.jsonl`），
       并且右下角弹出一次"迁移 / 稍后"提示
-- [ ] 3.2b.3 点"迁移"（或执行命令 `Genero BDL: 迁移项目资料目录`）→ 文件出现在 `.project/link/`，
+- [ ] 3.2b.3 点"迁移"（或执行命令 `4gl: 迁移项目资料目录`）→ 文件出现在 `.project/link/`，
       语言服务器自动重启，链接资料仍然可用、提示消失
   - 记录：____
 
@@ -549,7 +549,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Check
 
 ### 5. 上传 / 生产端执行 / 资料采集 **[需服务器]**
 
-> 需要：真实 SSH 可达的 Genero 机器（`fglcomp`/`fglform`/`r.*` 脚本可用）与只读 Oracle 账号。
+> 需要：真实 SSH 可达的 4gl 机器（`fglcomp`/`fglform`/`r.*` 脚本可用）与只读 Oracle 账号。
 > 没有就跳过并标注「未测」。变量：`$ws` = 测试工作区根，`$ext` = 解包后的扩展目录。
 
 #### 5.0 上传配置（不用手写 JSON）
@@ -577,7 +577,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Check
 #### 5.2 编译 / 链接 / 预览（在生产服务器上执行）
 
 > 前置：`bdl.build.enable` 打开（默认关）。命令通过 `tiptop exec` 在**生产根目录**下执行，
-> stdout/stderr 原样进「Genero BDL 任务」通道。**编译前不会自动上传**。
+> stdout/stderr 原样进「4gl 任务」通道。**编译前不会自动上传**。
 
 - [ ] 5.2.1 `4GL：预演编译` / `4GL：编译`：远端执行 `cd ${path} && r.c2 ${name}`，输出完整（含命令回显与退出码）
 - [ ] 5.2.2 `4GL：链接`：弹 `${name}` 确认框（**只有这条弹**）；**没有 MAIN 的文件按钮置灰、不发 ssh**
@@ -585,7 +585,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Check
 - [ ] 5.2.4 `Form：预览画面`：远端执行 `cd ${path} && r.gf ${name} 2 p`（三个参数，会调起本地 GUI）
 - [ ] 5.2.5 改完文件**不点上传**直接编译 → 服务器上仍是旧代码（确认这与文档一致：上传是独立动作）
 - [ ] 5.2.6 失败时通知带 stderr 首行；点「打开日志」打开 `last-run-exec.log`
-- [ ] 5.2.7 输出通道只有两个：`Genero BDL`（服务器 + 追踪）与 `Genero BDL 任务`（上传/编译/链接/字段）
+- [ ] 5.2.7 输出通道只有两个：`4gl`（服务器 + 追踪）与 `4gl 任务`（上传/编译/链接/字段）
 - [ ] 5.2.8 无生产配置时点编译 → 提示缺哪一项，而不是抛栈
 
 #### 5.3 链接资料命令（在 VSCode 里，不用开终端）
@@ -625,7 +625,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Check
       - 记录（批次数与总耗时）：____
 - [ ] 5.4.9 ⭐ **说明来自 TiTop 字典**：抽查 `ima_file` 等常用表，列说明来自 `DS.GAQ_FILE.gaq03`（不是 Oracle 备注），覆盖率明显高于旧行为
 - [ ] 5.4.10 字典表缺失/无权限（ORA-00942）→ 提示「TiTop 字典表不存在，请改用 CSV 导入」
-- [ ] 5.4.11 失败时点「打开日志」拿到 `last-run-schema.log`；输出在「Genero BDL 任务」通道
+- [ ] 5.4.11 失败时点「打开日志」拿到 `last-run-schema.log`；输出在「4gl 任务」通道
 - [ ] 5.4.12 门控（W4）：未配库或无资料时，右键「同步选中的表」与批量按钮**不出现**
 - [ ] 5.4.13 关闭 `bdl.schema.mode`：视图与命令消失
 
@@ -656,7 +656,7 @@ powershell -ExecutionPolicy Bypass -File scripts\e2e-vscode.ps1
 | `record-member-unknown` 一条都不报 | 该诊断出厂默认 `off`（`LIKE table.*` 引用太多，误报风险高） |
 | 资料明明很久没更新，却没提示 | **设计如此**（P1-6 去掉 7 天过期提示）：同步只由命令触发，插件不因为资料"旧"而报警 |
 | 刚打开大项目时 `Ctrl+T` 搜不全 | 工作区索引在后台建（几十秒），期间结果不全属正常 |
-| `fglcomp: command not found` | 这是**远端**的问题（目标机没装 Genero），与本机扩展无关 |
+| `fglcomp: command not found` | 这是**远端**的问题（目标机没装 4gl），与本机扩展无关 |
 | 打开大文件时出现 `file-too-large` / `parse-timeout` 警告 | **有意为之**（P0-3）：这个文件确实没被检查，点标题栏的"强制解析"即可；不想要就调大 `bdl.limits.*` |
 | 出现 `link-data-legacy-dir`（hint） | 资料还在旧布局（`.link/` 或 `.project` 根）：能用，但建议执行「迁移项目资料目录」搬到 `.project/{link,schema,deploy}/` |
 
@@ -704,7 +704,7 @@ powershell -ExecutionPolicy Bypass -File scripts\e2e-vscode.ps1
 - 被测版本：`bdl-lsp 0.3.13` / `tiptop 0.1.8` / `4gl-full 0.6.2`
 - 机器与架构：
 - 失败项与最小复现：
-- 语言服务器/任务输出（「Genero BDL」与「Genero BDL 任务」通道整段，或 globalStorage 的 `last-run-*.log`）：
+- 语言服务器/任务输出（「4gl」与「4gl 任务」通道整段，或 globalStorage 的 `last-run-*.log`）：
 ---
 
 ## 附录 B：已决定不做 / 已取消（不计入待办，仅防重新纠结）

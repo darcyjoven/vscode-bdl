@@ -5,7 +5,7 @@
 //     命令里先问一次"用哪个脚本"（自动 / 强制 bash / 强制 powershell）。
 //   - 收集参数（SSH 目标、生产根、目标目录、选项、编码；上次值预填，存 workspaceState，不存密码）后，
 //     **在集成终端里执行**脚本 —— 进度/编码确认等交互都在终端里完成，用户能看到完整过程。
-//   - 命令会写入「Genero BDL 任务」输出通道，便于复制重跑；脚本路径取扩展安装目录的 scripts/init-project/。
+//   - 命令会写入「4gl 任务」输出通道，便于复制重跑；脚本路径取扩展安装目录的 scripts/init-project/。
 import * as path from "node:path";
 import * as vscode from "vscode";
 
