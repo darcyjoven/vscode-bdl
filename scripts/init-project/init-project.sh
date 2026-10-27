@@ -161,40 +161,70 @@ enable_password_mode() {
 }
 q() { printf '%q' "$1"; }
 
-# 远端只读 find：fmt 会被 shell 转义成"一个参数"，suffix 是原样追加的管道
-#（注意：suffix 里的 $f 等要写成 \$f，让远端 shell 去展开）
+# ── 远端只读 find 的公共谓词（q() 已把每个值转义成单个 shell 词）
+PRUNE=""
+for _n in .git .svn CVS node_modules 42f 4fd bin obj tmp backup bak .project .link .pack out; do
+  PRUNE="$PRUNE -name $_n -o"
+done
+JUNK=""
+for _j in '*~' '*.bak' '*.orig' '*.rej' '*.swp' '*.swo' .DS_Store Thumbs.db; do
+  JUNK="$JUNK ! -name $(q "$_j")"
+done
+# 只要这三种：任意目录的 *.global、4gl 目录下的 *.4gl、per 目录下的 *.per
+#（所以 42f 之类的产物目录、非 4gl/per 目录里的杂文件都不会进来）
+NAME_PRED="\( -name $(q '*.global') -o \( -path $(q '*/4gl/*') -name $(q '*.4gl') \) -o \( -path $(q '*/per/*') -name $(q '*.per') \) \)"
+# 顶层目录（-m 指定；已转义）
+STARTS=""
+_old_ifs=$IFS; IFS=,
+for _m in $MODULES; do [ -n "$_m" ] && STARTS="$STARTS $(q "$_m")"; done
+IFS=$_old_ifs
+unset _n _j _m _old_ifs
+
+# 远端只读 find：$1 = 原样追加的管道，$2 = -print / -print0
+#
+# 两个坑：
+#   1) 只用 -print/-print0。-printf 是 GNU 扩展，有些站点的 find 不支持，
+#      一不支持就"静默 0 个文件"（错误只进 stderr，管道照常返回）。
+#   2) 每个顶层目录单独 find：缺一个目录（比如没有 topcust）不会让整条 find
+#      以非 0 退出，也不会把 "No such file or directory" 混进结果。
 remote_find() {
-  local fmt=$1 suffix=${2:-} starts="."
-  if [ -n "$MODULES" ]; then
-    starts=""; local IFS=,; local m
-    for m in $MODULES; do [ -n "$m" ] && starts="$starts $(q "$m")"; done
-    unset IFS
-  fi
-  local prune="" junk="" n j
-  for n in .git .svn CVS node_modules 42f 4fd bin obj tmp backup bak .project .link .pack out; do
-    prune="$prune -name $n -o"
-  done
-  for j in '*~' '*.bak' '*.orig' '*.rej' '*.swp' '*.swo' .DS_Store Thumbs.db; do
-    junk="$junk ! -name $(q "$j")"
-  done
-  # 只要这三种：任意目录的 *.global、4gl 目录下的 *.4gl、per 目录下的 *.per
-  #（所以 42f 之类的产物目录、非 4gl/per 目录里的杂文件都不会进来）
-  printf 'cd %s && find %s \( %s -false \) -prune -o -type f %s \( -name %s -o \( -path %s -name %s \) -o \( -path %s -name %s \) \) -printf %s%s' \
-    "$(q "$REMOTE_ROOT")" "$starts" "$prune" "$junk" \
-    "$(q '*.global')" "$(q '*/4gl/*')" "$(q '*.4gl')" "$(q '*/per/*')" "$(q '*.per')" "$(q "$fmt")" "$suffix"
+  local suffix=${1:-} pflag=${2:--print}
+  # cd 必须在管道外：管道右侧（xargs/while read）用的是父 shell 的工作目录，
+  # 相对路径才找得到文件。
+  printf 'cd %s || exit 0; { for d in %s; do [ -d $d ] || continue; find $d \( %s -false \) -prune -o -type f %s %s %s; done; }%s' \
+    "$(q "$REMOTE_ROOT")" "$STARTS" "$PRUNE" "$JUNK" "$NAME_PRED" "$pflag" "$suffix"
 }
-r_cmd_stats()   { remote_find '%s\n' " | awk '{n++; b+=\$1} END{print \"FILES \" n; print \"BYTES \" b}'"; }
-r_cmd_modules() { printf 'cd %s && ls -1 | head -40 | tr "\\n" "," | sed "s/,\$//"' "$(q "$REMOTE_ROOT")"; }
-r_cmd_sample()  {
-  remote_find '%p\n' " | sed 's|^\\./||' | head -n $SAMPLES | while IFS= read -r f; do printf 'FILE %s\\n' \"\$f\"; head -c 4096 \"\$f\" | base64 | tr -d '\\n'; printf '\\nEND\\n'; done"
+# 只回两个纯数字：先个数、后字节数（本地按行解析）。
+# 用 wc -c 累加而不是 stat -c%s：macOS 的 stat 不认 -c。
+r_cmd_stats() {
+  remote_find " | xargs -0 wc -c | awk '{if (\$2!=\"total\") {n++; s+=\$1}} END{print n; print s}'" "-print0"
+}
+# 环境体检：根目录在不在、要取的顶层目录缺哪个、远根下到底有什么（永远 exit 0）
+r_cmd_env() {
+  printf '{ cd %s || { echo NOROOT; exit 0; }; for d in %s; do [ -d $d ] || echo MISSING:$d; done; echo LIST:$(ls -1 | head -40 | tr "\\n" ","); }' \
+    "$(q "$REMOTE_ROOT")" "$STARTS"
+}
+r_cmd_sample() {
+  remote_find " | sed 's|^[.]/||' | head -n $SAMPLES | while IFS= read -r f; do printf 'FILE %s\\n' \"\$f\"; head -c 4096 \"\$f\" | base64 | tr -d '\\n'; printf '\\nEND\\n'; done"
+}
+# 匹配数为 0 时才跑（只读）：源文件按扩展名统计 + .4gl/.per 样例 + 顶层目录两级结构。
+# 提示语用 ASCII：远端回传的 UTF-8 中文在 GBK 控制台上会显示成乱码。
+r_cmd_probe() {
+  printf '{ cd %s || exit 0; echo "== ext histogram"; find . \\( %s -false \\) -prune -o -type f %s \\( -name %s -o -name %s -o -name %s \\) -print | sed "s/.*[.]//" | sort | uniq -c | head -10; echo "== 4gl samples"; find . \\( %s -false \\) -prune -o -type f %s -name %s -print | sed "s|^[.]/||" | head -5; echo "== per samples"; find . \\( %s -false \\) -prune -o -type f %s -name %s -print | sed "s|^[.]/||" | head -3; for d in %s; do [ -d $d ] || continue; echo "== dirs under $d"; find $d -maxdepth 2 -type d | head -10; done; }' \
+    "$(q "$REMOTE_ROOT")" \
+    "$PRUNE" "$JUNK" "$(q '*.4gl')" "$(q '*.per')" "$(q '*.global')" \
+    "$PRUNE" "$JUNK" "$(q '*.4gl')" \
+    "$PRUNE" "$JUNK" "$(q '*.per')" \
+    "$STARTS"
 }
 
 print_remote_commands() {
   echo "将在服务器上执行的命令（除 rsync 拉取外都是只读 find；rsync 方向是 pull，远端不写）："
-  echo "  1) $(r_cmd_stats)"
-  echo "  2) $(r_cmd_modules)"
+  echo "  1) $(r_cmd_env)"
+  echo "  2) $(r_cmd_stats)"
   echo "  3) $(r_cmd_sample)"
-  echo "  4) $RSYNC_BIN ${RSYNC_FILTER_DISPLAY} -e 'ssh (连接参数)' $TARGET:$REMOTE_ROOT/ \"$DEST/\""
+  echo "  4) $(r_cmd_probe)   # 仅当匹配数为 0"
+  echo "  5) $RSYNC_BIN ${RSYNC_FILTER_DISPLAY} -e 'ssh (连接参数)' $TARGET:$REMOTE_ROOT/ \"$DEST/\""
   echo "  （没有其它命令；不写文件、不上传、不部署）"
 }
 # 审计显示用：把 -m 指定的顶层目录也带上（和实际 RSYNC_ARGS 同一份来源）
@@ -235,13 +265,29 @@ fi
 # ── 2) 远端只读预检
 prog "预检" "统计源文件（只读 find）"
 [ "$VERBOSE" = 1 ] && print_remote_commands
+# 环境体检：根目录在不在、要取的顶层目录缺哪个、远根下到底有什么
+ENV_OUT=$(ssh_run "$(r_cmd_env)") || ENV_OUT=""
+TOP_DIRS=""
+while IFS= read -r line; do
+  case "$line" in
+    NOROOT) die "远端没有这个目录：${REMOTE_ROOT}（确认 --remote-root；若该账号登录后先选区，确认区号与目录前缀）" ;;
+    MISSING:*) warn "远根下没有顶层目录 ${line#MISSING:}，已跳过（默认取 ${MODULES}，可用 -m 覆盖）" ;;
+    LIST:*) TOP_DIRS=${line#LIST:} ;;
+  esac
+done <<EOF
+$ENV_OUT
+EOF
+[ -n "$TOP_DIRS" ] && dim "远根下的顶层目录：$TOP_DIRS"
 STATS=$(ssh_run "$(r_cmd_stats)") || die "远端预检失败"
-FILES=$(printf '%s\n' "$STATS" | awk '/^FILES /{print $2}')
-BYTES=$(printf '%s\n' "$STATS" | awk '/^BYTES /{print $2}')
-MODS=$(ssh_run "$(r_cmd_modules)" || true)
-[ "${FILES:-0}" -gt 0 ] || die "没有匹配到源文件：确认 --remote-root（${REMOTE_ROOT}）"
-info "找到 $FILES 个源文件，共 $(awk -v b="$BYTES" 'BEGIN{printf "%.2f MB", b/1048576}')"
-dim "顶层目录：${MODS:-（无）}"
+# 远端只回两个纯数字：先个数、后字节数
+FILES=$(printf '%s\n' "$STATS" | sed -n '1p' | tr -cd '0-9')
+BYTES=$(printf '%s\n' "$STATS" | sed -n '2p' | tr -cd '0-9')
+if [ "${FILES:-0}" -le 0 ]; then
+  info "探查远端结构（只读）…"
+  ssh_run "$(r_cmd_probe)" 2>/dev/null | sed 's/^/    /' || true
+  die "没有匹配到源文件：只看 */4gl/*.4gl、*/per/*.per、任意目录的 *.global（${MODULES} 下）；对照上面的结构，若源文件不在 4gl/ 或 per/ 目录里，告诉我实际位置"
+fi
+info "找到 $FILES 个源文件，共 $(awk -v b="${BYTES:-0}" 'BEGIN{printf "%.2f MB", b/1048576}')"
 
 # ── 3) 编码检测（样本只读取样）
 TMPDIR_RUN=$(mktemp -d "${TMPDIR:-/tmp}/init-project.XXXXXX")
@@ -361,7 +407,11 @@ while IFS= read -r src_file; do SRC_FILES+=("$src_file"); done \
 prog "规范化" "转码/行尾（${#SRC_FILES[@]} 个源文件）"
 conv=0; skip=0; crlf=0
 for f in ${SRC_FILES[@]+"${SRC_FILES[@]}"}; do
-  if LC_ALL=C grep -q $'\r' "$f" 2>/dev/null; then sed -i 's/\r$//' "$f"; crlf=$((crlf+1)); fi
+  # 不用 sed -i：macOS 的 BSD sed 要求 -i 带参数（sed -i '' ...），Linux 又不接受空参数
+  if LC_ALL=C grep -q $'\r' "$f" 2>/dev/null; then
+    tr -d '\r' < "$f" > "$f.crtmp" && mv "$f.crtmp" "$f"
+    crlf=$((crlf+1))
+  fi
   [ -z "$ENC" ] && continue
   if iconv -f UTF-8 -t UTF-8 "$f" >/dev/null 2>&1; then skip=$((skip+1)); continue; fi
   tmp="$f.utf8tmp"
@@ -428,9 +478,10 @@ prog "完成" "初始化完成"
 echo
 info "完成：$DEST"
 dim "文件：$(git -C "$DEST" ls-files | wc -l | tr -d ' ') 个已入库；分支 $(git -C "$DEST" rev-parse --abbrev-ref HEAD)"
-EOL_BAD=$(git -C "$DEST" ls-files --eol | awk '$1!="i/lf" || $2!="w/lf"' | head -5)
-if [ -n "$EOL_BAD" ]; then warn "以下文件不是 LF（检查 .gitattributes / core.autocrlf）："; printf '%s\n' "$EOL_BAD" | sed 's/^/    /'
-else info "换行校验通过：git ls-files --eol 全是 i/lf w/lf"; fi
+# 只看 crlf：i/none 表示整个文件没有换行符（或 git 当二进制处理），不是行尾问题
+EOL_BAD=$(git -C "$DEST" ls-files --eol | awk '$1=="i/crlf" || $2=="w/crlf"' | head -5)
+if [ -n "$EOL_BAD" ]; then warn "以下文件仍是 CRLF（应为 LF，检查 .gitattributes / core.autocrlf）："; printf '%s\n' "$EOL_BAD" | sed 's/^/    /'
+else info "换行校验通过：没有 CRLF 文件"; fi
 git -C "$DEST" diff --check >/dev/null 2>&1 || warn "git diff --check 有空白告警（看 git diff --check）"
 cat <<NEXT
 

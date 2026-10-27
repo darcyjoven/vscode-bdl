@@ -97,8 +97,14 @@ $sshArgs = $sshCommon
 $passwordMode = $false
 function Invoke-Remote([string]$cmd) {
   # 有区域就先喂一行给远端登录菜单，再让 ssh 跑命令
-  if ($script:regionInput) { $script:regionInput | & $sshExe @sshArgs $Target $cmd }
-  else { & $sshExe @sshArgs $Target $cmd }
+  # 抛异常时把命令一起打出来：PowerShell 自己的报错（找不到目录/找不到文件之类）
+  # 只说"某个路径"，看不出是哪一步、哪条 ssh，排查很费劲。
+  try {
+    if ($script:regionInput) { $script:regionInput | & $sshExe @sshArgs $Target $cmd }
+    else { & $sshExe @sshArgs $Target $cmd }
+  } catch {
+    Die "调用 ssh 失败：$($_.Exception.Message)`n  命令：$sshExe $($sshArgs -join ' ') $Target <远端命令>"
+  }
 }
 
 # 关掉 BatchMode，改成"密码优先"的交互登录（密码由 ssh 自己提示，不保存、不进命令行）
@@ -120,26 +126,48 @@ $starts = ($Module -split "," | Where-Object { $_.Trim() } | ForEach-Object { "'
 if (-not $starts) { Die "-Module 为空：给远根下要取的顶层目录名（逗号分隔），例如 tiptop,topcust" }
 # 只要这三种：4gl 目录下的 *.4gl、per 目录下的 *.per、任意目录的 *.global
 #（所以 42f 之类的产物目录、非 4gl/per 目录里的杂文件都不会进来）
+#
+# ★ 远端命令里不要用双引号：Windows PowerShell 5.1 → ssh 这条链路上，参数里的 `"`
+#   会被整对吃掉（实测 awk 的 print "FILES " n 变成 print FILES n，标签打印成空）。
+#   需要引号用单引号；要不带标签，让本地去解析。
 $nameFilter = "\( -name '*.global' -o \( -path '*/4gl/*' -name '*.4gl' \) -o \( -path '*/per/*' -name '*.per' \) \)"
-function Remote-Find([string]$fmt) {
-  "cd '$RemoteRoot' && find $starts \( $prune -false \) -prune -o -type f $junk $nameFilter -printf '$fmt'"
+function Remote-Find([string]$printFlag = "-print") {
+  # 只在**远端确实存在**的顶层目录里 find：某个目录不存在（比如站点没有 topcust）时
+  # 整条 find 会以非 0 退出并往 stderr 甩 "No such file or directory"，看着像脚本报错。
+  #
+  # 只用 -print / -print0：-printf 是 GNU 扩展，有些站点的 find 不支持，
+  # 一不支持就是"静默 0 个文件"（错误进了 stderr，统计管道照常返回）。
+  "cd '$RemoteRoot' 2>/dev/null || exit 0; set -- `$(for x in $starts; do [ -d `$x ] && echo `$x; done); [ `$# -gt 0 ] || exit 0; find `$@ \( $prune -false \) -prune -o -type f $junk $nameFilter $printFlag"
 }
-$cmdStats = (Remote-Find '%s\n') + " | awk '{n++; b+=`$1} END{print `"FILES `" n; print `"BYTES `" b}'"
-$cmdModules = "cd '$RemoteRoot' && ls -1 | head -40 | tr '\n' ',' | sed 's/,`$//'"
-$cmdSample = (Remote-Find '%p\n') + " | sed 's|^\./||' | head -n $Samples | while IFS= read -r f; do printf 'FILE %s\n' `"`$f`"; head -c 4096 `"`$f`" | base64 | tr -d '\n'; printf '\nEND\n'; done"
+# 大小用 stat 累加（-print0 + xargs -0，文件名带空格也安全），不依赖 find -printf。
+# 输出只许是纯数字（第一行文件数、第二行总字节）：awk 程序里带双引号会被
+# Windows PowerShell → ssh 这条链路吃掉（"FILES " 变成 FILES，打印出空标签）。
+$cmdStats = (Remote-Find "-print0") + " | xargs -0 stat -c%s 2>/dev/null | awk '{n++; b+=`$1} END{print n; print b}'"
+# 环境体检：根目录在不在、要取的顶层目录缺哪个、远根下到底有什么。
+# 永远 exit 0（只报告，不中断），这样"找不到目录"能在预检阶段说清楚。
+$cmdEnv = "cd '$RemoteRoot' 2>/dev/null || { echo NOROOT; exit 0; }; for d in $starts; do [ -d `$d ] || echo 'MISSING:'`$d; done; echo 'LIST:'`$(ls -1 2>/dev/null | head -40 | tr '\n' ',')"
+# 匹配数为 0 时才跑（只读）：源文件按扩展名统计 + .4gl/.per 样例 + 模块两级子目录。
+# 提示语一律 ASCII：远端回传的 UTF-8 中文会被本地控制台按 GBK 解码，显示成乱码。
+$probeFind = "find . \( $prune -false \) -prune -o -type f $junk \( -name '*.4gl' -o -name '*.per' -o -name '*.global' \) -print 2>/dev/null"
+$cmdProbe = "cd '$RemoteRoot' 2>/dev/null || exit 0; " +
+  "echo '== source files by extension'; $probeFind | sed 's/.*\.//' | sort | uniq -c | head -10; " +
+  "echo '== *.4gl samples'; $probeFind | grep '\.4gl`$' | sed 's|^\./||' | head -5; " +
+  "echo '== *.per samples'; $probeFind | grep '\.per`$' | sed 's|^\./||' | head -3; " +
+  "for d in $starts; do [ -d `$d ] || continue; echo '== dirs under' `$d; find `$d -maxdepth 2 -type d 2>/dev/null | head -10; done"
+$cmdSample = (Remote-Find) + " | sed 's|^\./||' | head -n $Samples | while IFS= read -r f; do printf 'FILE %s\n' `$f; head -c 4096 `$f | base64 | tr -d '\n'; printf '\nEND\n'; done"
 $unique = "topprod-src-{0}-{1}.tar.gz" -f (Get-Date -Format "yyyyMMdd-HHmmss"), (Get-Random -Maximum 999999)
 $remoteTar = "$RemoteTmpDir/$unique"
-$cmdPack = "set -e; mkdir -p '$RemoteTmpDir'; " + (Remote-Find '%p\n') + " | sed 's|^\./||' | tar czf '$remoteTar' -C '$RemoteRoot' -T -; echo '$remoteTar'"
+$cmdPack = "set -e; mkdir -p '$RemoteTmpDir'; " + (Remote-Find) + " | sed 's|^\./||' | tar czf '$remoteTar' -C '$RemoteRoot' -T -; echo '$remoteTar'"
 
 if ($PrintRemote) {
   Info "将在服务器上执行的命令（只读 find + 一次 tar 打包到 $RemoteTmpDir，用完即删）："
   Dim2 "0) 每条 ssh/scp 连接先送一行登录区域：$(if ($Region) { $Region } else { '（不送）' })"
-  Dim2 "1) $cmdStats"
-  Dim2 "2) $cmdModules"
+  Dim2 "1) $cmdEnv"
+  Dim2 "2) $cmdStats"
   Dim2 "3) $cmdSample"
   Dim2 "4) $cmdPack"
   Dim2 "5) rm -f '$remoteTar'"
-  Dim2 "（没有其它命令；不改项目树、不上传、不部署）"
+  Dim2 "6) 仅当匹配数为 0：$cmdProbe"  Dim2 "（没有其它命令；不改项目树、不上传、不部署）"
   exit 0
 }
 
@@ -175,20 +203,35 @@ if (-not $env:INIT_PROJECT_SSH) {
 # ── 2) 远端只读预检
 Progress2 "预检" "统计源文件（只读 find）"
 Info "远端预检（只读）…"
+$topDirs = ""
+foreach ($line in (Invoke-Remote $cmdEnv)) {
+  if ($line -eq "NOROOT") {
+    Die "远端没有这个目录：$RemoteRoot`n  确认 -RemoteRoot；若该账号登录后先选'区'，确认 -Region 与区号匹配（区可能决定目录前缀）"
+  } elseif ($line -like "MISSING:*") {
+    Warn2 "远根下没有顶层目录 $($line.Substring(8))，已跳过（默认取 $Module，可用 -Module 覆盖）"
+  } elseif ($line -like "LIST:*") {
+    $topDirs = $line.Substring(5)
+  }
+}
+if ($topDirs) { Dim2 "远根下的顶层目录：$topDirs" }
 $stats = Invoke-Remote $cmdStats
 if ($LASTEXITCODE -ne 0) { Die "远端预检失败（ssh exit=$LASTEXITCODE）" }
-$FILES = 0; $BYTES = 0
-foreach ($line in $stats) {
-  if ($line -match '^FILES (\d+)') { $FILES = [int]$Matches[1] }
-  if ($line -match '^BYTES (\d+)') { $BYTES = [long]$Matches[1] }
-}
+# 远端只回两个纯数字：先个数、后字节数（见 $cmdStats 处的说明）
+$nums = @($stats | ForEach-Object { $t = "$_".Trim(); if ($t -match '^\d+$') { [long]$t } })
+$FILES = if ($nums.Count -ge 1) { [int]$nums[0] } else { 0 }
+$BYTES = if ($nums.Count -ge 2) { [long]$nums[1] } else { 0 }
 if ($FILES -le 0) {
-  Die "没有匹配到源文件：确认 -RemoteRoot（$RemoteRoot）；若该账号登录后要选区，加 -Region 1（或 2/3/4）再试"
+  # 一个都没匹配到，多半是目录结构与取数规则不一致（不是网络问题）。
+  # 先把统计命令的原始输出打出来（能区分"0 个"和"命令根本没跑通"），再探查远端结构。
+  foreach ($line in $stats) { if ("$line".Trim()) { Dim2 "统计输出：$("$line".Trim())" } }
+  Info "探查远端结构（只读）…"
+  foreach ($line in (Invoke-Remote $cmdProbe)) {
+    if ("$line".Trim()) { Dim2 "$line".Trim() }
+  }
+  Die "没有匹配到源文件：只看 */4gl/*.4gl、*/per/*.per、任意目录的 *.global（$Module 下）`n  对照上面的统计：若 .4gl 不在 4gl/ 目录、.per 不在 per/ 目录里，告诉我实际位置，我改取数规则"
 }
 $mb = [math]::Round($BYTES / 1MB, 2)
 Info "找到 $FILES 个源文件，共 $mb MB"
-try { $mods = (Invoke-Remote $cmdModules) } catch { $mods = "" }
-Dim2 "顶层目录：$mods"
 
 # ── 3) 编码检测（远端只读取样本；本地 .NET 判定）
 $enc = $FromEncoding
@@ -318,26 +361,49 @@ try {
   Progress2 "规范化" "转码/行尾"
   $srcFiles = Get-ChildItem -Path $Dest -Recurse -File -Include *.4gl, *.global, *.per |
     Where-Object { $_.FullName -notlike "*\.pack\*" -and $_.FullName -notlike "*\.git\*" }
-  if ($enc) {
-    $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
-    $utf8Out = New-Object System.Text.UTF8Encoding($false)
-    $conv = 0; $skip = 0
-    foreach ($f in $srcFiles) {
-      $bytes = [IO.File]::ReadAllBytes($f.FullName)
-      $b = $bytes
-      if ($b.Length -ge 3 -and $b[0] -eq 0xEF -and $b[1] -eq 0xBB -and $b[2] -eq 0xBF) { $b = $b[3..($b.Length - 1)] }
-      $isUtf8 = $true
-      try { [void]$utf8Strict.GetString($b) } catch { $isUtf8 = $false }
-      if ($isUtf8) { $skip++; continue }
-      $cp = switch ($enc) { "gbk" { 936 } "big5" { 950 } "gb18030" { 54936 } "euc-cn" { 936 } default { 936 } }
+  # 两件事一起做，且**不管有没有转码都要做行尾**：
+  #   - 转码（-FromEncoding / 检测结果，只对非 UTF-8 文件）
+  #   - CRLF → LF（所有源文件）
+  # 只靠 .gitattributes 的 eol=lf 是不够的：它只让「入库」的内容是 LF，
+  # 工作区里的文件照样是 CRLF（git ls-files --eol 会显示 i/lf w/crlf），
+  # 而且每次 add 都刷一堆 "CRLF will be replaced by LF" 警告。
+  $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
+  $utf8Out = New-Object System.Text.UTF8Encoding($false)
+  $cp = switch ($enc) { "gbk" { 936 } "big5" { 950 } "gb18030" { 54936 } "euc-cn" { 936 } default { 936 } }
+  $conv = 0; $skip = 0; $crlf = 0
+  foreach ($f in $srcFiles) {
+    [byte[]]$b = [IO.File]::ReadAllBytes($f.FullName)
+    $isUtf8 = $true
+    try { [void]$utf8Strict.GetString($b) } catch { $isUtf8 = $false }
+    $changed = $false
+    if ($isUtf8) {
+      $skip++
+    } elseif ($enc) {
+      # 转码前去掉 BOM（写回时不带 BOM）；已经 UTF-8 的文件保留原 BOM
+      [byte[]]$body = $b
+      if ($body.Length -ge 3 -and $body[0] -eq 0xEF -and $body[1] -eq 0xBB -and $body[2] -eq 0xBF) { [byte[]]$body = $body[3..($body.Length - 1)] }
       try {
         $e = [System.Text.Encoding]::GetEncoding($cp, [System.Text.EncoderFallback]::ExceptionFallback, [System.Text.DecoderFallback]::ExceptionFallback)
-        [IO.File]::WriteAllBytes($f.FullName, $utf8Out.GetBytes($e.GetString($b)))
-        $conv++
-      } catch { Warn2 "转码失败（按 $enc）：$($f.FullName)" }
+        [byte[]]$b = $utf8Out.GetBytes($e.GetString($body))
+        $conv++; $changed = $true
+      } catch {
+        Warn2 "转码失败（按 $enc）：$($f.FullName)"
+        continue
+      }
     }
-    Dim2 "转码 $conv 个；本来就是 UTF-8 跳过 $skip 个"
+    # 行尾：CRLF → LF（只删紧跟 LF 的 CR，单独的 CR 不动）
+    if ([Array]::IndexOf($b, [byte]13) -ge 0) {
+      $keep = New-Object 'System.Collections.Generic.List[byte]'
+      for ($i = 0; $i -lt $b.Length; $i++) {
+        if ($b[$i] -eq 13 -and ($i + 1 -ge $b.Length -or $b[$i + 1] -eq 10)) { continue }
+        $keep.Add($b[$i])
+      }
+      [byte[]]$b = $keep.ToArray()
+      $crlf++; $changed = $true
+    }
+    if ($changed) { [IO.File]::WriteAllBytes($f.FullName, $b) }
   }
+  Dim2 "行尾 CRLF→LF $crlf 个；转码 $conv 个；本来就是 UTF-8 跳过 $skip 个"
 
   # ── 8) 删除本地多余（仅 -Delete；默认只覆盖不删）
   if ($Delete) {
@@ -422,8 +488,9 @@ try {
 }
 
 Info "完成：$Dest"
-$eolBad = (& git -C $Dest ls-files --eol) | Where-Object { $_ -notmatch 'i/lf\s+w/lf' } | Select-Object -First 5
-if ($eolBad) { Warn2 "以下文件不是 LF（检查 .gitattributes / core.autocrlf）："; $eolBad | ForEach-Object { Dim2 $_ } }
-else { Info "换行校验通过：git ls-files --eol 全是 i/lf w/lf" }
+# 只看 crlf：i/none 表示整个文件没有换行符（或 git 当二进制处理），不是行尾问题
+$eolBad = (& git -C $Dest ls-files --eol) | Where-Object { $_ -match 'crlf' } | Select-Object -First 5
+if ($eolBad) { Warn2 "以下文件仍是 CRLF（应为 LF，检查 .gitattributes / core.autocrlf）："; $eolBad | ForEach-Object { Dim2 $_ } }
+else { Info "换行校验通过：没有 CRLF 文件" }
 Write-Host ""
 Info "下一步：1) git log --oneline -1  2) 复制 .vscode/settings.example.json → settings.json  3) tiptop link/schema sync 采集资料  4) 更新：init-project.ps1 -Target '$Target' -RemoteRoot '$RemoteRoot' -Dest '$Dest' -Region '$Region' -Update"
