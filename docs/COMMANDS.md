@@ -8,9 +8,9 @@
 
 | 入口 | 数量 | 说明 |
 |---|---|---|
-| 命令（`contributes.commands`） | **32** | 命令面板可见 27 条（打开工作区时），隐藏 5 条（内部或只走右键） |
-| 编辑器右上角按钮（`editor/title`） | **8** | 上传当前文件（按需）+ 强制解析（按需）+ 6 条编译/链接/预览 |
-| 编辑器右键菜单（`editor/context`） | **2** | 上传当前文件 / 预演上传（`.4gl`/`.global`/`.per` 且启用上传时） |
+| 命令（`contributes.commands`） | **33** | 命令面板可见 28 条（打开工作区时），隐藏 5 条（内部或只走右键） |
+| 编辑器右上角按钮（`editor/title`） | **9** | 上传/下载当前文件（按需）+ 强制解析（按需）+ 6 条编译/链接/预览 |
+| 编辑器右键菜单（`editor/context`） | **3** | 下载当前文件 / 上传当前文件 / 预演上传（`.4gl`/`.global`/`.per` 且启用上传时） |
 | 视图标题栏按钮（`view/title`） | **8** | 链接资料 2 + 数据库字段 6 |
 | 视图项按钮/右键（`view/item/context`） | **4** | 链接反查 1 + 字段表/列 3 |
 | 输出通道 | **2** | `4gl`（服务器+追踪）与 `4gl 任务`（链接/字段/上传/编译） |
@@ -71,10 +71,11 @@
 > C10：去掉了 6 个 per-command `enable`，只留总开关 `bdl.build.enable`。
 > 全部由 `tiptop exec` 在**生产服务器**上执行（工作目录 = 生产根）；**不自动上传**。
 
-### 1.5 上传（2 条）
+### 1.5 上传/下载（3 条）
 
 | id | 标题 | `when` | 说明 |
 |---|---|---|---|
+| `bdl.downloadCurrentFile` | 下载当前文件 | `bdl.upload.enabled` | 单文件，生产根 → 工作区根同路径；**覆盖本地**，有未提交差异先弹窗确认 |
 | `bdl.deployCurrentFile` | 上传当前文件 | `bdl.upload.enabled` | 单文件，工作区根 → 生产根同路径 |
 | `bdl.deployDryRun` | 预演上传 | `bdl.upload.enabled` | 只打印计划 |
 
@@ -88,11 +89,11 @@
 | `bdl.schema.openTable` | 数据库字段：打开表资料文件 | 字段视图**表节点右键** |
 | `bdl.schema.copyColumn` | 数据库字段：复制列定义 | 字段视图**列节点内联按钮** |
 
-## 2. 编辑器右上角按钮（8 个）与右键菜单（2 个）
+## 2. 编辑器右上角按钮（9 个）与右键菜单（3 个）
 
 | 文件 | 显示条件 | 按钮 |
 |---|---|---|
-| `.4gl` / `.global` / `.per` | `bdl.upload.enabled`（= `bdl.deploy.enable` 且上传方式不是「不上传」） | 上传当前文件 `$(cloud-upload)`（排在编译按钮前面） |
+| `.4gl` / `.global` / `.per` | `bdl.upload.enabled`（= `bdl.deploy.enable` 且上传方式不是「不上传」） | 下载当前文件 `$(cloud-download)`、上传当前文件 `$(cloud-upload)`（两个图标相邻，下载在左；都排在编译按钮前面） |
 | `.4gl` / `.per` | 只有当前文件被跳过解析（`bdl.parseSkipped`） | 强制解析当前文件 `$(refresh)` |
 | `.4gl` | `bdl.build.enabled` | 预演编译 `$(beaker)`、编译 `$(play)`、链接 `$(link)`（无 `MAIN` 时置灰） |
 | `.per` | `bdl.build.enabled` | 预演编译 `$(beaker)`、编译 `$(play)`、预览画面 `$(eye)` |
@@ -101,6 +102,7 @@
 
 | 菜单项 | 说明 |
 |---|---|
+| 下载当前文件 `$(cloud-download)` | 用生产端同名文件覆盖本地（有未提交差异先确认） |
 | 上传当前文件 `$(cloud-upload)` | 只上传当前文件（不做批量） |
 | 预演上传 `$(cloud-upload)` | 只打印上传计划，不连接服务器 |
 

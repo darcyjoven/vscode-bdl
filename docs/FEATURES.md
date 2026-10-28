@@ -242,7 +242,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 
 | # | 功能 | 归属 | 说明 / 入口 |
 |---|---|---|---|
-| H7 | 上传命令（只允许单文件） | VSC | `上传当前文件` / `预演上传`；入口：命令面板 + **编辑器右上角按钮 + 编辑器右键菜单**（`.4gl`/`.global`/`.per` 且 `bdl.upload.enabled` 时出现）；`bdl.deploy.enable=false` 或 `transport=off` 时全部隐藏、直接调用也只提示不执行。**整包部署与列出目标已删除**（批量走 `tiptop deploy` 命令行） |
+| H7 | 上传/下载命令（只允许单文件） | VSC | `上传当前文件` / `预演上传` / `下载当前文件`；入口：命令面板 + **编辑器右上角按钮（下载图标在上传左侧）+ 编辑器右键菜单**（`.4gl`/`.global`/`.per` 且 `bdl.upload.enabled` 时出现）；`bdl.deploy.enable=false` 或 `transport=off` 时全部隐藏、直接调用也只提示不执行。下载覆盖本地，有未提交差异先弹窗确认。**整包部署与列出目标已删除**（批量走 `tiptop deploy` 命令行） |
 | H8 | 配置合成 | VSC | 从 `bdl.prod.deploy.*` 合成 `<项目>/.project/deploy/deploy.json`（带 `createdBy: "vscode-bdl <版本>"`）；手写文件被覆盖前先备份 `deploy.json.bak` |
 | H9 | 部署当前文件 | VSC | 先保存脏文档，只把当前 `.4gl`/`.global`/`.per` 交给 `tiptop deploy`；Zed 用 task `$ZED_FILE`（Zed 侧暂停） |
 | H10 | 编译诊断回传 | VSC | 部署结果解析为编辑器诊断；输出写入「4gl」通道 |
@@ -306,7 +306,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | 链接资料 | `bdl.link.importCsv` 从 CSV 导入 · `bdl.link.syncModules` 按模组更新 · `bdl.link.syncAll` 全量更新 · `bdl.link.status` 查看状态 · **`bdl.link.updateFromDb` 从数据库更新（唯一的「更新」入口：视图标题栏 + 面板；仅已配库 + 已有全量资料时出现）** · `bdl.links.refresh` 刷新 · `bdl.links.references` 反查引用程序（面板限 `.4gl`） · `bdl.links.moreRefs` 显示更多反查结果（隐藏） · `bdl.migrateLinkDir` 迁移项目资料目录（隐藏）。删掉了 `syncCurrent` / `resync` |
 | 编译/链接/预览（生产端） | `bdl.build.4gl.preview` 4GL 预演编译 · `bdl.build.4gl.compile` 4GL 编译 · `bdl.build.4gl.link` 4GL 链接（无 MAIN 时禁用） · `bdl.build.per.preview` Form 预演编译 · `bdl.build.per.compile` Form 编译 · `bdl.build.per.form` Form 预览画面 |
 | 数据库字段 | `bdl.schema.import` 从 CSV 导入 · `bdl.schema.syncAll` 从数据库同步 · `bdl.schema.syncSelected` 同步已选中的表 · `bdl.schema.selectAll` 全选当前列表 · `bdl.schema.clearSelection` 清除勾选 · `bdl.schema.filter` 正则过滤表名 · `bdl.schema.clearFilter` 清除过滤 · `bdl.schema.refresh` 刷新 · 右键/内联：`bdl.schema.syncTable` 同步选中的表 · `bdl.schema.copyColumn` 复制列定义 · `bdl.schema.openTable` 打开表资料文件。已删掉 `syncFiltered` 并把三条改为只走右键 |
-| 上传 | `bdl.deployCurrentFile` 上传当前文件 · `bdl.deployDryRun` 预演上传（整包部署与列出目标已删除） |
+| 上传/下载 | `bdl.deployCurrentFile` 上传当前文件 · `bdl.deployDryRun` 预演上传 · `bdl.downloadCurrentFile` 下载并覆盖本地（整包部署与列出目标已删除） |
 
 > 跳转/引用/补全/重命名/格式化/快速修复由 LSP 提供，入口是 VSCode 原生菜单或快捷键，不在本表。
 
