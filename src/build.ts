@@ -317,17 +317,11 @@ async function runBuild(spec: BuildSpec, uri?: vscode.Uri): Promise<void> {
   const rel = relativePathFor(doc);
   const loginProfile = loginProfileForRegion(region);
 
+  // 日志只留三项：服务器、目录+命令、命令结果（后两项由 tiptop 打）。
+  // 占位符/模板/区号/环境脚本都是每次一样的噪音。
   const out = output();
   out.appendLine("");
-  out.appendLine(`> ${spec.title}：${rel}（在生产服务器上执行）`);
-  out.appendLine(
-    `  占位符：path=${params.path} fullpath=${params.fullpath} name=${params.name} fullname=${params.fullname}`,
-  );
-  out.appendLine(`  模板：${tpl}`);
-  out.appendLine(`  命令：${command}`);
-  out.appendLine(
-    `  登录区域：${region}；环境脚本：${loginProfile || "（不 source）"}`,
-  );
+  out.appendLine(`> ${spec.title}：${rel}`);
   out.show(true);
 
   // 模板为空就别往下走：否则 tiptop 只会回一句 "必须给 -command"，看不出是设置问题

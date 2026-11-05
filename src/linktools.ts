@@ -138,13 +138,26 @@ export async function reportRunFailure(
   }
 }
 
-/** 取第一行非空文本，截断到 300 字符（放进通知里）。 */
+/**
+ * 我们自己打的信息行（通知里不该拿它们当失败原因）：
+ * 服务器行、远端的「目录  命令」行、退出码、插件抬头、ssh 的 ** 警告。
+ */
+const META_LINES = [
+  /^tiptop \S+@\S+:\d+$/,
+  /^\/\S+  .+$/,
+  /^（退出码/,
+  /^> /,
+  /^\*\* /,
+];
+
+/** 取第一行"有用"的文本，截断到 300 字符（放进通知里）。 */
 function firstLine(text: string): string {
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
-    if (line !== "") {
-      return line.length > 300 ? `${line.slice(0, 300)}…` : line;
+    if (line === "" || META_LINES.some((re) => re.test(line))) {
+      continue;
     }
+    return line.length > 300 ? `${line.slice(0, 300)}…` : line;
   }
   return "";
 }
@@ -202,7 +215,11 @@ export async function runTiptopWithProgress(
   // 默认仍是链接通道（保持既有行为），schema 必须显式传自己的通道——
   // 否则报错让用户去「数据库字段」看，内容却在「链接资料」里（W7.5）。
   const out = channel ?? output();
-  out.appendLine(`\n> tiptop ${args.join(" ")}`);
+  // exec / upload / download 自己会打「服务器 + 目录+命令/文件去向」，
+  // 这里再列一遍参数（整条命令、-region、-login-profile、-workspace 的绝对路径）
+  // 只是重复；其它子命令（link / schema …）没有这层摘要，照旧打出参数。
+  const selfExplained = args[0] === "exec" || args[0] === "upload" || args[0] === "download";
+  out.appendLine(selfExplained ? "" : `\n> tiptop ${args.join(" ")}`);
   return vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
