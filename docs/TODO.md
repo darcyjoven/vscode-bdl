@@ -40,7 +40,7 @@
 
 | # | 事项 | 为什么没验 | 怎么验 |
 |---|---|---|---|
-| **D1** | `tiptop schema sync -source golang`（直连 Oracle 采集表字段） | 沙箱没有 Oracle；只验证了 SQL 生成、`-source file` 全链路、密码来源与参数校验的单元测试 | 真库里跑一次：`export BDL_ORA_PASSWORD=...; tiptop schema sync -root . -host … -service … -user …`（**应用 schema 账号**：默认 SQL 走 `USER_TAB_COLUMNS` + 字典 `DS.ZTA_FILE`/`DS.GAQ_FILE`，`-owner` 只对自定义 `-query` 有意义）。核对：表数/列数与 DBA 导出一致、**中文说明来自 `DS.GAQ_FILE.gaq03`（不是 Oracle 备注）**、`nullable` 与 `default_length` 映射正确、分批进度能跑完（附录 A 5.4.8/5.4.9）；随后在 VSCode 里点 `数据库字段：从数据库同步` 看进度与结果 |
+| **D1** | `tiptop schema sync -source golang`（直连 Oracle 采集表字段） | 沙箱没有 Oracle；只验证了 SQL 生成、`-source file` 全链路、密码来源与参数校验的单元测试 | 真库里跑一次：`export BDL_ORA_PASSWORD=...; tiptop schema sync -root . -host … -service … -user …`（默认 SQL 走 `ALL_TAB_COLUMNS` + 字典 `DS.ZTA_FILE`/`DS.GAQ_FILE`，按可访问权限采集、同名表按 owner 去重；`-owner` 只对自定义 `-query` 有意义）。核对：表数/列数与 DBA 导出一致、**中文说明来自 `DS.GAQ_FILE.gaq03`（不是 Oracle 备注）**、`nullable` 与 `default_length` 映射正确、分批进度能跑完（附录 A 5.4.8/5.4.9）；随后在 VSCode 里点 `数据库字段：从数据库同步` 看进度与结果 |
 | **D2** | `tiptop link sync -source golang`（直连 Oracle 采集链接资料） | 同上（这条早就在，但同样没在真库跑过） | `tiptop link sync -root . -host … -service … -user …`，与"导出 CSV 再 `link import`"的结果对比（链数/文件数应一致）。CLI 参数与密码来源见 `bdl-lsp/docs/FEATURES.md` 与附录 A 的 3.4 节 |
 
 ### 2b. 其它需要真实环境的验证缺口

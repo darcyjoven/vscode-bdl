@@ -316,7 +316,7 @@
             "type": "string",
             "default": "",
             "scope": "window",
-            "markdownDescription": "Oracle 账号（示例 `user`）。请用**应用 schema 账号**：字段资料的默认 SQL 走 `USER_TAB_COLUMNS` + TiTop 字典 `DS.ZTA_FILE`/`DS.GAQ_FILE`，需要账号自己拥有这些表并能读字典表。密码**不在这里**，放 `<项目>/.project/secrets.json`（0600）或环境变量 `BDL_ORA_PASSWORD`。"
+            "markdownDescription": "Oracle 账号（示例 `user`）。字段资料的默认 SQL 走 `ALL_TAB_COLUMNS` + TiTop 字典 `DS.ZTA_FILE`/`DS.GAQ_FILE`：账号需要能读字典表，并对要采集的表有 `SELECT` 权限（不必自己拥有；同名表按 owner 去重，当前账号优先、其次 `DS`）。密码**不在这里**，放 `<项目>/.project/secrets.json`（0600）或环境变量 `BDL_ORA_PASSWORD`。"
           },
           "bdl.prod.deploy.host": {
             "type": "string",
