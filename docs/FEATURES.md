@@ -156,7 +156,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | F2 | 采集来源 | TIPTOP | `link sync -source golang`（纯 Go 直连 Oracle，`go-ora`，无需客户端）/ `command`（命令 stdout 出 CSV）/ `file`（读已导出 CSV） |
 | F3 | 状态查看 | TIPTOP | `tiptop link status`：链/orphan/ambiguous/文件数、生成时间、缺失文件数、模组根、全局模组；显示局部更新 `partial` 记录 |
 | F4 | 局部更新 | TIPTOP | `-files aap/4gl/x.4gl`（找出引用该文件的作业）或 `-modules lib,sub,qry`；写盘**合并**，其余链保留；命令行 `-dry-run` 仍可先看影响几个作业（**插件已不再自动预演**）；前提是已有一次全量基线 |
-| F5 | SQL 下推 | TIPTOP | `source=golang` + 默认 SQL 时，模组/文件条件下推到 Oracle；自定义 `-query` 只在内存过滤 |
+| F5 | SQL 下推 | TIPTOP | `source=golang` + 默认 SQL 时按**程序**下推：先选受影响程序，再取它们的全部行（否则会把链截断）；自定义 `-query` 只在内存过滤 |
 | F6 | MAIN 判定 | TIPTOP | 语法树判定 MAIN，文本兜底兼容 `{ MAIN }` 写法 |
 | F7 | 原子写入 | TIPTOP | 先写临时文件再 rename，LSP 不会读到半份资料 |
 | F8 | 进度协议 | TIPTOP | stderr 制表符分隔：`进度\t阶段\t信息`；阶段 `采集 / 扫描源码 / 成链 / 写入完成`（编辑器据此显示进度条） |
@@ -171,7 +171,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | F12 | 跨文件函数可见性 | LSP | 可见函数 = 本文件 ∪ GLOBALS ∪ 链接文件 ∪ **全局链接程序清单**（资料里 GAL01=`lib`/`sub`/`qry` 三条无 MAIN 链接程序的 Files；不是目录扫描）；扁平规则，**只放大函数，变量可见性不变** |
 | F13 | `function-not-found` 启用条件 | LSP | 必须有链接资料且索引预热完成；资料缺失/链内文件不在磁盘/索引未就绪 → 一律不报（宁漏勿误） |
 | F14 | 资料自身诊断 | LSP | `link-data-invalid`（JSONL 坏了 → 停用并提示重导）；都落在资料文件上，不污染源码 |
-| F15 | 链接资料数据服务 | LSP | 自定义请求 `bdl/linkTree`、`bdl/linkReferences`（反查默认不查、分页 50） |
+| F15 | 链接资料数据服务 | LSP | 自定义请求 `bdl/linkTree`、`bdl/linkReferences`（反查默认不查、分页 50）；全局清单**按链接程序分组**（一个程序可跨 lib/clib 等多个模组） |
 | F16 | 链接资料配置 | LSP | `bdl.link.mode`（off/file/db）/ `dataDir` / `moduleRoots` / `globalModules`（全局**链接程序**编号，不是目录名） |
 
 ### 6.3 界面与操作（VSC）
