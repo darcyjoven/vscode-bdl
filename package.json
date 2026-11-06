@@ -2,7 +2,7 @@
   "name": "4gl-full",
   "displayName": "4gl-full",
   "description": "4gl（.4gl）与 Form（.per）的完整语言支持：语法高亮、定义/引用跳转、符号大纲、悬停、语法诊断。",
-  "version": "0.9.3",
+  "version": "0.9.4",
   "publisher": "darcyjoven",
   "license": "MIT",
   "icon": "icon.png",
@@ -403,7 +403,7 @@
             "items": {
               "type": "string"
             },
-            "markdownDescription": "对所有程序可见的全局模组（扁平规则）。"
+            "markdownDescription": "全局链接程序（GAL01，默认 `sub`/`lib`/`qry`）。**是程序编号，不是物理目录名**：全局可见的文件取自链接资料里这几条链的 Files，目录只用于把「模组/代码」解析成路径；清单里的文件可以位于任何模组目录（例如 `clib`、`cqry`）。改完无需重启，语言服务器会自动重载。"
           },
           "bdl.schema.mode": {
             "type": "string",

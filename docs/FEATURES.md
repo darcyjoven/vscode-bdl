@@ -168,11 +168,11 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 |---|---|---|---|
 | F10 | 资料读取与热重载 | LSP | 只读 `.project/link/`（默认 `bdl.link.dataDir`；旧布局回退），按 mtime 热重载（2s 节流），导入后无需重启编辑器 |
 | F11 | 旧目录兼容与迁移 | LSP + VSC | 仍读旧布局（`.project` 根 / `.link/`）并发 `link-data-legacy-dir`（hint）；VSC 命令 `迁移项目资料目录` 把 link/schema/deploy 一起搬进 `.project/{link,schema,deploy}/`（不覆盖已有文件），迁移前确认、迁移后重启服务器 |
-| F12 | 跨文件函数可见性 | LSP | 可见函数 = 本文件 ∪ GLOBALS ∪ 链接文件 ∪ 全局模组（`sub`/`lib`/`qry` 扁平规则）；**只放大函数，变量可见性不变** |
+| F12 | 跨文件函数可见性 | LSP | 可见函数 = 本文件 ∪ GLOBALS ∪ 链接文件 ∪ **全局链接程序清单**（资料里 GAL01=`lib`/`sub`/`qry` 三条无 MAIN 链接程序的 Files；不是目录扫描）；扁平规则，**只放大函数，变量可见性不变** |
 | F13 | `function-not-found` 启用条件 | LSP | 必须有链接资料且索引预热完成；资料缺失/链内文件不在磁盘/索引未就绪 → 一律不报（宁漏勿误） |
 | F14 | 资料自身诊断 | LSP | `link-data-invalid`（JSONL 坏了 → 停用并提示重导）；都落在资料文件上，不污染源码 |
 | F15 | 链接资料数据服务 | LSP | 自定义请求 `bdl/linkTree`、`bdl/linkReferences`（反查默认不查、分页 50） |
-| F16 | 链接资料配置 | LSP | `bdl.link.mode`（off/file/db）/ `dataDir` / `moduleRoots` / `globalModules` |
+| F16 | 链接资料配置 | LSP | `bdl.link.mode`（off/file/db）/ `dataDir` / `moduleRoots` / `globalModules`（全局**链接程序**编号，不是目录名） |
 
 ### 6.3 界面与操作（VSC）
 
