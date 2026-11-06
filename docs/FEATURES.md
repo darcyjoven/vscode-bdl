@@ -196,7 +196,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | G1 | CSV 导入 | TIPTOP | `tiptop schema import -csv <表字段导出.csv> -root <项目根>` |
 | G2 | 直连采集（TiTop 字典 + 分批） | TIPTOP | `tiptop schema sync -source golang`：默认 SQL 用 `DS.ZTA_FILE`（`zta02='ds'`）+ `USER_TAB_COLUMNS`，列说明取 `DS.GAQ_FILE.gaq03`（`gaq02='2'`，非 Oracle 备注）；先取表清单、每 `-batch-size`（默认 200）张表一批、每批 `-timeout`（默认 120s）；字典表缺失提示改用 CSV 导入 |
 | G3 | 状态查看 | TIPTOP | `tiptop schema status`：表数/列数/导入时间/来源 |
-| G4 | 增量与选择 | TIPTOP | `-tables a,b` / `-tables-file 文件`（大清单，插件走这个）/ `-only-new`（只补本地没有的表）/ `-prune`（删除本地多出、仅全量）/ `-dry-run`（命令行能力，**插件不再自动预演**） |
+| G4 | 增量与选择 | TIPTOP | `-tables a,b` / `-tables-file 文件`（大清单，插件走这个）/ `-only-new`（只补本地没有的表）/ `-missing`（只同步本地缺失的表：先查库里的表清单，只查缺的那些；与 `-prune`/`-query` 互斥）/ `-prune`（删除本地多出、仅全量）/ `-dry-run`（命令行能力，**插件不再自动预演**） |
 | G5 | 逐表增量写 | TIPTOP | 全量查询后**逐表逐字节比较**，内容没变不重写（避免无意义 mtime 变化触发编辑器重载） |
 | G6 | 容错解析 | TIPTOP | 表头先归一化再按别名匹配（容忍导出里的 `data_precicison`、`default_legth` 拼写错误，认不出回退列位置）；UTF-8 BOM / CRLF / 引号包裹逗号；`nullable` 支持 `Y/N`、`YES/NO`；数字空或非数字按 0；`data_length=0` 回退 `char_length`；坏行跳过计数不中断 |
 | G7 | 安全写入 | TIPTOP | 原子写入（临时文件 + rename）；已有 `tables.json` 坏 JSON / schema 版本过高 → 报错退出并保留原文件 |
@@ -219,7 +219,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 |---|---|---|---|
 | G15 | 数据库字段视图 | VSC | 侧边栏「数据库字段」TreeView；**正则**过滤（`^APF`、`(apg\|aph)0`，大小写不敏感；非法正则退回全部并提示；无匹配显示「没有匹配的表」）；表展开才加载列。过滤器变更会**清缓存重新拉列表**（历史 bug：只改过滤串不重新拉取，视图看起来「筛选没反应」，已修 + e2e 回归） |
 | G16 | 多选批量 | VSC | 树视图原生不能多选 → 用**复选框**勾选；标题栏显示「已勾选 N 张」；`全选当前列表`（可先过滤）/ `清除勾选` |
-| G17 | 同步命令 | VSC | 单表右键「同步选中的表」（`-tables <表>`）；「同步已选中的表」（表多时自动走 `-tables-file`）；「从数据库同步」/「从 CSV 导入」全量（库同步顺带 `-prune`）。删掉单独的「同步当前筛选结果」——筛选后先「全选当前列表」再「同步已选中的表」。**不再预演**。**W4 门控**：局部/批量需 `bdl.db.configured && bdl.schema.hasData`；「从数据库同步」需 `bdl.db.configured`；CSV 导入/刷新/过滤不受限 |
+| G17 | 同步命令 | VSC | 「同步缺失的表」：`schema sync -missing`，只把库里新增、本地没有的表补进来（已有表一个字节都不动），完成提示列出新增表名；单表右键「同步选中的表」（`-tables <表>`）；「同步已选中的表」（表多时自动走 `-tables-file`）；「从数据库同步」/「从 CSV 导入」全量（库同步顺带 `-prune`）。删掉单独的「同步当前筛选结果」——筛选后先「全选当前列表」再「同步已选中的表」。**不再预演**。**W4 门控**：局部/批量需 `bdl.db.configured && bdl.schema.hasData`；「从数据库同步」「同步缺失的表」需 `bdl.db.configured`；CSV 导入/刷新/过滤不受限 |
 | G18 | 表/列右键菜单 | VSC | 表：同步选中的表 / 打开表资料文件；列：复制列定义（得到 `LIKE 表.列`） |
 | G19 | 进度与取消 | VSC | 同步/导入时进度通知，显示 `采集：连接 …`、`采集：已收到 12000 行`、`解析表 ima_file（12/2648）`、`写入完成：2648 个表文件`；可取消 |
 
@@ -257,7 +257,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I2 | 平台 VSIX 内置二进制 | VSC | 每个平台 VSIX 打包对应的 `bdl-lsp` + `tiptop`（`bin/`），装完即用、无需另装 |
 | I3 | 二进制路径覆盖 | VSC | `bdl.server.path` / `bdl.tools.path` 指定外部二进制（开发期或自定义构建） |
 | I4 | 轻量档默认 | VSC | 默认不连库、不写工作区、不起后台任务；三个总开关默认 false，命令用 `when` 门控 |
-| I5 | 命令（32 条） | VSC | 完整操作清单见 [COMMANDS.md](COMMANDS.md)（面板/按钮/后台）；命令表见 [§10.3](#103-vscode-命令32-条) |
+| I5 | 命令（34 条） | VSC | 完整操作清单见 [COMMANDS.md](COMMANDS.md)（面板/按钮/后台）；命令表见 [§10.3](#103-vscode-命令34-条) |
 | I6 | 侧边栏视图（2 个） | VSC | 「链接资料」、「数据库字段」TreeView，按开关显隐 |
 | I7 | 进度通知 | VSC | 解析 tiptop stderr 进度协议，展示阶段与计数，支持取消 |
 | I8 | 输出与追踪 | VSC | 「4gl」输出通道 + 「4gl 追踪」LSP 消息通道（`bdl.trace.server`：off/messages/verbose） |
@@ -268,7 +268,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | I13 | 项目级配置 | LSP + VSC | `<项目>/.bdl-lsp/config.json` 可提交；与工作区设置合并（见 §11.2） |
 | I14 | 端到端测试 | VSC | `npm run test:e2e`，无头 VSCode（`--ozone-platform=headless`）**49 个用例** |
 | I15 | 预演策略 | VSC | 只有**编译类**允许预演（`tiptop deploy -dry-run`、W5 的本地「预演编译」）；link/schema 的同步与导入一律直接执行（避免整份扫描跑两遍） |
-| I16 | 数据库按钮门控 | VSC | context key `bdl.db.configured`（Oracle host/service/user 配齐）、`bdl.link.hasData`（links.jsonl 存在）、`bdl.schema.hasData`（tables.json 存在）；「链接资料」的 `从数据库更新` 需前两者，「数据库字段」的局部/批量同步需 configure+hasData |
+| I16 | 数据库按钮门控 | VSC | context key `bdl.db.configured`（Oracle host/service/user 配齐）、`bdl.link.hasData`（links.jsonl 存在）、`bdl.schema.hasData`（tables.json 存在）；「链接资料」的 `从数据库更新` 需前两者，「数据库字段」的「同步缺失的表」需 configure，「局部/批量同步」需 configure+hasData |
 | I18 | 失败可见性与运行日志 | VSC | tiptop 输出进「4gl 任务」通道（原来 6 个通道合并为 `4gl`（服务器+追踪）与 `4gl 任务`；每次运行前写一行 `> tiptop <子命令>` 以区分来源）；失败通知带 stderr 首行 + 「打开日志」；每次运行完整输出落盘到扩展 globalStorage 的 `last-run-<cmd>.log` |
 | I17 | 编译/链接/预览（生产端） | VSC | 命令面板 + 编辑器右上角按钮：`.4gl` 预演编译/编译/链接，`.per` 预演编译/编译/预览画面；命令交给 `tiptop exec` 在**生产服务器**（工作目录 = 生产根）通过 ssh 执行，stdout/stderr 原样进「4gl 任务」通道；模板 `bdl.build.<lang>.<mode>.command` + 总开关 `bdl.build.enable`（去掉了各自的 enable）；占位符 `${path}`/`${fullpath}`/`${name}`/`${fullname}`（分隔符恒 `/`）；**不自动上传**；无 `MAIN` 时「链接」不可用；**只有 4GL 链接**弹 `${name}`；Form 预览默认命令是 `cd ${path} && r.gf ${name} 2 p`（三个参数） |
 
@@ -292,12 +292,12 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | `tiptop link sync` | `-root` `-out` `-roots` `-source golang\|command\|file` `-command` `-file` `-host` `-port` `-service` `-user` `-query` `-modules` `-files` `-dry-run` |
 | `tiptop link status` | `-root` `-out` `-global` |
 | `tiptop schema import` | `-csv <文件>`（必填）`-root` `-out` `-tables` `-tables-file` `-only-new` `-dry-run` |
-| `tiptop schema sync` | `-root` `-out` `-source golang\|file` `-file` `-host` `-port` `-service` `-user` `-query` `-tables` `-tables-file` `-only-new` `-prune` `-dry-run` `-batch-size` `-timeout`（`-owner` 仅自定义 SQL 用） |
+| `tiptop schema sync` | `-root` `-out` `-source golang\|file` `-file` `-host` `-port` `-service` `-user` `-query` `-tables` `-tables-file` `-only-new` `-missing` `-prune` `-dry-run` `-batch-size` `-timeout`（`-owner` 仅自定义 SQL 用） |
 | `tiptop schema status` | `-root` `-out` |
 | `tiptop deploy` | `-target` `-config` `-workspace` `-dry-run` `-no-compile` `-no-upload` `-json` `-list` `-version` `[文件...]` |
 | `tiptop version` | 打印版本 |
 
-### 10.3 VSCode 命令（32 条）
+### 10.3 VSCode 命令（34 条）
 
 | 分组 | 命令 ID / 标题 |
 |---|---|
@@ -305,7 +305,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | 项目初始化 | `bdl.initProject` 初始化项目（从生产服务器拉取代码）：按宿主平台选 bash/PowerShell 脚本（命令里可强制），在集成终端里执行 |
 | 链接资料 | `bdl.link.importCsv` 从 CSV 导入 · `bdl.link.syncModules` 按模组更新 · `bdl.link.syncAll` 全量更新 · `bdl.link.status` 查看状态 · **`bdl.link.updateFromDb` 从数据库更新（唯一的「更新」入口：视图标题栏 + 面板；仅已配库 + 已有全量资料时出现）** · `bdl.links.refresh` 刷新 · `bdl.links.references` 反查引用程序（面板限 `.4gl`） · `bdl.links.moreRefs` 显示更多反查结果（隐藏） · `bdl.migrateLinkDir` 迁移项目资料目录（隐藏）。删掉了 `syncCurrent` / `resync` |
 | 编译/链接/预览（生产端） | `bdl.build.4gl.preview` 4GL 预演编译 · `bdl.build.4gl.compile` 4GL 编译 · `bdl.build.4gl.link` 4GL 链接（无 MAIN 时禁用） · `bdl.build.per.preview` Form 预演编译 · `bdl.build.per.compile` Form 编译 · `bdl.build.per.form` Form 预览画面 |
-| 数据库字段 | `bdl.schema.import` 从 CSV 导入 · `bdl.schema.syncAll` 从数据库同步 · `bdl.schema.syncSelected` 同步已选中的表 · `bdl.schema.selectAll` 全选当前列表 · `bdl.schema.clearSelection` 清除勾选 · `bdl.schema.filter` 正则过滤表名 · `bdl.schema.clearFilter` 清除过滤 · `bdl.schema.refresh` 刷新 · 右键/内联：`bdl.schema.syncTable` 同步选中的表 · `bdl.schema.copyColumn` 复制列定义 · `bdl.schema.openTable` 打开表资料文件。已删掉 `syncFiltered` 并把三条改为只走右键 |
+| 数据库字段 | `bdl.schema.import` 从 CSV 导入 · `bdl.schema.syncAll` 从数据库同步 · `bdl.schema.syncMissing` 同步缺失的表 · `bdl.schema.syncSelected` 同步已选中的表 · `bdl.schema.selectAll` 全选当前列表 · `bdl.schema.clearSelection` 清除勾选 · `bdl.schema.filter` 正则过滤表名 · `bdl.schema.clearFilter` 清除过滤 · `bdl.schema.refresh` 刷新 · 右键/内联：`bdl.schema.syncTable` 同步选中的表 · `bdl.schema.copyColumn` 复制列定义 · `bdl.schema.openTable` 打开表资料文件。已删掉 `syncFiltered` 并把三条改为只走右键 |
 | 上传/下载 | `bdl.deployCurrentFile` 上传当前文件 · `bdl.deployDryRun` 预演上传 · `bdl.downloadCurrentFile` 下载并覆盖本地（整包部署与列出目标已删除） |
 
 > 跳转/引用/补全/重命名/格式化/快速修复由 LSP 提供，入口是 VSCode 原生菜单或快捷键，不在本表。

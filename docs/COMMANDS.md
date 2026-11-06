@@ -8,18 +8,18 @@
 
 | 入口 | 数量 | 说明 |
 |---|---|---|
-| 命令（`contributes.commands`） | **33** | 命令面板可见 28 条（打开工作区时），隐藏 5 条（内部或只走右键） |
+| 命令（`contributes.commands`） | **34** | 命令面板可见 29 条（打开工作区时），隐藏 5 条（内部或只走右键） |
 | 编辑器右上角按钮（`editor/title`） | **9** | 上传/下载当前文件（按需）+ 强制解析（按需）+ 6 条编译/链接/预览 |
 | 编辑器右键菜单（`editor/context`） | **3** | 下载当前文件 / 上传当前文件 / 预演上传（`.4gl`/`.global`/`.per` 且启用上传时） |
-| 视图标题栏按钮（`view/title`） | **8** | 链接资料 2 + 数据库字段 6 |
+| 视图标题栏按钮（`view/title`） | **9** | 链接资料 2 + 数据库字段 7 |
 | 视图项按钮/右键（`view/item/context`） | **4** | 链接反查 1 + 字段表/列 3 |
 | 输出通道 | **2** | `4gl`（服务器+追踪）与 `4gl 任务`（链接/字段/上传/编译） |
-| 激活事件（`activationEvents`） | **27** | 2 条 `onLanguage` + 25 条 `onCommand` |
+| 激活事件（`activationEvents`） | **28** | 2 条 `onLanguage` + 26 条 `onCommand` |
 | 上下文键（`when` 依据） | **11** | 见 §6 |
 
 `when` 为空 = 命令面板始终可见；`config.*` 是设置值，`bdl.*` 是扩展维护的上下文键。
 
-## 1. 命令面板（27 条可见）
+## 1. 命令面板（29 条可见）
 
 ### 1.1 服务器与排障 / 项目初始化（4 条）
 
@@ -42,7 +42,7 @@
 | `bdl.links.refresh` | 刷新 | `bdl.link.enabled` | 视图刷新 |
 | `bdl.links.references` | 反查引用程序 | `bdl.link.enabled && editorLangId == 4gl` | C3：面板里只对 `.4gl` 当前文件出现；视图按钮/视图项始终可用 |
 
-### 1.3 数据库字段（10 条）
+### 1.3 数据库字段（9 条）
 
 | id | 标题 | `when` | 说明 |
 |---|---|---|---|
@@ -51,6 +51,7 @@
 | `bdl.schema.filter` | 数据库字段：正则过滤表名 | `bdl.schema.enabled` | 弹输入框（`^APF`、`(apg\|aph)0`）；**大小写不敏感**；非法正则退回全部并提示；过滤变更会重新拉列表 |
 | `bdl.schema.clearFilter` | 数据库字段：清除过滤 | `bdl.schema.enabled` | 清空恢复全部 |
 | `bdl.schema.syncAll` | 数据库字段：从数据库同步 | `bdl.schema.modeDb && bdl.db.configured` | 全量（含 `-prune`） |
+| `bdl.schema.syncMissing` | 数据库字段：同步缺失的表 | `bdl.schema.modeDb && bdl.db.configured` | `schema sync -missing`：先查库里的表清单，只查本地缺的表；已有的表一个字节都不动，完成提示里列出新增表名 |
 | `bdl.schema.syncSelected` | 数据库字段：同步已选中的表 | `…modeDb && configured && hasData` | 复选框多选；**筛选后先「全选当前列表」再点它**（C2 删掉了单独的「同步筛选结果」） |
 | `bdl.schema.selectAll` | 数据库字段：全选当前列表 | 同上 | |
 | `bdl.schema.clearSelection` | 数据库字段：清除勾选 | 同上 | |
@@ -122,6 +123,7 @@
 | 按钮 | 显示条件 |
 |---|---|
 | 正则过滤 `$(filter)` / 刷新 `$(refresh)` / 从 CSV 导入 `$(file-add)` | `bdl.schema.enabled` |
+| 同步缺失的表 `$(cloud-download)` | `bdl.schema.modeDb && bdl.db.configured` |
 | 同步已选中的表 `$(cloud-upload)` / 全选 `$(checklist)` / 清除勾选 `$(close)` | `bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData` |
 
 > C2：原来的「同步当前筛选结果」按钮已删除——筛选后先「全选」再「同步已选中的表」。
@@ -147,7 +149,7 @@
 
 ## 6. 后台运行与自动行为
 
-**扩展激活（27 个 `activationEvents`）**：`onLanguage:bdl`、`onLanguage:per`，以及 25 条 `onCommand:*`（命令被点/被程序调用时才加载扩展）。
+**扩展激活（28 个 `activationEvents`）**：`onLanguage:bdl`、`onLanguage:per`，以及 26 条 `onCommand:*`（命令被点/被程序调用时才加载扩展）。
 
 | 行为 | 触发 | 说明 |
 |---|---|---|

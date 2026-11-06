@@ -104,6 +104,7 @@ async function run() {
         "bdl.forceParseCurrentFile",
         // P2-1：数据库字段视图与命令（含勾选多表批量同步）
         "bdl.schema.syncAll",
+        "bdl.schema.syncMissing",
         "bdl.schema.syncSelected",
         "bdl.schema.selectAll",
         "bdl.schema.clearSelection",
@@ -1473,6 +1474,26 @@ async function run() {
         );
         const pruned = api.parseSchemaSummary("表              10（新增 1 / 变更 2 / 未变 3 / 保留 3 / 删除 1）");
         assert.strictEqual(pruned.pruned, 1, "应解析出删除数");
+
+        // 「同步缺失的表」要能读出新增了哪些表（报告里的「新增表」行）
+        const addedTables = api.parseSchemaSummary(
+          "表              2（新增 2 / 变更 0 / 未变 0 / 保留 5）\n" +
+            "新增表          apa_file, ima_file\n",
+        );
+        assert.deepStrictEqual(
+          addedTables.newTables,
+          ["apa_file", "ima_file"],
+          `新增表解析不对：${JSON.stringify(addedTables.newTables)}`,
+        );
+        const manyAdded = api.parseSchemaSummary(
+          "表              30（新增 30 / 变更 0 / 未变 0 / 保留 0）\n" +
+            "新增表          a_file, b_file（共 30 张，仅列前 100 张）\n",
+        );
+        assert.deepStrictEqual(
+          manyAdded.newTables,
+          ["a_file", "b_file"],
+          "截断说明不该被当成表名",
+        );
 
         // 进度行解析（CLI 与插件之间的协议；link 与 schema 共用）
         assert.deepStrictEqual(

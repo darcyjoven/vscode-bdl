@@ -52,6 +52,7 @@
     "onCommand:bdl.schema.copyColumn",
     "onCommand:bdl.schema.openTable",
     "onCommand:bdl.schema.syncAll",
+    "onCommand:bdl.schema.syncMissing",
     "onCommand:bdl.schema.syncSelected",
     "onCommand:bdl.schema.selectAll",
     "onCommand:bdl.schema.clearSelection",
@@ -692,6 +693,12 @@
         "icon": "$(database)"
       },
       {
+        "command": "bdl.schema.syncMissing",
+        "title": "数据库字段：同步缺失的表",
+        "category": "4gl",
+        "icon": "$(cloud-download)"
+      },
+      {
         "command": "bdl.schema.syncSelected",
         "title": "数据库字段：同步已选中的表",
         "category": "4gl",
@@ -761,19 +768,24 @@
           "group": "navigation@3"
         },
         {
-          "command": "bdl.schema.syncSelected",
-          "when": "view == bdlSchema && bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData",
+          "command": "bdl.schema.syncMissing",
+          "when": "view == bdlSchema && bdl.schema.modeDb && bdl.db.configured",
           "group": "navigation@4"
         },
         {
-          "command": "bdl.schema.selectAll",
+          "command": "bdl.schema.syncSelected",
           "when": "view == bdlSchema && bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@5"
         },
         {
-          "command": "bdl.schema.clearSelection",
+          "command": "bdl.schema.selectAll",
           "when": "view == bdlSchema && bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData",
           "group": "navigation@6"
+        },
+        {
+          "command": "bdl.schema.clearSelection",
+          "when": "view == bdlSchema && bdl.schema.modeDb && bdl.db.configured && bdl.schema.hasData",
+          "group": "navigation@7"
         }
       ],
       "view/item/context": [
@@ -890,6 +902,10 @@
         },
         {
           "command": "bdl.schema.syncAll",
+          "when": "bdl.schema.modeDb && bdl.db.configured"
+        },
+        {
+          "command": "bdl.schema.syncMissing",
           "when": "bdl.schema.modeDb && bdl.db.configured"
         },
         {

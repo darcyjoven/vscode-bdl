@@ -7,7 +7,8 @@
 // 采集/同步一律交给 tiptop（与链接资料一致）：
 //   - 直连数据库：`tiptop schema sync -source golang`（复用「生产环境」里的 Oracle 配置）；
 //   - 从 CSV：`tiptop schema import -csv …`（也可以 `schema sync -source file`）；
-//   - **勾选一个或多个表**后批量同步：加 `-tables a,b,c`（只重算这些表）。
+//   - **勾选一个或多个表**后批量同步：加 `-tables a,b,c`（只重算这些表）；
+//   - **只补缺失的表**：加 `-missing`（先查库里的表清单，只查本地缺的那些）。
 //
 // 原则（与链接资料相同）：
 //   - 只由用户显式触发，没有后台任务；
@@ -78,6 +79,8 @@ export interface SchemaSummary {
   same?: number;
   kept?: number;
   pruned?: number;
+  /** 本次新增（本地原先没有）的表名：tiptop 报告里的「新增表」行。 */
+  newTables?: string[];
 }
 
 /**
@@ -175,10 +178,47 @@ export function parseSchemaSummary(text: string): SchemaSummary | undefined {
     out.kept = Number(tables[5]);
     out.pruned = tables[6] === undefined ? undefined : Number(tables[6]);
   }
-  if (out.rows === undefined && out.tables === undefined) {
+  // 「新增表          aaa_file, bbb_file（共 120 张，仅列前 100 张）」
+  // 截到「（」为止：括号里是截断说明，不是表名。
+  const added = /新增表\s+([^\n（]+)/.exec(text);
+  if (added) {
+    const names = added[1]
+      .split(",")
+      .map((v) => v.trim())
+      .filter(Boolean);
+    if (names.length > 0) {
+      out.newTables = names;
+    }
+  }
+  if (
+    out.rows === undefined &&
+    out.tables === undefined &&
+    out.newTables === undefined
+  ) {
     return undefined;
   }
   return out;
+}
+
+/** 「只同步缺失的表」的结果：明确说加了哪些表（0 张时说没有缺失）。 */
+function describeMissingOutcome(
+  label: string,
+  s: SchemaSummary | undefined,
+): string {
+  if (!s) {
+    return `${label}完成：未能解析输出（请看输出通道）`;
+  }
+  const total = s.added ?? s.newTables?.length ?? 0;
+  if (total <= 0) {
+    return `${label}完成：没有缺失的表`;
+  }
+  const names = s.newTables ?? [];
+  if (names.length === 0) {
+    return `${label}完成：新增 ${total} 张表（明细见输出）`;
+  }
+  const shown = names.slice(0, 8).join(", ");
+  const more = total > Math.min(names.length, 8) ? " …" : "";
+  return `${label}完成：新增 ${total} 张表（${shown}${more}）`;
 }
 
 /** 统计转成一句人话（确认框用）。 */
@@ -494,6 +534,8 @@ interface SyncOptions {
   label: string;
   /** 允许 `-prune`（只对全量 DB 同步有意义）。 */
   prune?: boolean;
+  /** 只同步本地缺失的表（`-missing`：先查库里的表清单，只查缺的那些表）。 */
+  missing?: boolean;
 }
 
 /**
@@ -545,6 +587,9 @@ async function syncSchema(
 
   const extra: string[] = [];
   const dataDir = path.join(root, schemaDirName());
+  if (options.missing) {
+    extra.push("-missing");
+  }
   if (options.tables && options.tables.length > 0) {
     if (options.tables.length > TABLES_ARG_LIMIT) {
       // 表多时走文件：命令行有长度上限（Windows ~32K），几千张表会直接失败。
@@ -600,7 +645,8 @@ async function syncSchema(
   // W2（Windows 实机反馈）：不再预演——dry-run 会把整份 CSV/查询跑两遍。
   // 只有编译类命令允许预演。全量操作保留一次**不重新扫描**的静态确认；
   // 单表 / 勾选批量 / 筛选批量直接执行。
-  const isFull = !options.tables || options.tables.length === 0;
+  const isFull =
+    !options.missing && (!options.tables || options.tables.length === 0);
   if (isFull) {
     const from = source === "db" ? "数据库" : "CSV";
     const pick = await vscode.window.showWarningMessage(
@@ -624,9 +670,22 @@ async function syncSchema(
     await reportRunFailure(options.label, res, out);
     return;
   }
-  void vscode.window.showInformationMessage(
-    `${options.label}完成：${describeSummary(parseSchemaSummary(res.stdout))}`,
-  );
+  const summary = parseSchemaSummary(res.stdout);
+  const message = options.missing
+    ? describeMissingOutcome(options.label, summary)
+    : `${options.label}完成：${describeSummary(summary)}`;
+  // 新增表较多时（通知里只放得下 8 个）给一个直达完整清单的入口。
+  const truncated = options.missing && (summary?.added ?? 0) > 8;
+  void vscode.window
+    .showInformationMessage(message, ...(truncated ? ["打开输出"] : []))
+    .then((pick) => {
+      if (pick === "打开输出") {
+        out.show(true);
+      }
+    });
+  // 重新拉列表再重画：只 clear 缓存不够——roots() 会命中旧的 this.tables，
+  // 刚补进来的「缺失的表」要刷新后才看得见（全量同步的表数也不会是旧值）。
+  await provider.load();
   provider.refresh();
   // W3/W4：字段资料可能刚生成，刷新"局部更新按钮"的显隐条件。
   void refreshDataContexts();
@@ -687,6 +746,20 @@ async function syncSelected(provider: SchemaProvider): Promise<void> {
   await syncSchema(provider, {
     tables,
     label: `同步 ${tables.length} 张表（${shown}${tables.length > 8 ? " …" : ""}）`,
+  });
+}
+
+/**
+ * 只同步本地缺失的表。
+ *
+ * tiptop 侧是 `schema sync -missing`：先查数据库表清单，和本地索引/表文件比出
+ * 缺哪些，只查这些表的列；已有的表一个字节都不动。报告里会列出新增的表名。
+ */
+async function syncMissing(provider: SchemaProvider): Promise<void> {
+  await syncSchema(provider, {
+    force: "db",
+    missing: true,
+    label: "同步缺失的表",
   });
 }
 
@@ -761,6 +834,10 @@ export function registerSchemaView(context: vscode.ExtensionContext): SchemaProv
     }),
     // P2-1 补：勾选多张后批量同步（C2：筛选后先「全选当前列表」，再用这条）
     vscode.commands.registerCommand("bdl.schema.syncSelected", () => syncSelected(provider)),
+    // 只补本地缺失的表（-missing）：库里新增的表同步进来，已有的不动
+    vscode.commands.registerCommand("bdl.schema.syncMissing", () =>
+      syncMissing(provider),
+    ),
     // P2-1 补：直连数据库全量同步（本地多出的表用 -prune 清理）
     vscode.commands.registerCommand("bdl.schema.syncAll", () =>
       syncSchema(provider, { force: "db", prune: true, label: "从数据库全量同步" }),
