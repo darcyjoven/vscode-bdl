@@ -1,5 +1,7 @@
 .vscode/**
 .vscode-test/**
+# 编辑器/Agent 的本地配置，不进包
+.codebuddy/**
 src/**
 test/**
 node_modules/**
