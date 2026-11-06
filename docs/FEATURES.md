@@ -194,7 +194,7 @@ VSC 插件默认**零配置**：不连库、不写工作区、不跑后台任务
 | # | 功能 | 归属 | 说明 / 入口 |
 |---|---|---|---|
 | G1 | CSV 导入 | TIPTOP | `tiptop schema import -csv <表字段导出.csv> -root <项目根>` |
-| G2 | 直连采集（TiTop 字典 + 分批） | TIPTOP | `tiptop schema sync -source golang`：表来自 `DS.ZTA_FILE`（`zta02='ds'`）、列取自 `ALL_TAB_COLUMNS`（按可访问权限；同名表按 owner 去重：当前账号优先、其次 `DS`；`USER_TAB_COLUMNS` 只列自己拥有的表，跨 schema 会整批漏掉），列说明取 `DS.GAQ_FILE.gaq03`（`gaq02='2'`，非 Oracle 备注）；先取表清单、每 `-batch-size`（默认 200）张表一批、每批 `-timeout`（默认 120s）；字典表缺失提示改用 CSV 导入 |
+| G2 | 直连采集（TiTop 字典 + 分批） | TIPTOP | `tiptop schema sync -source golang`：表来自 `DS.ZTA_FILE`（按 `zta01` 去重，不按 `zta02` 过滤）、列取自 `ALL_TAB_COLUMNS`（按可访问权限；同名表按 owner 去重：当前账号优先、其次 `DS`；`USER_TAB_COLUMNS` 只列自己拥有的表，跨 schema 会整批漏掉），列说明取 `DS.GAQ_FILE.gaq03`（`gaq02='2'`，非 Oracle 备注）；先取表清单、每 `-batch-size`（默认 200）张表一批、每批 `-timeout`（默认 120s）；字典表缺失提示改用 CSV 导入 |
 | G3 | 状态查看 | TIPTOP | `tiptop schema status`：表数/列数/导入时间/来源 |
 | G4 | 增量与选择 | TIPTOP | `-tables a,b` / `-tables-file 文件`（大清单，插件走这个）/ `-only-new`（只补本地没有的表）/ `-missing`（只同步本地缺失的表：先查库里的表清单，只查缺的那些；与 `-prune`/`-query` 互斥）/ `-prune`（删除本地多出、仅全量）/ `-dry-run`（命令行能力，**插件不再自动预演**） |
 | G5 | 逐表增量写 | TIPTOP | 全量查询后**逐表逐字节比较**，内容没变不重写（避免无意义 mtime 变化触发编辑器重载） |

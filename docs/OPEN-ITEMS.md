@@ -78,8 +78,8 @@
 
 ## 8. 字段说明 SQL 与图标（2026-10-26 已确认）
 
-- **S-g** `zta02='ds'` 固定；临时条件 `zta01='ima_file'` 去掉（分批时自动变成 `zta01 IN (...)`）。
-- **S-h** 用**应用 schema 账号**（自己拥有表、且对 `ds.zta_file`/`ds.gaq_file` 有读权限）→ `user_tab_columns`，不需要 `owner`。
+- **S-g** `zta02` 不再过滤（2026-11-06 调整：同一张表会在多个模块下重复登记，只取 `ds` 会漏掉客户自定义表，如 `forewin` 下的 `tc_ecd_file`），表清单按 `zta01` 去重；临时条件 `zta01='ima_file'` 去掉（分批时自动变成 `zta01 IN (...)`）。
+- **S-h** 用**有读权限的账号**（能读 `ds.zta_file`/`ds.gaq_file`，并对目标表有 `SELECT`）→ `all_tab_columns`（跨 schema，按 owner 去重），不需要 `owner`。
 - **S-i** 本版本只做 **TiTop 专用**；字典表不存在时提示「请改用 CSV 导入」。
 - **S-j** 列名**全部小写**；Form 预览命令是**三个参数** `${name}`、`2`、`p`。
 - **S-k** 图标方案确认：过滤 `$(filter)`、刷新 `$(refresh)`、CSV 导入 `$(file-add)`、从数据库更新 `$(cloud-download)`；编译 4gl/per 改 `$(play)`；标题栏其余文字按钮一并图标化。（后续清理项 C1/C2 删掉了「重新同步」「同步当前筛选结果」两个按钮。）

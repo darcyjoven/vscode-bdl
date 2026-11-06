@@ -167,10 +167,18 @@ SELECT z.zta01 AS table_name,
        NVL(g.gaq03, '') AS column_desc,
        c.data_type, c.data_length, c.char_length, c.data_precision,
        c.data_scale, c.nullable, c.default_length
-  FROM ds.zta_file z
-  JOIN user_tab_columns c ON c.table_name = UPPER(z.zta01)
-  LEFT JOIN ds.gaq_file g ON g.gaq01 = UPPER(c.column_name) AND g.gaq02 = '2'
- WHERE z.zta02 = 'ds'
+  FROM (SELECT DISTINCT zta01 FROM ds.zta_file) z
+  JOIN (SELECT c.table_name, c.column_name, c.data_type, c.data_length,
+               c.char_length, c.data_precision, c.data_scale, c.nullable,
+               c.default_length,
+               ROW_NUMBER() OVER (
+                 PARTITION BY c.table_name
+                 ORDER BY CASE WHEN c.owner = USER THEN 0 WHEN c.owner = 'DS' THEN 1 ELSE 2 END,
+                          c.owner) AS rn
+          FROM all_tab_columns c) c
+    ON c.table_name = UPPER(z.zta01)
+  LEFT JOIN ds.gaq_file g ON UPPER(g.gaq01) = c.column_name AND g.gaq02 = '2'
+ WHERE c.rn = 1
  ORDER BY z.zta01, c.column_name;
 ```
 
