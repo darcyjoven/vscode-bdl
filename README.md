@@ -168,17 +168,14 @@ SELECT z.zta01 AS table_name,
        c.data_type, c.data_length, c.char_length, c.data_precision,
        c.data_scale, c.nullable, c.default_length
   FROM (SELECT DISTINCT zta01 FROM ds.zta_file) z
-  JOIN (SELECT c.table_name, c.column_name, c.data_type, c.data_length,
-               c.char_length, c.data_precision, c.data_scale, c.nullable,
-               c.default_length,
-               ROW_NUMBER() OVER (
-                 PARTITION BY c.table_name
-                 ORDER BY CASE WHEN c.owner = USER THEN 0 WHEN c.owner = 'DS' THEN 1 ELSE 2 END,
-                          c.owner) AS rn
-          FROM all_tab_columns c) c
-    ON c.table_name = UPPER(z.zta01)
+  JOIN all_tab_columns c ON c.table_name = UPPER(z.zta01)
+  JOIN (SELECT o.owner, o.table_name, ROW_NUMBER() OVER (
+                 PARTITION BY o.table_name
+                 ORDER BY CASE WHEN o.owner = USER THEN 0 WHEN o.owner = 'DS' THEN 1 ELSE 2 END,
+                          o.owner) AS rn
+          FROM (SELECT DISTINCT owner, table_name FROM all_tab_columns) o) o
+    ON o.table_name = c.table_name AND o.owner = c.owner AND o.rn = 1
   LEFT JOIN ds.gaq_file g ON UPPER(g.gaq01) = c.column_name AND g.gaq02 = '2'
- WHERE c.rn = 1
  ORDER BY z.zta01, c.column_name;
 ```
 
